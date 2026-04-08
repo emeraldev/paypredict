@@ -190,4 +190,6 @@ npm run dev                       # Start Next.js dev server
 
 - @context/coding-standards.md
 - @context/ai-interaction.md
-- @context/current-feature.md
+
+
+Update @context/current-feature.md when after changes are made and approved
