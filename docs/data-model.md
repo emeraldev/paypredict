@@ -15,8 +15,8 @@ The top-level entity. Each lender is a tenant.
 ```
 id:                  uuid, PK
 name:                string, not null          # "PayJustNow", "MTN Kongola"
-market:              enum (SA, ZM), not null   # Determines default factor set
-factor_set:          enum (CARD_SA, MOBILE_ZM, CUSTOM), not null
+market:              enum (SA, ZM), not null   # Country — determines currency, payday defaults, regulation
+factor_set:          enum (CARD_DEBIT, MOBILE_WALLET, CUSTOM), not null  # Collection method — determines which factors to use
 is_active:           boolean, default true
 plan:                enum (PILOT, STARTER, GROWTH, SCALE), default PILOT
 webhook_url:         string, nullable          # For async results + alerts
@@ -94,7 +94,7 @@ factors:             jsonb, not null           # Array of factor breakdowns
                      # [{ factor_name, raw_score, weight, weighted_score, explanation }]
 recommended_action:  string, not null          # "collect_normally", "shift_date", "flag_for_review", "pre_collection_sms"
 recommended_collection_date: date, nullable
-model_version:       string, not null          # "heuristic_sa_v1", "heuristic_zm_v1", "ml_sa_v1"
+model_version:       string, not null          # "heuristic_card_v1", "heuristic_wallet_v1", "ml_card_v1"
 scoring_duration_ms: integer, not null
 created_at:          datetime, not null
 
@@ -192,7 +192,7 @@ This keeps our schema simple and avoids duplicating the lender's data model, whi
 
 ### Why JSONB for factors?
 
-Factor sets differ between markets (SA has 8, Zambia has 8, some overlap). New factors can be added without schema changes. The JSONB column stores the full breakdown array. Querying individual factors is possible via PostgreSQL JSONB operators when needed for analytics.
+Factor sets differ between collection methods (CARD_DEBIT has 8, MOBILE_WALLET has 8, some shared). The `factor_set` describes the collection method, not the geography — `market` (SA, ZM) is a separate field on the Tenant. New factors can be added without schema changes. The JSONB column stores the full breakdown array. Querying individual factors is possible via PostgreSQL JSONB operators when needed for analytics.
 
 ### Why separate ScoreRequest and ScoreResult?
 
@@ -204,6 +204,6 @@ ScoreRequest captures input. ScoreResult captures output. This separation means:
 ### Tenant seeding
 
 When a new tenant is created:
-1. Generate default FactorWeight records based on their market (SA or ZM defaults)
+1. Generate default FactorWeight records based on their factor_set (CARD_DEBIT or MOBILE_WALLET defaults)
 2. Generate a first API key (return the raw key once, then only store the hash)
 3. Create an ADMIN user for the dashboard

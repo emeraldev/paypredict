@@ -152,15 +152,12 @@ tests/
 ├── conftest.py                    # Shared fixtures (test DB, test tenant, test API client)
 ├── test_scoring_engine.py         # Engine orchestration tests
 ├── test_factors/
-│   ├── test_sa/
-│   │   ├── test_historical_failure.py
-│   │   ├── test_day_of_month.py
-│   │   ├── test_card_health.py
-│   │   └── ...
-│   └── test_zm/
-│       ├── test_wallet_balance.py
-│       ├── test_time_since_inflow.py
-│       └── ...
+│   ├── test_shared/              # Shared factor tests (HistoricalFailureRate, etc.)
+│   │   └── test_shared_factors.py
+│   ├── test_card/                # Card/debit factor tests
+│   │   └── test_card_factors.py
+│   └── test_wallet/              # Mobile wallet factor tests
+│       └── test_wallet_factors.py
 ├── test_api/
 │   ├── test_score_endpoint.py
 │   ├── test_outcomes_endpoint.py
@@ -270,17 +267,17 @@ This is the recommended order for building Phase 1 (Weeks 1-4). Each step builds
    - Abstract base with calculate(), explain(), clamp()
    - Type definitions for customer_data and collection_data
 
-6. SA factors (all 8)
+6. Card/debit factors (all 8)
    - Implement one at a time, with unit tests for each
-   - Start with HistoricalFailureRate (simplest, proves the pattern)
+   - Start with HistoricalFailureRate (simplest, proves the pattern — goes in shared/)
    - Then DayOfMonthVsPayday, DaysSinceLastPayment, etc.
 
-7. Zambia factors (all 8)
+7. Mobile wallet factors (all 8)
    - Same approach, one at a time with tests
-   - WalletBalanceTrend first (most important Zambia factor)
+   - WalletBalanceTrend first (most important wallet factor)
 
 8. ScoringEngine + FactorRegistry
-   - Registry maps market → factor set
+   - Registry maps factor_set → factor classes
    - Engine loads weights, runs factors, sums scores, maps to risk level
    - Integration test: full scoring with sample data
 

@@ -10,7 +10,7 @@ The product serves two markets simultaneously:
 
 ## How the scoring works
 
-The scoring engine uses a **weighted heuristic model** — 7-8 pluggable factor classes per market, each returning a score between 0.0 (safe) and 1.0 (risky). Scores are multiplied by configurable weights and summed into a final score mapped to risk levels: Low (0-30), Medium (31-60), High (61-100).
+The scoring engine uses a **weighted heuristic model** — 8 pluggable factor classes per factor set, each returning a score between 0.0 (safe) and 1.0 (risky). Scores are multiplied by configurable weights and summed into a final score mapped to risk levels: Low (0-30), Medium (31-60), High (61-100).
 
 This is NOT an ML product yet. Heuristics are the product for the first 6-12 months. The architecture is designed so ML models can replace heuristic factors later without changing the API contract. Every scored collection + its outcome builds the labelled dataset needed for future ML training.
 
@@ -32,7 +32,8 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 - **Immutable scores.** ScoreResults are never updated after creation. Rescoring creates a new ScoreRequest + ScoreResult pair. This is for audit trail and ML training data integrity.
 - **Multi-tenant from day one.** Every table has tenant_id. Row-level security in PostgreSQL. Each lender is a tenant with separate API keys, weights, and factor configuration.
 - **JSONB for flexibility.** Factor breakdowns and request payloads use JSONB so factor sets can evolve without schema migrations.
-- **Factor registry pattern.** Tenant's market (SA or ZM) determines which factor set loads. Adding a new market = writing new factor classes + registering them. No API or engine changes needed.
+- **Factor sets are collection-method-based, not country-based.** The `factor_set` field (CARD_DEBIT, MOBILE_WALLET) determines which scoring factors to use based on how payments are collected. The `market` field (SA, ZM) is separate and determines currency, payday defaults, and regulatory context. This means the same factor set can be reused across any country that uses the same collection method.
+- **Factor registry pattern.** Tenant's `factor_set` determines which factor classes load. Adding a new collection method = writing new factor classes + registering them. No API or engine changes needed.
 - **Alembic for all migrations.** Never use auto-generate blindly. Review every migration. Run in dev first, then production. Never push schema changes directly.
 
 ## Project structure
@@ -53,11 +54,12 @@ paypredict/
 │   │   │   └── health.py         # GET /v1/health
 │   │   ├── scoring/
 │   │   │   ├── engine.py          # ScoringEngine orchestrator
-│   │   │   ├── registry.py        # Factor set registry (SA, ZM, CUSTOM)
+│   │   │   ├── registry.py        # Factor set registry (CARD_DEBIT, MOBILE_WALLET, CUSTOM)
 │   │   │   └── factors/
 │   │   │       ├── base.py        # BaseFactor abstract class
-│   │   │       ├── sa/            # 8 SA card-based factors
-│   │   │       └── zm/            # 8 Zambia mobile money factors
+│   │   │       ├── shared/        # Factors used by multiple factor sets
+│   │   │       ├── card/          # Card-on-file + debit order factors
+│   │   │       └── wallet/        # Mobile money wallet factors
 │   │   ├── models/                # SQLAlchemy models
 │   │   ├── schemas/               # Pydantic request/response schemas
 │   │   ├── services/              # Business logic layer
@@ -91,10 +93,12 @@ See `docs/data-model.md` for full schema definitions.
 
 ## Factor sets
 
-### SA (Card-based + Debit Order) — 8 factors
+Factor sets are organised by **collection method**, not by country. Shared factors (e.g. HistoricalFailureRate, InstalmentPosition) live in `factors/shared/` and are reused across both sets.
+
+### CARD_DEBIT (Card-on-file + Debit Order) — 8 factors
 HistoricalFailureRate (0.25), DayOfMonthVsPayday (0.20), DaysSinceLastPayment (0.15), InstalmentPosition (0.10), OrderValueVsAverage (0.10), CardHealth (0.10), CardType (0.05), DebitOrderReturnHistory (0.05)
 
-### Zambia (Mobile Money) — 8 factors
+### MOBILE_WALLET (Mobile Money Wallet) — 8 factors
 WalletBalanceTrend (0.25), HistoricalFailureRate (0.20), TimeSinceLastInflow (0.15), SalaryCycleAlignment (0.15), ConcurrentLoanCount (0.10), TransactionVelocity (0.05), AirtimePurchasePattern (0.05), LoanCyclingBehaviour (0.05)
 
 All factors inherit from BaseFactor with calculate() → float and explain() → str methods. See `docs/factors.md` for detailed logic.
@@ -102,7 +106,7 @@ All factors inherit from BaseFactor with calculate() → float and explain() →
 ## API endpoints summary
 
 ```
-POST   /v1/score                     # Score single collection (~15ms)
+POST   /v1/score                     # Score single collection (~1ms)
 POST   /v1/score/bulk                # Score batch (async)
 GET    /v1/score/bulk/{job_id}       # Poll bulk results
 POST   /v1/outcomes                  # Report collection outcome
@@ -122,20 +126,20 @@ All API endpoints require `Authorization: Bearer <api_key>`. See `docs/api-refer
 
 ## Current development phase
 
-We are at the very beginning — Phase 1 (Weeks 1-4). Nothing has been built yet. Start with the API backend.
+Phase 1 is complete. All core API functionality is built and tested.
 
-### Phase 1 priorities (Weeks 1-4):
+### Phase 1 (Weeks 1-4) — COMPLETE:
 1. Project setup: FastAPI, SQLAlchemy, Alembic, Docker Compose for local dev
-2. Database schema + first migration (Tenant, ApiKey, ScoreRequest, ScoreResult)
+2. Database schema + migrations (all 8 tables)
 3. Auth middleware (API key validation → tenant resolution)
 4. Health endpoint
-5. BaseFactor class + SA factor implementations (all 8)
-6. Zambia factor implementations (all 8)
+5. BaseFactor class + card/debit factor implementations (all 8)
+6. Mobile wallet factor implementations (all 8)
 7. ScoringEngine orchestrator + factor registry
 8. POST /v1/score endpoint
 9. POST /v1/outcomes endpoint
 10. Seed data script for demo
-11. Unit tests for all factors + engine
+11. Unit tests for all factors + engine (99 tests passing)
 
 ### Phase 2 (Weeks 5-8): Dashboard + deployment
 ### Phase 3 (Weeks 9-12): Async scoring, alerts, webhooks

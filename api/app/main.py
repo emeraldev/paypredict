@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.api.v1 import health
+from app.api.v1 import health, scores, outcomes
 
 
 @asynccontextmanager
@@ -34,3 +34,5 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/v1")
+app.include_router(scores.router, prefix="/v1")
+app.include_router(outcomes.router, prefix="/v1")

@@ -35,9 +35,9 @@ The ScoringEngine orchestrator:
 
 ---
 
-## SA Factor Set (CARD_SA)
+## Card/Debit Factor Set (CARD_DEBIT)
 
-For card-on-file charges and debit order collections in South Africa.
+For card-on-file charges and debit order collections. Not country-specific — usable in any market where card or debit order payments are collected.
 
 ### 1. HistoricalFailureRate
 **Default weight: 0.25**
@@ -173,9 +173,9 @@ Example: 2 returns in 90 days, none fatal → 0.6
 
 ---
 
-## Zambia Factor Set (MOBILE_ZM)
+## Mobile Wallet Factor Set (MOBILE_WALLET)
 
-For mobile money wallet auto-deductions (MTN MoMo, Airtel Money, Zamtel Kwacha).
+For mobile money wallet auto-deductions (MTN MoMo, Airtel Money, Zamtel Kwacha, etc.). Not country-specific — usable in any market where mobile money collections are used.
 
 ### 1. WalletBalanceTrend
 **Default weight: 0.25**
@@ -305,18 +305,20 @@ Example: Took a new loan 2 days before repayment was due → score = 0.8
 
 ## Adding a new factor
 
-1. Create a new file in `api/app/scoring/factors/sa/` or `zm/` (or a shared folder if cross-market)
+1. Create a new file in `api/app/scoring/factors/card/`, `wallet/`, or `shared/`
 2. Inherit from `BaseFactor`, implement `calculate()` and `explain()`
 3. Register the factor in the appropriate factor set in `registry.py`
 4. Add a default weight for the factor in the tenant seeding logic
 5. Write unit tests covering normal cases, edge cases (missing data, zeros), and boundary values
 6. Update this documentation
 
-## Adding a new market
+## Adding a new collection method
 
-1. Create a new folder `api/app/scoring/factors/{market_code}/`
-2. Implement all factor classes for that market
-3. Add a new enum value to the market and factor_set enums
+1. Create a new folder `api/app/scoring/factors/{method_name}/`
+2. Implement factor classes specific to that collection method (reuse shared factors where applicable)
+3. Add a new enum value to the `FactorSet` enum
 4. Register the factor set in `registry.py`
 5. Add default weights to tenant seeding logic
 6. Update CLAUDE.md and this documentation
+
+Note: Adding a new **market** (country) does not require new factors — just a new `Market` enum value. Markets affect currency, payday defaults, and regulation, but factor sets are determined by collection method.

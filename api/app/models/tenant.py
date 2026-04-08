@@ -16,9 +16,9 @@ class Market(str, enum.Enum):
 
 
 class FactorSet(str, enum.Enum):
-    CARD_SA = "CARD_SA"
-    MOBILE_ZM = "MOBILE_ZM"
-    CUSTOM = "CUSTOM"
+    CARD_DEBIT = "CARD_DEBIT"          # Card-on-file + debit order collections
+    MOBILE_WALLET = "MOBILE_WALLET"    # Mobile money wallet auto-deductions
+    CUSTOM = "CUSTOM"                  # Future: tenant-defined factor mix
 
 
 class Plan(str, enum.Enum):

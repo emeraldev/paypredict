@@ -79,12 +79,14 @@ The scoring engine is the heart of the product. It accepts data about a borrower
 
 Factors are pluggable Python classes following the Strategy pattern. Each market has a different default factor set, but tenants can adjust weights.
 
-#### SA Factor Set (Card-based + Debit Order)
+#### Card & Debit Order Factor Set (CARD)
+
+Applies to any country using card-on-file charges or debit order (EFT) collections.
 
 | Factor | Default Weight | Logic |
 |--------|---------------|-------|
 | `HistoricalFailureRate` | 0.25 | Customer's past payment success/failure ratio. 100% failure = 1.0, 100% success = 0.0 |
-| `DayOfMonthVsPayday` | 0.20 | SA payday patterns: 25th/1st are common. Collecting on 28th (pre-payday) = high risk. Collecting on 2nd = low risk. Configurable per-customer if salary date is known |
+| `DayOfMonthVsPayday` | 0.20 | Common payday patterns: 25th/1st in many African markets. Collecting on 28th (pre-payday) = high risk. Collecting on 2nd = low risk. Configurable per-customer if salary date is known |
 | `DaysSinceLastPayment` | 0.15 | Recency of last successful payment. >90 days = 1.0. <7 days = 0.1 |
 | `InstalmentPosition` | 0.10 | Later instalments (e.g., 5 of 6) carry more fatigue risk than earlier ones |
 | `OrderValueVsAverage` | 0.10 | Collection amount significantly above customer's historical average = higher risk |
@@ -92,7 +94,9 @@ Factors are pluggable Python classes following the Strategy pattern. Each market
 | `CardType` | 0.05 | Debit cards more prone to insufficient funds than credit. Unknown = 0.4 |
 | `DebitOrderReturnHistory` | 0.05 | SA-specific: EFT return code patterns (insufficient funds, account closed, disputed) |
 
-#### Zambia Factor Set (Mobile Money)
+#### Mobile Money Factor Set (MOBILE_MONEY)
+
+Applies to any country with mobile money wallet collections (M-Pesa, MTN MoMo, Airtel Money, etc.).
 
 | Factor | Default Weight | Logic |
 |--------|---------------|-------|
@@ -195,8 +199,8 @@ Auto-generated from Pydantic schemas via FastAPI:
 ```
 - id: uuid
 - name: string                        # "PayJustNow", "MTN Kongola"
-- market: enum (SA, ZM)               # Determines default factor set
-- factor_set: enum (CARD_SA, MOBILE_ZM, CUSTOM)
+- market: enum (SA, ZM, KE, TZ, UG, GH, NG, UK)  # Metadata: currency, timezone, regulatory context
+- factor_set: enum (CARD, MOBILE_MONEY, CUSTOM)    # Drives which factors run (collection-method-based)
 - is_active: boolean
 - plan: enum (PILOT, STARTER, GROWTH, SCALE)
 - webhook_url: string | null           # For async results + alerts
@@ -820,7 +824,7 @@ paypredict/
 
 ## Development Priorities
 
-### Phase 1: Scoring API
+### Phase 1: Scoring API (Weeks 1-4)
 
 **Week 1-2: Foundation**
 - [ ] Project setup (FastAPI, SQLAlchemy, Alembic, Docker Compose)
@@ -840,7 +844,7 @@ paypredict/
 - [ ] Seed data script for demo/testing
 - [ ] Unit tests for all factors + scoring engine
 
-### Phase 2: Dashboard + Polish
+### Phase 2: Dashboard + Polish (Weeks 5-8)
 
 **Week 5-6: Dashboard core**
 - [ ] Next.js project setup + auth (NextAuth v5)

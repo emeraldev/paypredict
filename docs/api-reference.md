@@ -37,7 +37,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
   "collection_due_date": "date (YYYY-MM-DD), required",
   "collection_method": "enum: CARD | DEBIT_ORDER | MOBILE_MONEY, required",
   "customer_data": {
-    // --- Common fields (all markets) ---
+    // --- Common fields (all factor sets) ---
     "total_payments": "integer, optional (default 0)",
     "successful_payments": "integer, optional (default 0)",
     "last_successful_payment_date": "date, optional",
@@ -45,14 +45,14 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
     "instalment_number": "integer, optional",
     "total_instalments": "integer, optional",
 
-    // --- SA card-based fields ---
+    // --- CARD_DEBIT fields ---
     "card_type": "string: credit | debit, optional",
     "card_expiry_date": "date, optional",
     "last_decline_code": "string, optional",
     "debit_order_returns": "array of strings, optional",
     "known_salary_day": "integer (1-31), optional",
 
-    // --- Zambia mobile money fields ---
+    // --- MOBILE_WALLET fields ---
     "wallet_balance_7d_avg": "decimal, optional",
     "wallet_balance_current": "decimal, optional",
     "hours_since_last_inflow": "integer, optional",
@@ -85,7 +85,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
       "explanation": "37.5% of past collections have failed"
     }
   ],
-  "model_version": "heuristic_sa_v1",
+  "model_version": "heuristic_card_v1",
   "scored_at": "2026-04-08T14:23:01Z",
   "scoring_duration_ms": 12
 }
@@ -93,7 +93,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
 
 **Notes:**
 - All customer_data fields are optional. Missing data results in moderate default scores for affected factors (typically 0.3-0.5). More data = more accurate scores.
-- The engine automatically selects the correct factor set based on the tenant's market configuration. SA fields are ignored for Zambia tenants and vice versa.
+- The engine automatically selects the correct factor set based on the tenant's `factor_set` configuration (CARD_DEBIT or MOBILE_WALLET). Card fields are ignored for wallet tenants and vice versa.
 - `recommended_action` values: `collect_normally`, `shift_date`, `flag_for_review`, `pre_collection_sms`
 
 ---
@@ -311,7 +311,7 @@ Partial updates — only include weights you want to change. Weights must sum to
 GET /v1/config/factors
 ```
 
-Returns the list of available factors for the tenant's market, with descriptions and current weights.
+Returns the list of available factors for the tenant's factor_set, with descriptions and current weights.
 
 ---
 
