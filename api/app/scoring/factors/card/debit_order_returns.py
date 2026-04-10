@@ -1,8 +1,11 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class DebitOrderReturnHistory(BaseFactor):
-    """SA-specific: EFT debit order return codes indicate failure types."""
+    """EFT debit order return codes indicate failure types."""
+
+    applicable_methods = [CollectionMethod.DEBIT_ORDER]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         returns = customer_data.get("debit_order_returns", [])

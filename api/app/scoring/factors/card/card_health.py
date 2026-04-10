@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 HARD_DECLINES = {"card_cancelled", "card_lost", "stolen", "account_closed", "invalid_card"}
@@ -8,6 +9,8 @@ SOFT_DECLINES = {"insufficient_funds", "do_not_honour", "exceeded_limit", "gener
 
 class CardHealth(BaseFactor):
     """Card expiry proximity and decline history."""
+
+    applicable_methods = [CollectionMethod.CARD]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         expiry = customer_data.get("card_expiry_date")

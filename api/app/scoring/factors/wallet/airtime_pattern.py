@@ -1,8 +1,11 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class AirtimePurchasePattern(BaseFactor):
     """Regular airtime buyers who stop = proxy for income disruption."""
+
+    applicable_methods = [CollectionMethod.MOBILE_MONEY]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         days_ago = customer_data.get("last_airtime_purchase_days_ago")

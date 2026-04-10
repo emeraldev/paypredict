@@ -34,6 +34,7 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 - **JSONB for flexibility.** Factor breakdowns and request payloads use JSONB so factor sets can evolve without schema migrations.
 - **Factor sets are collection-method-based, not country-based.** The `factor_set` field (CARD_DEBIT, MOBILE_WALLET) determines which scoring factors to use based on how payments are collected. The `market` field (SA, ZM) is separate and determines currency, payday defaults, and regulatory context. This means the same factor set can be reused across any country that uses the same collection method.
 - **Factor registry pattern.** Tenant's `factor_set` determines which factor classes load. Adding a new collection method = writing new factor classes + registering them. No API or engine changes needed.
+- **Collection method filtering.** Each factor declares which collection methods it applies to via `applicable_methods`. The engine skips inapplicable factors (e.g. CardHealth is skipped for DEBIT_ORDER collections) and re-normalises the remaining weights to sum to 1.0. Skipped factors are reported in the API response for transparency.
 - **Alembic for all migrations.** Never use auto-generate blindly. Review every migration. Run in dev first, then production. Never push schema changes directly.
 
 ## Project structure

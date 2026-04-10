@@ -1,3 +1,4 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 DAY_INDEX = {
@@ -13,6 +14,8 @@ DAY_INDEX = {
 
 class SalaryCycleAlignment(BaseFactor):
     """Is the collection scheduled in sync with the borrower's income pattern?"""
+
+    applicable_methods = [CollectionMethod.MOBILE_MONEY]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         inflow_day = customer_data.get("regular_inflow_day")

@@ -40,7 +40,7 @@ The ScoringEngine orchestrator:
 For card-on-file charges and debit order collections. Not country-specific — usable in any market where card or debit order payments are collected.
 
 ### 1. HistoricalFailureRate
-**Default weight: 0.25**
+**Default weight: 0.25** | **Applicable methods: all** (shared factor)
 
 Past behaviour is the strongest predictor of future behaviour.
 
@@ -53,7 +53,7 @@ Example: 8 total, 5 successful → failure_rate = 0.375 → score = 0.375
 ```
 
 ### 2. DayOfMonthVsPayday
-**Default weight: 0.20**
+**Default weight: 0.20** | **Applicable methods: CARD, DEBIT_ORDER**
 
 SA-specific: most salaried workers are paid on the 25th or 1st. Collecting pre-payday is riskier.
 
@@ -74,7 +74,7 @@ Example: Due date is 28th, no known salary day → score = 0.8
 ```
 
 ### 3. DaysSinceLastPayment
-**Default weight: 0.15**
+**Default weight: 0.15** | **Applicable methods: CARD, DEBIT_ORDER**
 
 Recency of last successful payment. Longer gaps indicate higher risk.
 
@@ -89,7 +89,7 @@ Example: Last success 15 days ago → 15/90 = 0.167
 ```
 
 ### 4. InstalmentPosition
-**Default weight: 0.10**
+**Default weight: 0.10** | **Applicable methods: all** (shared factor)
 
 Later instalments carry more risk due to payment fatigue and budget strain.
 
@@ -103,7 +103,7 @@ Example: Instalment 5 of 6 → 5/6 * 0.8 = 0.667
 ```
 
 ### 5. OrderValueVsAverage
-**Default weight: 0.10**
+**Default weight: 0.10** | **Applicable methods: CARD, DEBIT_ORDER**
 
 Collections significantly above the customer's historical average are riskier.
 
@@ -118,7 +118,7 @@ Example: Collection R1,500, average R750 → ratio 2.0 → score = 0.4
 ```
 
 ### 6. CardHealth
-**Default weight: 0.10**
+**Default weight: 0.10** | **Applicable methods: CARD only**
 
 Card expiry proximity and decline history.
 
@@ -141,7 +141,7 @@ Hard decline codes: `card_cancelled`, `card_lost`, `stolen`, `account_closed`, `
 Soft decline codes: `insufficient_funds`, `do_not_honour`, `exceeded_limit`, `general_decline`
 
 ### 7. CardType
-**Default weight: 0.05**
+**Default weight: 0.05** | **Applicable methods: CARD only**
 
 Debit cards are more prone to insufficient funds than credit cards.
 
@@ -153,7 +153,7 @@ Logic:   "credit" → 0.2  (credit limit provides buffer)
 ```
 
 ### 8. DebitOrderReturnHistory
-**Default weight: 0.05**
+**Default weight: 0.05** | **Applicable methods: DEBIT_ORDER only**
 
 SA-specific: EFT debit order return codes indicate specific failure types.
 
@@ -178,7 +178,7 @@ Example: 2 returns in 90 days, none fatal → 0.6
 For mobile money wallet auto-deductions (MTN MoMo, Airtel Money, Zamtel Kwacha, etc.). Not country-specific — usable in any market where mobile money collections are used.
 
 ### 1. WalletBalanceTrend
-**Default weight: 0.25**
+**Default weight: 0.25** | **Applicable methods: MOBILE_MONEY**
 
 Most important mobile money factor. Declining wallet balance = collection will fail.
 
@@ -198,7 +198,7 @@ Example: 7d avg ZMW 180, current ZMW 95, collection ZMW 250
 ```
 
 ### 2. HistoricalFailureRate
-**Default weight: 0.20**
+**Default weight: 0.20** | **Applicable methods: all** (shared factor)
 
 Same concept as SA. Past success/failure ratio.
 
@@ -207,7 +207,7 @@ Same concept as SA. Past success/failure ratio.
 ```
 
 ### 3. TimeSinceLastInflow
-**Default weight: 0.15**
+**Default weight: 0.15** | **Applicable methods: MOBILE_MONEY**
 
 How long since money last entered the wallet. Longer = riskier.
 
@@ -223,7 +223,7 @@ Example: Last inflow 48 hours ago → score = 0.4
 ```
 
 ### 4. SalaryCycleAlignment
-**Default weight: 0.15**
+**Default weight: 0.15** | **Applicable methods: MOBILE_MONEY**
 
 Is the collection scheduled in sync with the borrower's income pattern?
 
@@ -240,7 +240,7 @@ Example: Inflow usually Friday, collection on Monday → 3 days after → 0.25
 ```
 
 ### 5. ConcurrentLoanCount
-**Default weight: 0.10**
+**Default weight: 0.10** | **Applicable methods: all** (shared factor)
 
 Over-leveraged borrowers fail more often.
 
@@ -255,7 +255,7 @@ Example: 2 active loans → score = 0.5
 ```
 
 ### 6. TransactionVelocity
-**Default weight: 0.05**
+**Default weight: 0.05** | **Applicable methods: MOBILE_MONEY**
 
 Sudden drop in transaction activity signals financial stress.
 
@@ -271,7 +271,7 @@ Example: Usually 15 transactions/week, this week only 5 → 5/15 = 0.33 → 0.7
 ```
 
 ### 7. AirtimePurchasePattern
-**Default weight: 0.05**
+**Default weight: 0.05** | **Applicable methods: MOBILE_MONEY**
 
 Regular airtime buyers who suddenly stop = proxy for income disruption.
 
@@ -287,7 +287,7 @@ Example: Last airtime purchase 1 day ago → score = 0.1
 ```
 
 ### 8. LoanCyclingBehaviour
-**Default weight: 0.05**
+**Default weight: 0.05** | **Applicable methods: all** (shared factor)
 
 Taking a new loan to repay an existing one. Classic default predictor.
 

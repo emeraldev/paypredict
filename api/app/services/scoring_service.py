@@ -34,12 +34,14 @@ async def score_collection(
         "collection_currency": request.collection_currency,
     }
 
-    # Run scoring engine
+    # Run scoring engine with collection method filtering
+    collection_method = CollectionMethod(request.collection_method)
     result = engine.score(
         factor_set=tenant.factor_set.value,
         customer_data=customer_data,
         collection_data=collection_data,
         custom_weights=custom_weights if custom_weights else None,
+        collection_method=collection_method,
     )
 
     # Persist ScoreRequest
@@ -63,16 +65,19 @@ async def score_collection(
         tenant_id=tenant.id,
         score=result.score,
         risk_level=RiskLevel(result.risk_level),
-        factors=[
-            {
-                "factor_name": f.factor_name,
-                "raw_score": f.raw_score,
-                "weight": f.weight,
-                "weighted_score": f.weighted_score,
-                "explanation": f.explanation,
-            }
-            for f in result.factors
-        ],
+        factors={
+            "evaluated": [
+                {
+                    "factor_name": f.factor_name,
+                    "raw_score": f.raw_score,
+                    "weight": f.weight,
+                    "weighted_score": f.weighted_score,
+                    "explanation": f.explanation,
+                }
+                for f in result.factors
+            ],
+            "skipped": result.skipped_factors,
+        },
         recommended_action=result.recommended_action,
         model_version=result.model_version,
         scoring_duration_ms=result.scoring_duration_ms,
@@ -96,6 +101,7 @@ async def score_collection(
             )
             for f in result.factors
         ],
+        skipped_factors=result.skipped_factors,
         model_version=result.model_version,
         scored_at=datetime.now(timezone.utc),
         scoring_duration_ms=result.scoring_duration_ms,

@@ -67,6 +67,7 @@ class ScoreResponse(BaseModel):
     recommended_action: str
     recommended_collection_date: date | None = None
     factors: list[FactorBreakdown]
+    skipped_factors: list[str] = Field(default_factory=list)
     model_version: str
     scored_at: datetime
     scoring_duration_ms: int

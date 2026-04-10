@@ -1,8 +1,11 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class TimeSinceLastInflow(BaseFactor):
     """How long since money last entered the wallet. Longer = riskier."""
+
+    applicable_methods = [CollectionMethod.MOBILE_MONEY]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         hours = customer_data.get("hours_since_last_inflow")

@@ -1,9 +1,12 @@
 from decimal import Decimal
 
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class WalletBalanceTrend(BaseFactor):
+    applicable_methods = [CollectionMethod.MOBILE_MONEY]
+
     """Most important mobile money factor. Declining balance = collection will fail."""
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:

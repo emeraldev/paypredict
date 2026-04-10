@@ -1,8 +1,11 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class CardType(BaseFactor):
     """Debit cards are more prone to insufficient funds than credit cards."""
+
+    applicable_methods = [CollectionMethod.CARD]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         card_type = customer_data.get("card_type")

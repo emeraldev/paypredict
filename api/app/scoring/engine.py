@@ -1,6 +1,7 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from app.models.score_request import CollectionMethod
 from app.scoring.registry import get_factors_for_set
 
 
@@ -19,6 +20,7 @@ class ScoringResult:
     risk_level: str
     recommended_action: str
     factors: list[FactorResult]
+    skipped_factors: list[str]
     model_version: str
     scoring_duration_ms: int
 
@@ -32,24 +34,43 @@ class ScoringEngine:
         customer_data: dict,
         collection_data: dict,
         custom_weights: dict[str, float] | None = None,
+        collection_method: CollectionMethod | None = None,
     ) -> ScoringResult:
         start = time.perf_counter_ns()
 
         factors = get_factors_for_set(factor_set)
-        factor_results: list[FactorResult] = []
-        total_weighted = 0.0
+
+        # Separate applicable and skipped factors
+        applicable: list[tuple[str, object, float]] = []
+        skipped_factors: list[str] = []
 
         for name, (factor, default_weight) in factors.items():
             weight = (custom_weights or {}).get(name, default_weight)
+            if collection_method is not None and not factor.applies_to(collection_method):
+                skipped_factors.append(name)
+            else:
+                applicable.append((name, factor, weight))
+
+        # Re-normalise weights only when factors were skipped
+        needs_normalisation = len(skipped_factors) > 0
+        total_raw_weight = sum(w for _, _, w in applicable) if needs_normalisation else 1.0
+        if total_raw_weight == 0:
+            total_raw_weight = 1.0
+
+        factor_results: list[FactorResult] = []
+        total_weighted = 0.0
+
+        for name, factor, raw_weight in applicable:
+            normalised_weight = raw_weight / total_raw_weight if needs_normalisation else raw_weight
             raw_score = factor.calculate(customer_data, collection_data)
-            weighted_score = raw_score * weight
+            weighted_score = raw_score * normalised_weight
             explanation = factor.explain(raw_score)
 
             factor_results.append(
                 FactorResult(
                     factor_name=name,
                     raw_score=round(raw_score, 4),
-                    weight=round(weight, 4),
+                    weight=round(normalised_weight, 4),
                     weighted_score=round(weighted_score, 4),
                     explanation=explanation,
                 )
@@ -71,6 +92,7 @@ class ScoringEngine:
             risk_level=risk_level,
             recommended_action=recommended_action,
             factors=factor_results,
+            skipped_factors=skipped_factors,
             model_version=model_version,
             scoring_duration_ms=max(1, elapsed_ms),
         )

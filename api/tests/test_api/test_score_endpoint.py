@@ -29,7 +29,8 @@ async def test_score_success(async_client, sa_tenant):
     assert "score_id" in data
     assert 0.0 <= data["score"] <= 1.0
     assert data["risk_level"] in ("LOW", "MEDIUM", "HIGH")
-    assert len(data["factors"]) == 8
+    assert len(data["factors"]) == 7  # CARD skips debit_order_return_history
+    assert "debit_order_return_history" in data["skipped_factors"]
     assert data["model_version"] == "heuristic_card_v1"
     assert data["scoring_duration_ms"] >= 1
 
@@ -97,4 +98,4 @@ async def test_score_minimal_customer_data(async_client, sa_tenant):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data["factors"]) == 8
+    assert len(data["factors"]) == 7  # CARD skips debit_order_return_history

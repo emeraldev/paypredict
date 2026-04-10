@@ -1,8 +1,11 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 
 class TransactionVelocity(BaseFactor):
     """Sudden drop in transaction activity signals financial stress."""
+
+    applicable_methods = [CollectionMethod.MOBILE_MONEY]
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         recent = customer_data.get("transactions_last_7d")
