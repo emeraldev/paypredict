@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FACTOR_LABELS } from "@/lib/constants";
+import { FACTOR_LABELS, RISK_CONFIG } from "@/lib/constants";
 import type { FactorContribution } from "@/lib/api/types";
 
 interface FailureFactorsChartProps {
@@ -65,7 +65,7 @@ export function FailureFactorsChart({ data }: FailureFactorsChartProps) {
               }}
               formatter={(value) => [`${value}%`, "Contribution"]}
             />
-            <Bar dataKey="pct" fill="#ef4444" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="pct" fill={RISK_CONFIG.HIGH.barColor} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

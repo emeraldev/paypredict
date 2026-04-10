@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RISK_CONFIG } from "@/lib/constants";
 
 interface PredictionAccuracyChartProps {
   data: {
@@ -23,12 +24,12 @@ export function PredictionAccuracyChart({ data }: PredictionAccuracyChartProps) 
     {
       label: "High → Failed",
       accuracy: Math.round(data.high_risk_actually_failed * 100),
-      color: "#ef4444",
+      color: RISK_CONFIG.HIGH.barColor,
     },
     {
       label: "Low → Succeeded",
       accuracy: Math.round(data.low_risk_actually_succeeded * 100),
-      color: "#10b981",
+      color: RISK_CONFIG.LOW.barColor,
     },
   ];
 

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { ThemeToggle } from "./theme-toggle";
 
 export function Topbar() {
   const { setMobileOpen } = useSidebar();
@@ -27,6 +28,7 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <BellIcon className="h-5 w-5" />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />

@@ -20,8 +20,8 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 - **Database:** PostgreSQL 16 (Neon or AWS RDS) / SQLAlchemy 2.0 + Alembic migrations
 - **Task queue:** Redis + Celery (bulk scoring, webhooks, alerts)
 - **Cache:** Redis
-- **Dashboard:** Next.js 15 / React 19 / TypeScript / Tailwind CSS v4 + shadcn/ui
-- **Auth:** API keys (hashed) for lender API access, NextAuth v5 for dashboard
+- **Dashboard:** Next.js 16 (Turbopack default, async cookies/headers/params) / React 19 / TypeScript / Tailwind CSS v4 + shadcn/ui (zinc, base-ui not Radix) / recharts / date-fns
+- **Auth:** API keys (hashed) for lender API access, NextAuth v5 for dashboard (deferred — currently stubbed)
 - **Hosting:** AWS af-south-1 (Cape Town) — ECS Fargate or App Runner
 - **CI/CD:** GitHub Actions → Docker → AWS
 - **Monitoring:** Sentry + CloudWatch
@@ -70,12 +70,34 @@ paypredict/
 │   ├── Dockerfile
 │   └── docker-compose.yml         # Local dev stack
 │
-├── dashboard/                     # Next.js frontend
-│   ├── src/app/
-│   │   ├── dashboard/page.tsx     # Main risk table
-│   │   ├── dashboard/analytics/   # Charts and reports
-│   │   └── dashboard/settings/    # Weights, API keys, team
-│   └── src/components/            # UI components
+├── dashboard/                     # Next.js 16 frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx              # Root layout: theme provider + no-flash script + sonner
+│   │   │   ├── page.tsx                # Redirects to /dashboard
+│   │   │   └── dashboard/
+│   │   │       ├── layout.tsx          # Dashboard shell: sidebar + topbar + main
+│   │   │       ├── page.tsx            # Risk-ranked collections table + drawer
+│   │   │       ├── analytics/page.tsx  # 4 charts + stat cards
+│   │   │       ├── outcomes/page.tsx   # Outcomes table with match/mismatch
+│   │   │       └── settings/page.tsx   # 4 tabs: weights, API keys, alerts, team
+│   │   ├── components/
+│   │   │   ├── ui/                     # shadcn primitives (button, card, table, etc.)
+│   │   │   ├── shared/                 # Reused across pages (risk-badge, factor-bar, stat-card, ...)
+│   │   │   ├── layout/                 # Sidebar, topbar, mobile sidebar, theme toggle
+│   │   │   ├── dashboard/              # Collections table, summary cards, drawer
+│   │   │   ├── analytics/              # 4 chart components + stat cards
+│   │   │   ├── outcomes/               # Outcomes table, filter tabs, stats
+│   │   │   └── settings/               # Weights/API keys/alerts/team tabs
+│   │   ├── hooks/
+│   │   │   ├── use-sidebar.tsx         # Sidebar collapse state context
+│   │   │   └── use-theme.tsx           # Light/dark theme + no-flash script
+│   │   └── lib/
+│   │       ├── api/                    # client.ts (single fetch wrapper) + types + endpoint wrappers
+│   │       ├── utils/                  # format-currency, format-date, format-risk, format-method
+│   │       ├── constants.ts            # RISK_CONFIG, METHOD_CONFIG, FACTOR_LABELS — single source of truth
+│   │       └── mock-data.ts            # ONLY file with mock data — replace in Step 8
+│   └── .env.local                      # NEXT_PUBLIC_API_URL=http://localhost:8001
 │
 ├── docs/                          # Documentation content
 └── .github/workflows/             # CI/CD
@@ -127,7 +149,7 @@ All API endpoints require `Authorization: Bearer <api_key>`. See `docs/api-refer
 
 ## Current development phase
 
-Phase 1 is complete. All core API functionality is built and tested.
+Phase 1 is complete. Phase 2 mocked dashboard is complete. Phase 2.5 (real API hookup) is the next step.
 
 ### Phase 1 (Weeks 1-4) — COMPLETE:
 1. Project setup: FastAPI, SQLAlchemy, Alembic, Docker Compose for local dev
@@ -140,9 +162,25 @@ Phase 1 is complete. All core API functionality is built and tested.
 8. POST /v1/score endpoint
 9. POST /v1/outcomes endpoint
 10. Seed data script for demo
-11. Unit tests for all factors + engine (99 tests passing)
+11. Unit tests for all factors + engine (117 tests passing including method-filtering tests)
 
-### Phase 2 (Weeks 5-8): Dashboard + deployment
+### Phase 2 (Weeks 5-8) — Dashboard MOCKED, COMPLETE:
+1. Next.js 16 + shadcn project setup (zinc, base-ui under shadcn, Tailwind v4)
+2. Shared utilities, types, API client, mock data
+3. Shared components (risk badge, factor bar, stat card, pagination, etc.)
+4. Dashboard layout: collapsible sidebar, mobile sheet, topbar with theme toggle
+5. Dashboard home page: summary cards, collections table, filter toolbar, risk detail drawer
+6. Analytics page: collection rate, risk distribution, prediction accuracy, top failure factors
+7. Outcomes page: filter tabs, match indicators, stats
+8. Settings page: weights tab with sliders, API keys, alerts, team — all 4 tabs
+9. Light/dark theme toggle with no-flash inline script
+
+### Phase 2.5 — TODO (deferred):
+- **Backend GET endpoints needed:** GET /v1/scores (list), GET /v1/scores/{id}, GET /v1/outcomes (list), GET /v1/analytics/summary, /collection-rate, /factors, GET /v1/config/tenant, /weights, /api-keys, /team, /alerts, plus PUT/POST/DELETE for writable settings
+- **Dashboard hooks** (use-collections, use-analytics, use-outcomes, use-tenant-config) — currently consume mock-data.ts directly
+- **Replace mock-data.ts imports** with hook calls + add loading skeletons / error boundaries
+- **NextAuth v5** for dashboard auth (currently stubbed)
+
 ### Phase 3 (Weeks 9-12): Async scoring, alerts, webhooks
 ### Phase 4 (Months 4-6): Timing optimiser, analytics depth, ML prep
 
@@ -168,17 +206,36 @@ pytest tests/test_scoring_engine.py -v  # Specific test file
 # Dashboard
 cd dashboard
 npm install
-npm run dev                       # Start Next.js dev server
+npm run dev                       # Start Next.js dev server (http://localhost:3000)
+npm run build                     # Production build (Turbopack default in Next 16)
 ```
+
+### Local port quirks
+- Postgres runs on port **5434** in Docker (5432 is taken by host Postgres)
+- Redis runs on port **6380** in Docker (6379 is taken by host Redis)
+- API runs on port **8001** locally (8000 is taken by another local process)
+- Dashboard expects `NEXT_PUBLIC_API_URL=http://localhost:8001` in `dashboard/.env.local`
 
 ## Code style and conventions
 
-- Python: Type hints on all functions. Pydantic models for all request/response schemas. Async handlers where possible.
+### Backend (Python)
+- Type hints on all functions. Pydantic models for all request/response schemas. Async handlers where possible.
 - Factor classes: One file per factor. Class name matches factor name in PascalCase. File name is snake_case.
 - Tests: One test file per module. Use pytest fixtures for common setup. Test every factor with edge cases (zero history, expired cards, empty wallets).
 - Migrations: Always generate, review, then apply. Never push directly to production DB. Never manually create tables or migrations
 - API responses: Always include score_id for traceability. Factor breakdowns always included (transparency is a feature).
 - Error responses: Use standard HTTP codes. 400 for bad request, 401 for auth, 404 for not found, 422 for validation, 429 for rate limit, 500 for server error. Always return JSON with error detail.
+
+### Dashboard (TypeScript)
+- **Server components by default.** Add `"use client"` only when interactivity is needed (state, effects, event handlers)
+- **No `any` types anywhere.** Use proper types or `unknown`
+- **All API calls go through `lib/api/client.ts`** — no inline `fetch()` calls anywhere else (verified by grep in CI)
+- **Risk colors come from `RISK_CONFIG` constant**, never hardcoded hex values in components
+- **Format helpers are utilities, not inline.** `formatCurrency`, `formatDate`, `getRiskConfig`, `getMethodConfig` live in `lib/utils/` — used everywhere via import
+- **Reusable shared components.** `risk-score-display`, `method-badge`, `factor-bar`, `data-table-pagination`, `stat-card` are used across multiple pages — never duplicated
+- **Mock data lives ONLY in `lib/mock-data.ts`** — never scatter across components. Will be removed in Phase 2.5
+- **One component per file.** File name is kebab-case, component name is PascalCase. Props interface named `{ComponentName}Props`
+- **Shadcn note:** This shadcn version uses `@base-ui/react` instead of Radix. `DialogTrigger` does NOT support `asChild` — control dialogs via state with a separate Button
 
 
 ## Important context

@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CollectionRatePoint } from "@/lib/api/types";
+import { RISK_CONFIG } from "@/lib/constants";
 import { format } from "date-fns";
 
 interface CollectionRateChartProps {
@@ -61,7 +62,7 @@ export function CollectionRateChart({ data }: CollectionRateChartProps) {
             <Line
               type="monotone"
               dataKey="ratePct"
-              stroke="#10b981"
+              stroke={RISK_CONFIG.LOW.barColor}
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
