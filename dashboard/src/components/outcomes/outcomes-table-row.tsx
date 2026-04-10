@@ -1,19 +1,22 @@
 "use client";
 
-import { CheckIcon, ClockIcon, XIcon } from "lucide-react";
+import { CheckCircleIcon, CheckIcon, ClockIcon, XCircleIcon, XIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskScoreDisplay } from "@/components/shared/risk-score-display";
 import type { Outcome } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatRelativeTime } from "@/lib/utils/format-date";
-import { cn } from "@/lib/utils";
 
 interface OutcomesTableRowProps {
   outcome: Outcome;
+  index: number;
 }
 
-function outcomeMatchesPrediction(outcome: Outcome): "matched" | "mismatched" | "pending" {
+type MatchStatus = "matched" | "mismatched" | "pending";
+
+function outcomeMatchesPrediction(outcome: Outcome): MatchStatus {
   if (outcome.outcome === "PENDING") return "pending";
   if (!outcome.predicted_risk_level) return "pending";
   const predictedFailure = outcome.predicted_risk_level === "HIGH";
@@ -24,30 +27,61 @@ function outcomeMatchesPrediction(outcome: Outcome): "matched" | "mismatched" | 
 function OutcomeIcon({ outcome }: { outcome: Outcome["outcome"] }) {
   if (outcome === "SUCCESS") {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-950 text-emerald-400">
-        <CheckIcon className="h-3.5 w-3.5" />
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+        <CheckIcon className="h-4 w-4" />
       </span>
     );
   }
   if (outcome === "FAILED") {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-950 text-red-400">
-        <XIcon className="h-3.5 w-3.5" />
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+        <XIcon className="h-4 w-4" />
       </span>
     );
   }
   return (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-950 text-amber-400">
-      <ClockIcon className="h-3.5 w-3.5" />
+    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
+      <ClockIcon className="h-4 w-4" />
     </span>
   );
 }
 
-export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
+function MatchIndicator({ status }: { status: MatchStatus }) {
+  if (status === "matched") {
+    return (
+      <div className="flex items-center gap-1.5 text-emerald-400">
+        <CheckCircleIcon className="h-4 w-4" />
+        <span className="text-xs font-medium">Matched</span>
+      </div>
+    );
+  }
+  if (status === "mismatched") {
+    return (
+      <div className="flex items-center gap-1.5 text-red-400">
+        <XCircleIcon className="h-4 w-4" />
+        <span className="text-xs font-medium">Missed</span>
+      </div>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+const OUTCOME_BADGE: Record<Outcome["outcome"], string> = {
+  SUCCESS: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30",
+  FAILED: "bg-red-500/10 text-red-400 border border-red-500/30",
+  PENDING: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+};
+
+export function OutcomesTableRow({ outcome, index }: OutcomesTableRowProps) {
   const match = outcomeMatchesPrediction(outcome);
 
   return (
-    <TableRow>
+    <TableRow
+      className={cn(
+        "transition-colors",
+        index % 2 === 0 ? "bg-transparent" : "bg-muted/30",
+      )}
+    >
       <TableCell>
         <OutcomeIcon outcome={outcome.outcome} />
       </TableCell>
@@ -67,33 +101,25 @@ export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="text-center">
         <span
           className={cn(
             "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-            outcome.outcome === "SUCCESS" && "bg-emerald-950 text-emerald-400",
-            outcome.outcome === "FAILED" && "bg-red-950 text-red-400",
-            outcome.outcome === "PENDING" && "bg-amber-950 text-amber-400",
+            OUTCOME_BADGE[outcome.outcome],
           )}
         >
           {outcome.outcome}
         </span>
       </TableCell>
       <TableCell>
-        {match === "matched" && (
-          <span className="text-xs text-emerald-400">✓ Matched</span>
-        )}
-        {match === "mismatched" && (
-          <span className="text-xs text-red-400">✗ Mismatched</span>
-        )}
-        {match === "pending" && (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+        <MatchIndicator status={match} />
       </TableCell>
-      <TableCell>
-        {outcome.collection_method ? <MethodBadge method={outcome.collection_method} /> : null}
+      <TableCell className="text-center">
+        {outcome.collection_method ? (
+          <MethodBadge method={outcome.collection_method} />
+        ) : null}
       </TableCell>
-      <TableCell className="font-mono tabular-nums">
+      <TableCell className="text-right font-mono text-sm font-semibold tabular-nums text-foreground">
         {outcome.collection_amount && outcome.collection_currency
           ? formatCurrency(outcome.collection_amount, outcome.collection_currency)
           : "—"}

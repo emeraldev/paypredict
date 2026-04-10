@@ -21,8 +21,8 @@ export function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
         <span
           className={
             apiKey.is_active
-              ? "inline-flex rounded-md bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400"
-              : "inline-flex rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-400"
+              ? "inline-flex rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400"
+              : "inline-flex rounded-md border border-zinc-500/30 bg-zinc-500/10 px-2 py-0.5 text-xs font-medium text-zinc-400"
           }
         >
           {apiKey.is_active ? "Active" : "Revoked"}
@@ -40,7 +40,7 @@ export function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
             variant="ghost"
             size="sm"
             onClick={() => onRevoke(apiKey.id)}
-            className="text-red-400 hover:text-red-300"
+            className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
           >
             Revoke
           </Button>

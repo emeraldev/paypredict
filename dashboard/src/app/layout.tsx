@@ -30,10 +30,18 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        {/*
+          Theme no-flash script. Must be the first child of <body> so it runs
+          synchronously before any DOM paints. suppressHydrationWarning prevents
+          React 19 from warning about script tags inside the component tree —
+          this script only needs to run once during initial HTML parse, not on
+          subsequent client-side renders.
+        */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeNoFlashScript }}
+        />
         <ThemeProvider>
           {children}
           <Toaster richColors position="top-right" />

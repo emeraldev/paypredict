@@ -10,8 +10,8 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FACTOR_LABELS, RISK_CONFIG } from "@/lib/constants";
 import type { FactorContribution } from "@/lib/api/types";
+import { CHART_THEME, FACTOR_LABELS } from "@/lib/constants";
 
 interface FailureFactorsChartProps {
   data: FactorContribution[];
@@ -36,36 +36,42 @@ export function FailureFactorsChart({ data }: FailureFactorsChartProps) {
           <BarChart
             data={chartData}
             layout="vertical"
-            margin={{ top: 5, right: 12, left: 100, bottom: 5 }}
+            margin={{ top: 5, right: 20, left: 140, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={CHART_THEME.grid}
+              horizontal={false}
+            />
             <XAxis
               type="number"
-              stroke="hsl(var(--muted-foreground))"
-              tick={{ fontSize: 11 }}
+              tick={{ fill: CHART_THEME.axis, fontSize: 11 }}
               tickLine={false}
-              axisLine={false}
+              axisLine={{ stroke: CHART_THEME.grid }}
               tickFormatter={(v) => `${v}%`}
             />
             <YAxis
               type="category"
               dataKey="label"
-              stroke="hsl(var(--muted-foreground))"
-              tick={{ fontSize: 11 }}
+              tick={{ fill: CHART_THEME.axis, fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              width={100}
+              width={130}
             />
             <Tooltip
+              cursor={{ fill: CHART_THEME.muted }}
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: CHART_THEME.tooltipBg,
+                border: `1px solid ${CHART_THEME.tooltipBorder}`,
                 borderRadius: "8px",
+                color: CHART_THEME.tooltipText,
                 fontSize: "12px",
               }}
+              labelStyle={{ color: CHART_THEME.tooltipText }}
+              itemStyle={{ color: CHART_THEME.tooltipText }}
               formatter={(value) => [`${value}%`, "Contribution"]}
             />
-            <Bar dataKey="pct" fill={RISK_CONFIG.HIGH.barColor} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="pct" fill={CHART_THEME.high} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

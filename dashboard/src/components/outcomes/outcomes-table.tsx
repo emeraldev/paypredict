@@ -16,6 +16,9 @@ interface OutcomesTableProps {
   outcomes: Outcome[];
 }
 
+const HEADER_CLS =
+  "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+
 export function OutcomesTable({ outcomes }: OutcomesTableProps) {
   if (outcomes.length === 0) {
     return (
@@ -31,20 +34,24 @@ export function OutcomesTable({ outcomes }: OutcomesTableProps) {
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead className="w-12" />
-            <TableHead className="w-32">Collection ID</TableHead>
-            <TableHead className="w-36">Predicted</TableHead>
-            <TableHead className="w-24">Actual</TableHead>
-            <TableHead className="w-32">Match</TableHead>
-            <TableHead className="w-36">Method</TableHead>
-            <TableHead className="w-32">Amount</TableHead>
-            <TableHead>Attempted</TableHead>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className={`${HEADER_CLS} w-12`} />
+            <TableHead className={`${HEADER_CLS} w-32`}>Collection ID</TableHead>
+            <TableHead className={`${HEADER_CLS} w-36`}>Predicted</TableHead>
+            <TableHead className={`${HEADER_CLS} w-24 text-center`}>Actual</TableHead>
+            <TableHead className={`${HEADER_CLS} w-32`}>Match</TableHead>
+            <TableHead className={`${HEADER_CLS} w-36 text-center`}>Method</TableHead>
+            <TableHead className={`${HEADER_CLS} w-32 text-right`}>Amount</TableHead>
+            <TableHead className={HEADER_CLS}>Attempted</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {outcomes.map((outcome) => (
-            <OutcomesTableRow key={outcome.outcome_id} outcome={outcome} />
+          {outcomes.map((outcome, index) => (
+            <OutcomesTableRow
+              key={outcome.outcome_id}
+              outcome={outcome}
+              index={index}
+            />
           ))}
         </TableBody>
       </Table>

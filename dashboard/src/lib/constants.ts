@@ -1,29 +1,33 @@
 // Risk level configuration — SINGLE SOURCE OF TRUTH
+// Uses alpha-style backgrounds so colors work in both light and dark modes.
 export const RISK_CONFIG = {
   HIGH: {
     label: "High",
     color: "text-red-400",
-    bg: "bg-red-950",
-    border: "border-red-500",
+    bg: "bg-red-500/10",
+    border: "border-red-500/30",
     dot: "bg-red-500",
+    bar: "bg-red-500",
     barColor: "#ef4444",
     range: [61, 100],
   },
   MEDIUM: {
     label: "Medium",
     color: "text-amber-400",
-    bg: "bg-amber-950",
-    border: "border-amber-500",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/30",
     dot: "bg-amber-500",
+    bar: "bg-amber-500",
     barColor: "#f59e0b",
     range: [31, 60],
   },
   LOW: {
     label: "Low",
     color: "text-emerald-400",
-    bg: "bg-emerald-950",
-    border: "border-emerald-500",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-500/30",
     dot: "bg-emerald-500",
+    bar: "bg-emerald-500",
     barColor: "#10b981",
     range: [0, 30],
   },
@@ -42,23 +46,61 @@ export const METHOD_CONFIG = {
     label: "Card",
     icon: "CreditCard",
     color: "text-blue-400",
-    bg: "bg-blue-950",
-    border: "border-blue-500",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/30",
   },
   DEBIT_ORDER: {
     label: "Debit Order",
     icon: "Building",
     color: "text-purple-400",
-    bg: "bg-purple-950",
-    border: "border-purple-500",
+    bg: "bg-purple-500/10",
+    border: "border-purple-500/30",
   },
   MOBILE_MONEY: {
     label: "Mobile Money",
     icon: "Smartphone",
     color: "text-orange-400",
-    bg: "bg-orange-950",
-    border: "border-orange-500",
+    bg: "bg-orange-500/10",
+    border: "border-orange-500/30",
   },
+} as const;
+
+// Role badge configuration — SINGLE SOURCE OF TRUTH
+export const ROLE_CONFIG = {
+  ADMIN: {
+    label: "Admin",
+    color: "text-red-400",
+    bg: "bg-red-500/10",
+    border: "border-red-500/30",
+  },
+  MANAGER: {
+    label: "Manager",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/30",
+  },
+  VIEWER: {
+    label: "Viewer",
+    color: "text-zinc-400",
+    bg: "bg-zinc-500/10",
+    border: "border-zinc-500/30",
+  },
+} as const;
+
+// Recharts theme — SINGLE SOURCE OF TRUTH
+// All chart components must reference these — never hardcode colors in charts.
+export const CHART_THEME = {
+  grid: "rgba(161, 161, 170, 0.15)", // zinc-400 at 15%
+  axis: "rgb(161, 161, 170)", // zinc-400
+  tooltipBg: "rgb(24, 24, 27)", // zinc-900
+  tooltipBorder: "rgb(63, 63, 70)", // zinc-700
+  tooltipText: "rgb(244, 244, 245)", // zinc-100
+  high: "#ef4444", // red-500
+  medium: "#f59e0b", // amber-500
+  low: "#10b981", // emerald-500
+  primary: "#10b981", // emerald-500 — default line/bar
+  secondary: "#6366f1", // indigo-500 — second series
+  muted: "rgba(161, 161, 170, 0.3)", // zinc-400 at 30%
 } as const;
 
 // Factor descriptions for the settings page

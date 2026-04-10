@@ -11,15 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { ROLE_CONFIG } from "@/lib/constants";
 import { mockTeamMembers } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format-date";
-
-const ROLE_STYLES: Record<string, string> = {
-  ADMIN: "bg-red-950 text-red-400",
-  MANAGER: "bg-blue-950 text-blue-400",
-  VIEWER: "bg-zinc-800 text-zinc-400",
-};
 
 function getInitials(name: string): string {
   return name
@@ -72,11 +67,13 @@ export function TeamTab() {
                 <TableCell>
                   <span
                     className={cn(
-                      "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
-                      ROLE_STYLES[member.role],
+                      "inline-flex rounded-md border px-2 py-0.5 text-xs font-medium",
+                      ROLE_CONFIG[member.role].bg,
+                      ROLE_CONFIG[member.role].color,
+                      ROLE_CONFIG[member.role].border,
                     )}
                   >
-                    {member.role}
+                    {ROLE_CONFIG[member.role].label}
                   </span>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">

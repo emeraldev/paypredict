@@ -1,6 +1,7 @@
 "use client";
 
 import type { Collection } from "@/lib/api/types";
+import { RISK_CONFIG } from "@/lib/constants";
 import type { RiskLevel } from "@/lib/utils/format-risk";
 import { SummaryCard } from "./summary-card";
 
@@ -24,6 +25,8 @@ export function SummaryCards({
     onFilterChange(activeFilter === level ? null : level);
   };
 
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <SummaryCard
@@ -37,24 +40,27 @@ export function SummaryCards({
       <SummaryCard
         title="High Risk"
         value={high}
-        subtitle={`${total > 0 ? Math.round((high / total) * 100) : 0}% of total`}
+        subtitle={`${pct(high)}% of total`}
         accentColor="border-l-red-500"
+        valueColor={RISK_CONFIG.HIGH.color}
         active={activeFilter === "HIGH"}
         onClick={() => toggleFilter("HIGH")}
       />
       <SummaryCard
         title="Medium Risk"
         value={medium}
-        subtitle={`${total > 0 ? Math.round((medium / total) * 100) : 0}% of total`}
+        subtitle={`${pct(medium)}% of total`}
         accentColor="border-l-amber-500"
+        valueColor={RISK_CONFIG.MEDIUM.color}
         active={activeFilter === "MEDIUM"}
         onClick={() => toggleFilter("MEDIUM")}
       />
       <SummaryCard
         title="Low Risk"
         value={low}
-        subtitle={`${total > 0 ? Math.round((low / total) * 100) : 0}% of total`}
+        subtitle={`${pct(low)}% of total`}
         accentColor="border-l-emerald-500"
+        valueColor={RISK_CONFIG.LOW.color}
         active={activeFilter === "LOW"}
         onClick={() => toggleFilter("LOW")}
       />

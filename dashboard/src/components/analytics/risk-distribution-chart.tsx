@@ -2,7 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RISK_CONFIG } from "@/lib/constants";
+import { CHART_THEME } from "@/lib/constants";
 
 interface RiskDistributionChartProps {
   data: {
@@ -14,9 +14,9 @@ interface RiskDistributionChartProps {
 
 export function RiskDistributionChart({ data }: RiskDistributionChartProps) {
   const chartData = [
-    { name: "High", value: data.high, color: RISK_CONFIG.HIGH.barColor },
-    { name: "Medium", value: data.medium, color: RISK_CONFIG.MEDIUM.barColor },
-    { name: "Low", value: data.low, color: RISK_CONFIG.LOW.barColor },
+    { name: "High", value: data.high, color: CHART_THEME.high },
+    { name: "Medium", value: data.medium, color: CHART_THEME.medium },
+    { name: "Low", value: data.low, color: CHART_THEME.low },
   ];
   const total = data.high + data.medium + data.low;
 
@@ -33,10 +33,11 @@ export function RiskDistributionChart({ data }: RiskDistributionChartProps) {
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={80}
+                innerRadius={55}
+                outerRadius={85}
                 paddingAngle={2}
                 dataKey="value"
+                stroke="none"
               >
                 {chartData.map((entry) => (
                   <Cell key={entry.name} fill={entry.color} stroke="none" />
@@ -44,11 +45,14 @@ export function RiskDistributionChart({ data }: RiskDistributionChartProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: CHART_THEME.tooltipBg,
+                  border: `1px solid ${CHART_THEME.tooltipBorder}`,
                   borderRadius: "8px",
+                  color: CHART_THEME.tooltipText,
                   fontSize: "12px",
                 }}
+                labelStyle={{ color: CHART_THEME.tooltipText }}
+                itemStyle={{ color: CHART_THEME.tooltipText }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -65,7 +69,7 @@ export function RiskDistributionChart({ data }: RiskDistributionChartProps) {
                     <span className="text-sm font-medium">{item.name}</span>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium tabular-nums">
+                    <p className="text-sm font-semibold tabular-nums">
                       {item.value.toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">{pct}%</p>

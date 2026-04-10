@@ -83,12 +83,12 @@ export function CustomerContextCards({ customer }: CustomerContextCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-3">
       {items.map((item) => (
-        <Card key={item.label} className="bg-muted/40">
+        <Card key={item.label} className="border-border/60 bg-muted/40">
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{item.value}</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{item.value}</p>
           </CardContent>
         </Card>
       ))}

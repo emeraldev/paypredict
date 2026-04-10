@@ -20,14 +20,14 @@ export function MethodBadge({ method, className }: MethodBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium",
         config.bg,
         config.color,
         config.border,
         className,
       )}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-3.5 w-3.5" />
       {config.label}
     </span>
   );

@@ -7,7 +7,10 @@ interface SummaryCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  accentColor?: string; // e.g. "border-l-red-500"
+  // Tailwind border-l-* class, e.g. "border-l-red-500"
+  accentColor?: string;
+  // Tailwind text-* class for the value, e.g. "text-red-400"
+  valueColor?: string;
   active?: boolean;
   onClick?: () => void;
 }
@@ -17,6 +20,7 @@ export function SummaryCard({
   value,
   subtitle,
   accentColor,
+  valueColor,
   active = false,
   onClick,
 }: SummaryCardProps) {
@@ -24,17 +28,24 @@ export function SummaryCard({
     <Card
       onClick={onClick}
       className={cn(
-        "cursor-pointer border-l-4 transition-all hover:bg-accent/40",
+        "cursor-pointer border-l-4 transition-all hover:border-border/80",
         accentColor,
         active && "ring-2 ring-primary/40 bg-accent/30",
       )}
     >
       <CardContent className="p-5">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="mt-1 text-3xl font-semibold tracking-tight">{value}</p>
-        {subtitle && (
-          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-        )}
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {title}
+        </p>
+        <p
+          className={cn(
+            "mt-2 text-4xl font-bold tabular-nums tracking-tight",
+            valueColor ?? "text-foreground",
+          )}
+        >
+          {value}
+        </p>
+        {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
       </CardContent>
     </Card>
   );

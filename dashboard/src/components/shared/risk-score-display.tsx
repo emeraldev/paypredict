@@ -21,17 +21,21 @@ export function RiskScoreDisplay({
   const display = displayScore(score);
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
-      <RiskDot level={riskLevel} />
-      <span className={cn("font-mono text-sm tabular-nums", config.color)}>{display}</span>
+    <div className={cn("flex items-center gap-2.5", className)}>
+      <RiskDot level={riskLevel} className="h-2.5 w-2.5 shrink-0" />
+      <span
+        className={cn(
+          "w-8 font-mono text-sm font-bold tabular-nums",
+          config.color,
+        )}
+      >
+        {display}
+      </span>
       {showBar && (
         <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${display}%`,
-              backgroundColor: config.barColor,
-            }}
+            className={cn("h-full rounded-full transition-all", config.bar)}
+            style={{ width: `${display}%` }}
           />
         </div>
       )}
