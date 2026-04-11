@@ -37,29 +37,29 @@ const NEUTRAL_TONE: RiskTone = {
 };
 
 const HIGH_TONE: RiskTone = {
-  text: "text-red-400",
-  subtle: "text-red-400/60",
-  bg: "bg-red-950/50",
-  border: "border-red-500/30",
-  hoverBorder: "hover:border-red-500/60",
+  text: "text-red-700 dark:text-red-400",
+  subtle: "text-red-700/60 dark:text-red-400/60",
+  bg: "bg-red-50 dark:bg-red-950/50",
+  border: "border-red-500/40 dark:border-red-500/30",
+  hoverBorder: "hover:border-red-500/70 dark:hover:border-red-500/60",
   ring: "ring-red-500",
 };
 
 const MEDIUM_TONE: RiskTone = {
-  text: "text-amber-400",
-  subtle: "text-amber-400/60",
-  bg: "bg-amber-950/50",
-  border: "border-amber-500/30",
-  hoverBorder: "hover:border-amber-500/60",
+  text: "text-amber-700 dark:text-amber-400",
+  subtle: "text-amber-700/60 dark:text-amber-400/60",
+  bg: "bg-amber-50 dark:bg-amber-950/50",
+  border: "border-amber-500/40 dark:border-amber-500/30",
+  hoverBorder: "hover:border-amber-500/70 dark:hover:border-amber-500/60",
   ring: "ring-amber-500",
 };
 
 const LOW_TONE: RiskTone = {
-  text: "text-emerald-400",
-  subtle: "text-emerald-400/60",
-  bg: "bg-emerald-950/50",
-  border: "border-emerald-500/30",
-  hoverBorder: "hover:border-emerald-500/60",
+  text: "text-emerald-700 dark:text-emerald-400",
+  subtle: "text-emerald-700/60 dark:text-emerald-400/60",
+  bg: "bg-emerald-50 dark:bg-emerald-950/50",
+  border: "border-emerald-500/40 dark:border-emerald-500/30",
+  hoverBorder: "hover:border-emerald-500/70 dark:hover:border-emerald-500/60",
   ring: "ring-emerald-500",
 };
 
