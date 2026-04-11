@@ -1,10 +1,10 @@
 # Current Feature
 
-Phase 2 — Dashboard (mocked, awaiting API hookup)
+Phase 2.5 — Dashboard-facing API endpoints
 
 ## Status
 
-In Progress
+In Progress (branch: `feature/dashboard-endpoints`)
 
 ## Goals
 
@@ -33,12 +33,25 @@ In Progress
 9. ~~Light/dark theme toggle with no-flash inline script~~
 
 ### Phase 2 — TODO (deferred)
-- Connect to real API (requires new backend GET endpoints for /v1/scores, /v1/analytics/*, /v1/config/*)
-- Auth (NextAuth integration)
+- Auth (NextAuth integration on the dashboard frontend — backend JWT lands in Phase 2.5)
 - Command palette (Cmd+K)
 - Real-time updates / websockets
 - Export functionality
 - Notification bell with real alerts (currently static dot)
+
+### Phase 2.5 — Dashboard-facing API endpoints (active)
+
+Spec: `context/phase-2-api-endpoints.md`. Same FastAPI backend, new auth dep + new route files. Existing API-key endpoints untouched. Building in phases (one commit per phase):
+
+1. **Scaffolding + migration** — branch, current-feature update, model changes (Tenant.email_digest, Tenant.email_recipients, ScoreResult composite index, Outcome composite index), Alembic migration, dep stubs, empty route/service files wired into main.py. **In progress.**
+2. **Auth** — JWT (python-jose + passlib), `get_current_user` dep, `POST /v1/auth/login`, `GET /v1/auth/me`, `POST /v1/auth/logout`.
+3. **Scores list/detail** — `GET /v1/scores`, `GET /v1/scores/{id}`. Filters: risk_level, collection_method, due_date_from/to (no defaults), search, sort_by, sort_order. Inline `summary` block.
+4. **Outcomes list** — `GET /v1/outcomes` with `prediction_matched` computation and `stats` block.
+5. **Analytics** — `summary`, `collection-rate`, `factors`, `accuracy`. SQL aggregations only, no Redis caching for v1.
+6. **Config** — api-keys CRUD, team CRUD (admin-only), alerts GET/PUT.
+7. **Seed + tests** — expand seed (demo user, 50+ scores, 80% outcomes), endpoint tests, verify 117 existing pass.
+
+Auth approach: JWT properly (not API-key shim). Sort whitelist: score, collection_amount, collection_due_date, created_at. Date filters have no server-side defaults — dashboard sets its own.
 
 ## Notes
 

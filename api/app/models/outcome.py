@@ -57,4 +57,12 @@ class Outcome(Base):
         Index("ix_outcomes_tenant_reported", "tenant_id", "reported_at"),
         Index("ix_outcomes_score_result", "score_result_id"),
         Index("ix_outcomes_tenant_outcome", "tenant_id", "outcome"),
+        # Composite for outcomes list + analytics (filter by tenant + outcome,
+        # ordered by created_at DESC)
+        Index(
+            "ix_outcomes_tenant_outcome_created",
+            "tenant_id",
+            "outcome",
+            "created_at",
+        ),
     )

@@ -11,8 +11,10 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
+from app.models.user import User
 
 security = HTTPBearer()
+session_security = HTTPBearer(auto_error=False)
 
 
 async def get_current_tenant(
@@ -62,3 +64,20 @@ async def get_current_tenant(
     )
 
     return tenant
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Security(session_security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Resolve the dashboard user from a session JWT.
+
+    Phase 2.5 placeholder: this will validate the JWT issued by
+    POST /v1/auth/login (Phase 2 of the dashboard-endpoints branch). Until
+    that lands, any caller of a dashboard endpoint gets a clear 501 — we
+    do NOT want a silent fallback that leaks data across tenants.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Dashboard session auth not implemented yet (Phase 2.5 step 2)",
+    )
