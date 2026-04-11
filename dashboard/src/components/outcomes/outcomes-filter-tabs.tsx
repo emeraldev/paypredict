@@ -13,8 +13,8 @@ export function OutcomesFilterTabs({ value, onChange }: OutcomesFilterTabsProps)
     <Tabs value={value} onValueChange={(v) => onChange(v as OutcomeFilter)}>
       <TabsList>
         <TabsTrigger value="ALL">All</TabsTrigger>
-        <TabsTrigger value="MATCHED">Matched</TabsTrigger>
-        <TabsTrigger value="MISMATCHED">Mismatched</TabsTrigger>
+        <TabsTrigger value="MATCHED">Matched predictions</TabsTrigger>
+        <TabsTrigger value="MISMATCHED">Mismatched predictions</TabsTrigger>
         <TabsTrigger value="PENDING">Pending</TabsTrigger>
       </TabsList>
     </Tabs>

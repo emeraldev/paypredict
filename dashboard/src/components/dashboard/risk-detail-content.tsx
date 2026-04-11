@@ -27,7 +27,7 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
   const riskConfig = getRiskConfig(collection.risk_level);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Score header */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -40,7 +40,6 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
             >
               {displayScore(collection.score)}
             </span>
-            <span className="text-lg text-muted-foreground">/100</span>
           </div>
           <RiskBadge level={collection.risk_level} className="text-sm px-3 py-1" />
         </div>

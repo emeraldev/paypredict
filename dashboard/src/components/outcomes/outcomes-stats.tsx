@@ -27,13 +27,11 @@ export function OutcomesStats({ stats }: OutcomesStatsProps) {
         title="Prediction Accuracy"
         value={`${accuracy}%`}
         subtitle={`${stats.matched} matched, ${stats.mismatched} mismatched`}
-        accentColor="border-l-emerald-500"
       />
       <StatCard
         title="Pending"
         value={stats.pending.toLocaleString()}
         subtitle="Awaiting result"
-        accentColor="border-l-amber-500"
       />
     </div>
   );

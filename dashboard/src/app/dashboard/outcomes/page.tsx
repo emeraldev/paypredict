@@ -6,7 +6,6 @@ import { OutcomesFilterTabs } from "@/components/outcomes/outcomes-filter-tabs";
 import { OutcomesStats } from "@/components/outcomes/outcomes-stats";
 import { OutcomesTable } from "@/components/outcomes/outcomes-table";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
-import { PageHeader } from "@/components/shared/page-header";
 import type { Outcome, OutcomeFilter, OutcomeStats } from "@/lib/api/types";
 import { mockOutcomes } from "@/lib/mock-data";
 
@@ -63,23 +62,17 @@ export default function OutcomesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Outcomes"
-        description="Reported collection results — green ✓ means our prediction matched reality"
-      />
-
       <OutcomesStats stats={stats} />
 
+      <OutcomesFilterTabs
+        value={filter}
+        onChange={(v) => {
+          setFilter(v);
+          setPage(1);
+        }}
+      />
+
       <Card className="overflow-hidden p-0">
-        <div className="border-b border-border p-4">
-          <OutcomesFilterTabs
-            value={filter}
-            onChange={(v) => {
-              setFilter(v);
-              setPage(1);
-            }}
-          />
-        </div>
         <OutcomesTable outcomes={paged} />
         <div className="border-t border-border">
           <DataTablePagination

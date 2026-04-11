@@ -3,7 +3,6 @@ import { CollectionRateChart } from "@/components/analytics/collection-rate-char
 import { FailureFactorsChart } from "@/components/analytics/failure-factors-chart";
 import { PredictionAccuracyChart } from "@/components/analytics/prediction-accuracy-chart";
 import { RiskDistributionChart } from "@/components/analytics/risk-distribution-chart";
-import { PageHeader } from "@/components/shared/page-header";
 import {
   mockAnalyticsSummary,
   mockCollectionRate,
@@ -13,11 +12,6 @@ import {
 export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Analytics"
-        description="Collection rates, prediction accuracy, and factor contributions over the last 30 days"
-      />
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CollectionRateChart data={mockCollectionRate} />
         <RiskDistributionChart data={mockAnalyticsSummary.risk_distribution} />

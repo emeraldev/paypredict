@@ -17,7 +17,7 @@ interface OutcomesTableProps {
 }
 
 const HEADER_CLS =
-  "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+  "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
 export function OutcomesTable({ outcomes }: OutcomesTableProps) {
   if (outcomes.length === 0) {
@@ -35,23 +35,19 @@ export function OutcomesTable({ outcomes }: OutcomesTableProps) {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className={`${HEADER_CLS} w-12`} />
-            <TableHead className={`${HEADER_CLS} w-32`}>Collection ID</TableHead>
-            <TableHead className={`${HEADER_CLS} w-36`}>Predicted</TableHead>
-            <TableHead className={`${HEADER_CLS} w-24 text-center`}>Actual</TableHead>
-            <TableHead className={`${HEADER_CLS} w-32`}>Match</TableHead>
-            <TableHead className={`${HEADER_CLS} w-36 text-center`}>Method</TableHead>
-            <TableHead className={`${HEADER_CLS} w-32 text-right`}>Amount</TableHead>
-            <TableHead className={HEADER_CLS}>Attempted</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[140px]`}>Collection ID</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[150px]`}>Predicted Risk</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[130px]`}>Actual Outcome</TableHead>
+            <TableHead className={HEADER_CLS}>Failure Reason</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[120px] text-right`}>Amount</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[140px]`}>Attempted</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[120px]`}>Reported</TableHead>
+            <TableHead className={`${HEADER_CLS} w-[60px] text-center`}>Match</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {outcomes.map((outcome, index) => (
-            <OutcomesTableRow
-              key={outcome.outcome_id}
-              outcome={outcome}
-              index={index}
-            />
+          {outcomes.map((outcome) => (
+            <OutcomesTableRow key={outcome.outcome_id} outcome={outcome} />
           ))}
         </TableBody>
       </Table>

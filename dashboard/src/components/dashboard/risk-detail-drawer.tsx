@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { Collection } from "@/lib/api/types";
 import { RiskDetailContent } from "./risk-detail-content";
 
@@ -19,16 +13,14 @@ interface RiskDetailDrawerProps {
 export function RiskDetailDrawer({ collection, open, onClose }: RiskDetailDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full max-w-xl overflow-y-auto sm:max-w-xl">
-        <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle>Collection Detail</SheetTitle>
-          <SheetDescription>
-            {collection?.external_collection_id ?? "Loading..."}
-          </SheetDescription>
+      <SheetContent
+        className="w-full overflow-y-auto p-0 sm:!max-w-[540px]"
+        style={{ width: "min(100vw, 540px)" }}
+      >
+        <SheetHeader className="sr-only">
+          <SheetTitle>Collection detail</SheetTitle>
         </SheetHeader>
-        <div className="px-6 pb-6 pt-4">
-          {collection && <RiskDetailContent collection={collection} />}
-        </div>
+        {collection && <RiskDetailContent collection={collection} />}
       </SheetContent>
     </Sheet>
   );

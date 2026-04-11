@@ -5,16 +5,10 @@ import { AlertsTab } from "@/components/settings/alerts-tab";
 import { ApiKeysTab } from "@/components/settings/api-keys-tab";
 import { TeamTab } from "@/components/settings/team-tab";
 import { WeightsTab } from "@/components/settings/weights-tab";
-import { PageHeader } from "@/components/shared/page-header";
 
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Factor weights, API keys, alerts, and team management"
-      />
-
       <Tabs defaultValue="weights">
         <TabsList>
           <TabsTrigger value="weights">Weights</TabsTrigger>

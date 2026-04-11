@@ -1,17 +1,15 @@
 "use client";
 
-import { CheckCircleIcon, CheckIcon, ClockIcon, XCircleIcon, XIcon } from "lucide-react";
+import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskScoreDisplay } from "@/components/shared/risk-score-display";
 import type { Outcome } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
-import { formatRelativeTime } from "@/lib/utils/format-date";
+import { formatDateTime, formatRelativeTime } from "@/lib/utils/format-date";
 
 interface OutcomesTableRowProps {
   outcome: Outcome;
-  index: number;
 }
 
 type MatchStatus = "matched" | "mismatched" | "pending";
@@ -24,71 +22,41 @@ function outcomeMatchesPrediction(outcome: Outcome): MatchStatus {
   return predictedFailure === actuallyFailed ? "matched" : "mismatched";
 }
 
-function OutcomeIcon({ outcome }: { outcome: Outcome["outcome"] }) {
-  if (outcome === "SUCCESS") {
-    return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-        <CheckIcon className="h-4 w-4" />
-      </span>
-    );
-  }
-  if (outcome === "FAILED") {
-    return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-        <XIcon className="h-4 w-4" />
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
-      <ClockIcon className="h-4 w-4" />
-    </span>
-  );
-}
+const OUTCOME_BADGE: Record<Outcome["outcome"], { label: string; className: string }> = {
+  SUCCESS: {
+    label: "Success",
+    className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  },
+  FAILED: {
+    label: "Failed",
+    className: "bg-red-500/10 text-red-400 border-red-500/30",
+  },
+  PENDING: {
+    label: "Pending",
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  },
+};
 
-function MatchIndicator({ status }: { status: MatchStatus }) {
+function MatchCell({ status }: { status: MatchStatus }) {
   if (status === "matched") {
-    return (
-      <div className="flex items-center gap-1.5 text-emerald-400">
-        <CheckCircleIcon className="h-4 w-4" />
-        <span className="text-xs font-medium">Matched</span>
-      </div>
-    );
+    return <CheckCircle2Icon className="mx-auto h-4 w-4 text-emerald-400" />;
   }
   if (status === "mismatched") {
-    return (
-      <div className="flex items-center gap-1.5 text-red-400">
-        <XCircleIcon className="h-4 w-4" />
-        <span className="text-xs font-medium">Missed</span>
-      </div>
-    );
+    return <XCircleIcon className="mx-auto h-4 w-4 text-red-400" />;
   }
   return <span className="text-xs text-muted-foreground">—</span>;
 }
 
-const OUTCOME_BADGE: Record<Outcome["outcome"], string> = {
-  SUCCESS: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30",
-  FAILED: "bg-red-500/10 text-red-400 border border-red-500/30",
-  PENDING: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
-};
-
-export function OutcomesTableRow({ outcome, index }: OutcomesTableRowProps) {
+export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
   const match = outcomeMatchesPrediction(outcome);
+  const badge = OUTCOME_BADGE[outcome.outcome];
 
   return (
-    <TableRow
-      className={cn(
-        "transition-colors",
-        index % 2 === 0 ? "bg-transparent" : "bg-muted/30",
-      )}
-    >
-      <TableCell>
-        <OutcomeIcon outcome={outcome.outcome} />
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">
+    <TableRow className="border-b border-border/50 transition-colors hover:bg-accent/40">
+      <TableCell className="py-3 font-mono text-sm text-muted-foreground">
         {outcome.external_collection_id}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-3">
         {outcome.predicted_score !== null &&
         outcome.predicted_score !== undefined &&
         outcome.predicted_risk_level ? (
@@ -101,31 +69,32 @@ export function OutcomesTableRow({ outcome, index }: OutcomesTableRowProps) {
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="py-3">
         <span
           className={cn(
-            "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-            OUTCOME_BADGE[outcome.outcome],
+            "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+            badge.className,
           )}
         >
-          {outcome.outcome}
+          {badge.label}
         </span>
       </TableCell>
-      <TableCell>
-        <MatchIndicator status={match} />
+      <TableCell className="py-3 text-sm text-muted-foreground">
+        {outcome.failure_reason ?? "—"}
       </TableCell>
-      <TableCell className="text-center">
-        {outcome.collection_method ? (
-          <MethodBadge method={outcome.collection_method} />
-        ) : null}
-      </TableCell>
-      <TableCell className="text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+      <TableCell className="py-3 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
         {outcome.collection_amount && outcome.collection_currency
           ? formatCurrency(outcome.collection_amount, outcome.collection_currency)
           : "—"}
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {formatRelativeTime(outcome.attempted_at)}
+      <TableCell className="py-3 text-sm text-muted-foreground">
+        {formatDateTime(outcome.attempted_at)}
+      </TableCell>
+      <TableCell className="py-3 text-sm text-muted-foreground/80">
+        {formatRelativeTime(outcome.reported_at)}
+      </TableCell>
+      <TableCell className="py-3 text-center">
+        <MatchCell status={match} />
       </TableCell>
     </TableRow>
   );

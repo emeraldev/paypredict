@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { BellIcon, MenuIcon, SearchIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -7,11 +8,29 @@ import { Input } from "@/components/ui/input";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { ThemeToggle } from "./theme-toggle";
 
+const ROUTE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/dashboard/analytics": "Analytics",
+  "/dashboard/outcomes": "Outcomes",
+  "/dashboard/settings": "Settings",
+};
+
+function getRouteTitle(pathname: string): string {
+  if (ROUTE_TITLES[pathname]) return ROUTE_TITLES[pathname];
+  // fallback: longest matching prefix
+  const match = Object.keys(ROUTE_TITLES)
+    .filter((p) => pathname.startsWith(p))
+    .sort((a, b) => b.length - a.length)[0];
+  return match ? ROUTE_TITLES[match] : "Dashboard";
+}
+
 export function Topbar() {
   const { setMobileOpen } = useSidebar();
+  const pathname = usePathname();
+  const title = getRouteTitle(pathname);
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
       <Button
         variant="ghost"
         size="icon"
@@ -22,17 +41,29 @@ export function Topbar() {
         <MenuIcon className="h-5 w-5" />
       </Button>
 
-      <div className="relative hidden flex-1 max-w-md md:block">
-        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search collections, customers..." className="pl-9" />
-      </div>
+      <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
 
       <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
+        <div className="relative hidden md:block">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search..."
+            className="h-9 w-56 rounded-lg pl-9 pr-12 text-sm"
+          />
+          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            ⌘K
+          </kbd>
+        </div>
+
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <BellIcon className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+          <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+            3
+          </span>
         </Button>
+
+        <ThemeToggle />
+
         <Avatar className="h-8 w-8">
           <AvatarFallback className="text-xs">SA</AvatarFallback>
         </Avatar>

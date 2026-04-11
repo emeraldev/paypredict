@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheckIcon } from "lucide-react";
+import { ExternalLinkIcon, FileCodeIcon, ShieldCheckIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { NAV_ITEMS } from "./sidebar-nav-config";
@@ -28,6 +28,17 @@ export function MobileSidebar() {
               onClick={() => setMobileOpen(false)}
             />
           ))}
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            <FileCodeIcon className="h-4 w-4 shrink-0" />
+            <span>API Docs</span>
+            <ExternalLinkIcon className="ml-auto h-3.5 w-3.5 text-muted-foreground/70" />
+          </a>
         </nav>
       </SheetContent>
     </Sheet>
