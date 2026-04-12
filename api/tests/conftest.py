@@ -23,12 +23,17 @@ from app.models.factor_weight import FactorWeight
 from app.models.score_request import ScoreRequest
 from app.models.score_result import ScoreResult
 from app.models.outcome import Outcome
+from app.models.user import User, UserRole
 from app.scoring.registry import get_default_weights
+from app.services.auth_service import hash_password
 
 TEST_API_KEY = "pk_test_unit_test_key_1234567890abcdef"
 TEST_API_KEY_HASH = bcrypt.hashpw(
     TEST_API_KEY.encode("utf-8"), bcrypt.gensalt()
 ).decode("utf-8")
+
+TEST_USER_EMAIL = "demo@paypredict.test"
+TEST_USER_PASSWORD = "demo-password-1234"
 
 
 @pytest_asyncio.fixture
@@ -77,6 +82,7 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
     yield tenant
 
     # Cleanup
+    await db_session.execute(delete(User).where(User.tenant_id == tenant.id))
     await db_session.execute(delete(Outcome).where(Outcome.tenant_id == tenant.id))
     await db_session.execute(delete(ScoreResult).where(ScoreResult.tenant_id == tenant.id))
     await db_session.execute(delete(ScoreRequest).where(ScoreRequest.tenant_id == tenant.id))
@@ -84,6 +90,23 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
     await db_session.execute(delete(ApiKey).where(ApiKey.tenant_id == tenant.id))
     await db_session.execute(delete(Tenant).where(Tenant.id == tenant.id))
     await db_session.commit()
+
+
+@pytest_asyncio.fixture
+async def sa_admin_user(sa_tenant: Tenant, db_session: AsyncSession) -> User:
+    """Create an ADMIN user for the SA test tenant."""
+    user = User(
+        tenant_id=sa_tenant.id,
+        email=TEST_USER_EMAIL,
+        name="Test Admin",
+        password_hash=hash_password(TEST_USER_PASSWORD),
+        role=UserRole.ADMIN,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    # Eagerly load tenant for downstream usage (auth_service expects it)
+    user.tenant = sa_tenant
+    return user
 
 
 @pytest_asyncio.fixture

@@ -72,12 +72,34 @@ async def get_current_user(
 ) -> User:
     """Resolve the dashboard user from a session JWT.
 
-    Phase 2.5 placeholder: this will validate the JWT issued by
-    POST /v1/auth/login (Phase 2 of the dashboard-endpoints branch). Until
-    that lands, any caller of a dashboard endpoint gets a clear 501 — we
-    do NOT want a silent fallback that leaks data across tenants.
+    Validates the bearer token issued by POST /v1/auth/login, loads the
+    user from the DB with the tenant relationship eager-loaded, and refuses
+    requests for users whose tenant has been deactivated.
     """
-    raise HTTPException(
-        status_code=501,
-        detail="Dashboard session auth not implemented yet (Phase 2.5 step 2)",
-    )
+    # Lazy import to avoid circular dependency: auth_service uses some of
+    # the same DB models, and dependencies.py is imported by main.
+    from app.services.auth_service import decode_access_token, get_user_by_id
+
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = decode_access_token(credentials.credentials)
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    if not user.tenant.is_active:
+        raise HTTPException(status_code=401, detail="Tenant is deactivated")
+    return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Restrict an endpoint to ADMIN-role users.
+
+    Used by team management endpoints. Returns the user so the route handler
+    can still access it via Depends(require_admin) instead of stacking deps.
+    """
+    from app.models.user import UserRole
+
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return user
