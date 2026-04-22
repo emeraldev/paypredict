@@ -1,22 +1,30 @@
-"""Dashboard alert configuration endpoints.
+"""Dashboard alert configuration endpoints."""
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-Implemented in Phase 2.5 step 6 (config). Stubs raise 501.
-"""
-from fastapi import APIRouter, HTTPException
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.models.user import User
+from app.schemas.config import AlertsConfigResponse, AlertsConfigUpdateRequest
+from app.services.config_service import get_alerts_config, update_alerts_config
 
 router = APIRouter(prefix="/config/alerts", tags=["config"])
 
-_NOT_IMPLEMENTED = HTTPException(
-    status_code=501,
-    detail="Alert config endpoints land in Phase 2.5 step 6",
-)
+
+@router.get("", response_model=AlertsConfigResponse)
+async def get_config(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertsConfigResponse:
+    return await get_alerts_config(db, user.tenant_id)
 
 
-@router.get("")
-async def get_alerts_config() -> dict[str, str]:
-    raise _NOT_IMPLEMENTED
-
-
-@router.put("")
-async def update_alerts_config() -> dict[str, str]:
-    raise _NOT_IMPLEMENTED
+@router.put("", response_model=AlertsConfigResponse)
+async def update_config(
+    req: AlertsConfigUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertsConfigResponse:
+    result = await update_alerts_config(db, user.tenant_id, req)
+    await db.commit()
+    return result
