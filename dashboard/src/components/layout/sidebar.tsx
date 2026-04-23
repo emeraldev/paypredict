@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { mockTenant } from "@/lib/mock-data";
 import { NAV_ITEMS } from "./sidebar-nav-config";
 import { SidebarNavItem } from "./sidebar-nav-item";
 
@@ -23,6 +23,8 @@ const PLAN_LABEL: Record<string, string> = {
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebar();
+  const { user } = useAuth();
+  const tenant = user?.tenant;
 
   return (
     <aside
@@ -82,19 +84,19 @@ export function Sidebar() {
       >
         <div className={cn("flex items-center gap-3", collapsed && "gap-0")}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-foreground">
-            {initialsFromName(mockTenant.name)}
+            {tenant ? initialsFromName(tenant.name) : "?"}
           </div>
-          {!collapsed && (
+          {!collapsed && tenant && (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate text-sm font-medium text-foreground">
-                  {mockTenant.name}
+                  {tenant.name}
                 </span>
                 <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[10px] font-medium text-emerald-400">
-                  {PLAN_LABEL[mockTenant.plan] ?? mockTenant.plan}
+                  {PLAN_LABEL[tenant.plan] ?? tenant.plan}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">Admin</span>
+              <span className="text-xs text-muted-foreground">{user?.role ?? ""}</span>
             </div>
           )}
         </div>

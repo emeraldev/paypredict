@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { BellIcon, MenuIcon, SearchIcon } from "lucide-react";
+import { BellIcon, LogOutIcon, MenuIcon, SearchIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -26,8 +27,15 @@ function getRouteTitle(pathname: string): string {
 
 export function Topbar() {
   const { setMobileOpen } = useSidebar();
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const title = getRouteTitle(pathname);
+  const initials = user?.name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() ?? "?";
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
@@ -65,8 +73,18 @@ export function Topbar() {
         <ThemeToggle />
 
         <Avatar className="h-8 w-8">
-          <AvatarFallback className="text-xs">SA</AvatarFallback>
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
         </Avatar>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={logout}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOutIcon className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );
