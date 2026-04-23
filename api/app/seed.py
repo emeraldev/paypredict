@@ -26,6 +26,8 @@ from app.models.factor_weight import FactorWeight
 from app.models.outcome import FailureCategory, Outcome, OutcomeStatus
 from app.models.score_request import CollectionCurrency, CollectionMethod, ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
+from app.models.alert import Alert, AlertType
+from app.models.backtest import BacktestItem, BacktestRun, BacktestStatus
 from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.user import User, UserRole
 from app.scoring.engine import ScoringEngine
@@ -231,8 +233,8 @@ async def seed() -> None:
 
         all_scores: list[tuple[ScoreResult, ScoreRequest]] = []
 
-        # SA: 40 scores
-        for i in range(40):
+        # SA: 150 scores
+        for i in range(150):
             bias = rng.choice(risk_biases)
             method = rng.choice(sa_methods)
             customer_data = _sa_customer(rng, bias)
@@ -306,8 +308,8 @@ async def seed() -> None:
             db.add(res)
             all_scores.append((res, req))
 
-        # ZM: 20 scores
-        for i in range(20):
+        # ZM: 80 scores
+        for i in range(80):
             bias = rng.choice(risk_biases)
             customer_data = _zm_customer(rng, bias)
             amount = round(rng.uniform(50, 1500), 2)
@@ -424,6 +426,134 @@ async def seed() -> None:
             ))
             outcome_count += 1
 
+        # Flush scores + outcomes before adding alerts/backtests that reference tenants
+        await db.flush()
+
+        # ---- Alerts (3 for SA tenant: 1 unread, 2 read) ----
+        db.add(Alert(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            alert_type=AlertType.HIGH_RISK_BATCH,
+            message="12 of 50 collections (24%) scored as high risk — exceeds 20% threshold",
+            metadata_={"high_risk_count": 12, "total": 50, "percentage": 0.24, "threshold": 0.2},
+            is_read=False,
+            created_at=now - timedelta(hours=2),
+        ))
+        db.add(Alert(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            alert_type=AlertType.HIGH_RISK_BATCH,
+            message="8 of 30 collections (27%) scored as high risk — exceeds 20% threshold",
+            metadata_={"high_risk_count": 8, "total": 30, "percentage": 0.27, "threshold": 0.2},
+            is_read=True,
+            created_at=now - timedelta(days=3),
+        ))
+        db.add(Alert(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            alert_type=AlertType.COLLECTION_RATE_DROP,
+            message="Collection rate dropped to 71% (below 75% baseline)",
+            metadata_={"current_rate": 0.71, "baseline": 0.75},
+            is_read=True,
+            created_at=now - timedelta(days=7),
+        ))
+
+        # ---- Backtest run (1 completed, 50 items for SA tenant) ----
+        bt_items_data = []
+        for i in range(50):
+            bias = rng.choice(risk_biases)
+            cust = _sa_customer(rng, bias)
+            amt = round(rng.uniform(500, 5000), 2)
+            method = rng.choice(sa_methods)
+            outcome_val = "FAILED" if rng.random() < 0.3 else "SUCCESS"
+
+            coll_data = {
+                "collection_amount": amt,
+                "collection_due_date": (now - timedelta(days=rng.randint(30, 180))).date(),
+                "collection_method": method.value,
+                "collection_currency": "ZAR",
+            }
+            sr = engine.score(
+                factor_set="CARD_DEBIT",
+                customer_data=cust,
+                collection_data=coll_data,
+                collection_method=method,
+            )
+            matched = (
+                (sr.risk_level == "HIGH" and outcome_val == "FAILED")
+                or (sr.risk_level == "LOW" and outcome_val == "SUCCESS")
+                or sr.risk_level == "MEDIUM"
+            )
+            bt_items_data.append({
+                "cust_id": f"bt_cust_{i+1:03d}",
+                "col_id": f"bt_col_{i+1:03d}",
+                "amount": Decimal(str(amt)),
+                "method": method.value,
+                "score": sr.score,
+                "risk": sr.risk_level,
+                "outcome": outcome_val,
+                "reason": rng.choice(["insufficient_funds", "do_not_honour", None]) if outcome_val == "FAILED" else None,
+                "factors": {
+                    "evaluated": [{"factor_name": f.factor_name, "raw_score": f.raw_score, "weight": f.weight, "weighted_score": f.weighted_score, "explanation": f.explanation} for f in sr.factors],
+                    "skipped": sr.skipped_factors,
+                },
+                "matched": matched,
+            })
+
+        bt_matched = sum(1 for d in bt_items_data if d["matched"])
+        bt_failed = [d for d in bt_items_data if d["outcome"] == "FAILED"]
+        bt_accuracy = bt_matched / len(bt_items_data) if bt_items_data else 0
+        bt_failed_value = sum(float(d["amount"]) for d in bt_failed)
+        bt_high_failed = [d for d in bt_failed if d["risk"] == "HIGH"]
+        bt_flagged = sum(float(d["amount"]) for d in bt_high_failed)
+
+        bt_run = BacktestRun(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            name="Q4 2025 Card Collections",
+            status=BacktestStatus.COMPLETED,
+            total_collections=50,
+            factor_set_used="CARD_DEBIT",
+            weights_used=get_default_weights("CARD_DEBIT"),
+            summary={
+                "overall_accuracy": round(bt_accuracy, 3),
+                "collection_rate_actual": round(1 - len(bt_failed) / 50, 3),
+                "collection_rate_if_acted": round(min(1, 1 - len(bt_failed) / 50 + len(bt_high_failed) * 0.6 / 50), 3),
+                "estimated_annual_recovery": round(bt_flagged * 0.6 * 12, 2),
+                "total_failed_value": round(bt_failed_value, 2),
+                "flagged_in_advance_value": round(bt_flagged, 2),
+            },
+            confusion_matrix={
+                "predicted_high_actual_failed": sum(1 for d in bt_items_data if d["risk"] == "HIGH" and d["outcome"] == "FAILED"),
+                "predicted_high_actual_success": sum(1 for d in bt_items_data if d["risk"] == "HIGH" and d["outcome"] == "SUCCESS"),
+                "predicted_medium_actual_failed": sum(1 for d in bt_items_data if d["risk"] == "MEDIUM" and d["outcome"] == "FAILED"),
+                "predicted_medium_actual_success": sum(1 for d in bt_items_data if d["risk"] == "MEDIUM" and d["outcome"] == "SUCCESS"),
+                "predicted_low_actual_failed": sum(1 for d in bt_items_data if d["risk"] == "LOW" and d["outcome"] == "FAILED"),
+                "predicted_low_actual_success": sum(1 for d in bt_items_data if d["risk"] == "LOW" and d["outcome"] == "SUCCESS"),
+            },
+            top_failure_factors=[],
+            started_at=now - timedelta(days=5),
+            completed_at=now - timedelta(days=5) + timedelta(seconds=12),
+            created_at=now - timedelta(days=5),
+        )
+        db.add(bt_run)
+
+        for d in bt_items_data:
+            db.add(BacktestItem(
+                id=uuid.uuid4(),
+                backtest_run_id=bt_run.id,
+                external_customer_id=d["cust_id"],
+                external_collection_id=d["col_id"],
+                collection_amount=d["amount"],
+                collection_method=d["method"],
+                predicted_score=d["score"],
+                predicted_risk_level=d["risk"],
+                actual_outcome=d["outcome"],
+                failure_reason=d["reason"],
+                factors=d["factors"],
+                prediction_matched=d["matched"],
+            ))
+
         await db.commit()
 
         # ---- Summary ----
@@ -436,15 +566,18 @@ async def seed() -> None:
         print(f"  Scores:   {len(all_scores)} (HIGH={high}, MEDIUM={medium}, LOW={low})")
         print(f"  Outcomes: {outcome_count} ({outcome_count}/{len(all_scores)} = {outcome_count*100//len(all_scores)}%)")
         print()
+        print(f"  Alerts:   3 (1 unread, 2 read)")
+        print(f"  Backtest: 1 completed run (50 items)")
+        print()
         print("=== SA Tenant ===")
         print(f"  Tenant ID: {sa_tenant.id}")
         print(f"  API Key:   {sa_raw}")
-        print(f"  Scores:    40  (CARD + DEBIT_ORDER)")
+        print(f"  Scores:    150 (CARD + DEBIT_ORDER)")
         print()
         print("=== ZM Tenant ===")
         print(f"  Tenant ID: {zm_tenant.id}")
         print(f"  API Key:   {zm_raw}")
-        print(f"  Scores:    20  (MOBILE_MONEY)")
+        print(f"  Scores:    80  (MOBILE_MONEY)")
         print()
         print("=== Dashboard Login ===")
         print(f"  Admin:  admin@demo-sa.paypredict.dev  / admin123")
