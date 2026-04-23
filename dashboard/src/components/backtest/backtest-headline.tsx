@@ -19,11 +19,11 @@ export function BacktestHeadline({ summary }: BacktestHeadlineProps) {
           of your failures in advance
         </p>
         <p className="mt-2 text-lg text-emerald-700 dark:text-emerald-400">
-          Recovering an estimated{" "}
+          Estimated recovery:{" "}
           <span className="font-bold">
             {formatCompactCurrency(summary.estimated_annual_recovery, "ZAR")}
-          </span>{" "}
-          annually
+          </span>
+          {summary.estimated_annual_recovery > summary.flagged_in_advance_value && " annually"}
         </p>
       </CardContent>
     </Card>

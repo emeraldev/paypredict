@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -122,8 +122,9 @@ async def run_backtest(
         items.append(item)
         db.add(item)
 
-    # Compute summary stats
-    summary = _compute_summary(items)
+    # Compute summary stats — pass collection dates for annualization
+    collection_dates = [coll.collection_date for coll in collections]
+    summary = _compute_summary(items, collection_dates)
     confusion = _compute_confusion_matrix(items)
     top_factors = _compute_top_failure_factors(items)
     risk_dist = _compute_risk_distribution(items)
@@ -150,7 +151,10 @@ async def run_backtest(
     )
 
 
-def _compute_summary(items: list[BacktestItem]) -> BacktestSummary:
+def _compute_summary(
+    items: list[BacktestItem],
+    collection_dates: list[date] | None = None,
+) -> BacktestSummary:
     total = len(items)
     matched = sum(1 for i in items if i.prediction_matched)
     failed = [i for i in items if i.actual_outcome == "FAILED"]
@@ -172,9 +176,20 @@ def _compute_summary(items: list[BacktestItem]) -> BacktestSummary:
     acted_successes = len(succeeded) + len(flagged_failures) * 0.6
     acted_rate = acted_successes / total if total > 0 else 0
 
-    # Annualise: scale the recovery based on the backtest period
-    # Simple estimate: multiply monthly by 12
-    annual_recovery = recovered * 12
+    # Annualise based on actual date span of the data.
+    # Only annualize with enough data (20+ records spanning 14+ days).
+    # For small datasets, just show the raw recovery — annualizing
+    # 3 records is misleading.
+    if collection_dates and len(collection_dates) >= 20:
+        span_days = (max(collection_dates) - min(collection_dates)).days
+        if span_days >= 14:
+            annualization_factor = 365 / span_days
+        else:
+            annualization_factor = 1.0
+    else:
+        annualization_factor = 1.0
+
+    annual_recovery = recovered * annualization_factor
 
     return BacktestSummary(
         overall_accuracy=round(matched / total, 3) if total > 0 else 0,
