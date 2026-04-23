@@ -3,18 +3,18 @@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskScoreDisplay } from "@/components/shared/risk-score-display";
-import type { Collection } from "@/lib/api/types";
+import type { ScoreListItem } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatDate, formatRelativeDate } from "@/lib/utils/format-date";
 
 interface CollectionsTableRowProps {
-  collection: Collection;
+  collection: ScoreListItem;
   onClick: () => void;
 }
 
 // Derive market label from currency. ZAR=SA, ZMW=ZM.
-function marketLabel(currency: Collection["collection_currency"]): string {
+function marketLabel(currency: ScoreListItem["collection_currency"]): string {
   return currency === "ZAR" ? "SA" : "ZM";
 }
 
@@ -22,8 +22,8 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
   const due = formatRelativeDate(collection.collection_due_date);
   const isOverdue = due.text === "Overdue";
 
-  const instalmentNumber = collection.customer_data.instalment_number ?? null;
-  const totalInstalments = collection.customer_data.total_instalments ?? null;
+  const instalmentNumber = collection.instalment_number ?? null;
+  const totalInstalments = collection.total_instalments ?? null;
   const showInstalment = instalmentNumber !== null && totalInstalments !== null && totalInstalments > 0;
   const instalmentPct = showInstalment
     ? Math.min(100, Math.round((instalmentNumber! / totalInstalments!) * 100))

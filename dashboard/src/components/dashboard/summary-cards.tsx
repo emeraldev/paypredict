@@ -7,13 +7,13 @@ import {
   ClockIcon,
   type LucideIcon,
 } from "lucide-react";
-import type { Collection } from "@/lib/api/types";
+import type { ScoresSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCompactCurrency } from "@/lib/utils/format-currency";
 import type { RiskLevel } from "@/lib/utils/format-risk";
 
 interface SummaryCardsProps {
-  collections: Collection[];
+  summary: ScoresSummary;
   activeFilter: RiskLevel | null;
   onFilterChange: (filter: RiskLevel | null) => void;
 }
@@ -102,18 +102,11 @@ function RiskCard({ label, value, subtitle, icon: Icon, tone, active, onClick }:
 }
 
 export function SummaryCards({
-  collections,
+  summary,
   activeFilter,
   onFilterChange,
 }: SummaryCardsProps) {
-  const total = collections.length;
-  const highCollections = collections.filter((c) => c.risk_level === "HIGH");
-  const mediumCount = collections.filter((c) => c.risk_level === "MEDIUM").length;
-  const lowCount = collections.filter((c) => c.risk_level === "LOW").length;
-
-  // Value at risk for HIGH (use first currency we encounter — mock data is mixed)
-  const valueAtRisk = highCollections.reduce((sum, c) => sum + c.collection_amount, 0);
-  const currency = highCollections[0]?.collection_currency ?? "ZAR";
+  const total = summary.high_risk + summary.medium_risk + summary.low_risk;
 
   const toggleFilter = (level: RiskLevel) => {
     onFilterChange(activeFilter === level ? null : level);
@@ -130,10 +123,10 @@ export function SummaryCards({
       />
       <RiskCard
         label="High Risk"
-        value={highCollections.length}
+        value={summary.high_risk}
         subtitle={
-          valueAtRisk > 0
-            ? `${formatCompactCurrency(valueAtRisk, currency)} at risk`
+          summary.total_value_at_risk > 0
+            ? `${formatCompactCurrency(summary.total_value_at_risk, "ZAR")} at risk`
             : "no high-risk items"
         }
         icon={AlertTriangleIcon}
@@ -143,7 +136,7 @@ export function SummaryCards({
       />
       <RiskCard
         label="Medium Risk"
-        value={mediumCount}
+        value={summary.medium_risk}
         subtitle="need monitoring"
         icon={AlertCircleIcon}
         tone={MEDIUM_TONE}
@@ -152,7 +145,7 @@ export function SummaryCards({
       />
       <RiskCard
         label="Low Risk"
-        value={lowCount}
+        value={summary.low_risk}
         subtitle="looking good"
         icon={CheckCircle2Icon}
         tone={LOW_TONE}
