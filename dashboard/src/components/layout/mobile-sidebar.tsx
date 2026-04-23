@@ -9,6 +9,8 @@ import { SidebarNavItem } from "./sidebar-nav-item";
 export function MobileSidebar() {
   const { mobileOpen, setMobileOpen } = useSidebar();
 
+  if (!mobileOpen) return null;
+
   return (
     <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
       <SheetContent side="left" className="w-72 p-0">
