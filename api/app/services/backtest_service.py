@@ -157,15 +157,19 @@ def _compute_summary(items: list[BacktestItem]) -> BacktestSummary:
     succeeded = [i for i in items if i.actual_outcome == "SUCCESS"]
 
     total_failed_value = float(sum(i.collection_amount for i in failed))
-    high_risk_failed = [
-        i for i in failed if i.predicted_risk_level == "HIGH"
+
+    # Flagged = failures that were predicted as HIGH or MEDIUM risk
+    # (these are the ones PayPredict would have warned about)
+    flagged_failures = [
+        i for i in failed
+        if i.predicted_risk_level in ("HIGH", "MEDIUM")
     ]
-    flagged_value = float(sum(i.collection_amount for i in high_risk_failed))
+    flagged_value = float(sum(i.collection_amount for i in flagged_failures))
 
     actual_rate = len(succeeded) / total if total > 0 else 0
-    # "If acted" rate: assume we'd have recovered 60% of high-risk flagged failures
+    # "If acted" rate: assume pre-collection action recovers 60% of flagged failures
     recovered = flagged_value * 0.6
-    acted_successes = len(succeeded) + len(high_risk_failed) * 0.6
+    acted_successes = len(succeeded) + len(flagged_failures) * 0.6
     acted_rate = acted_successes / total if total > 0 else 0
 
     # Annualise: scale the recovery based on the backtest period
