@@ -94,6 +94,27 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
               Download template
             </a>
           </div>
+          <div className="mt-2 max-w-md text-left text-[11px] text-muted-foreground/70">
+            <p className="font-medium text-muted-foreground mb-1">Required columns:</p>
+            <p>
+              <span className="font-mono">external_customer_id</span>,{" "}
+              <span className="font-mono">external_collection_id</span>,{" "}
+              <span className="font-mono">collection_amount</span>,{" "}
+              <span className="font-mono">collection_currency</span> (ZAR/ZMW),{" "}
+              <span className="font-mono">collection_date</span> (YYYY-MM-DD),{" "}
+              <span className="font-mono">collection_method</span> (CARD/DEBIT_ORDER/MOBILE_MONEY),{" "}
+              <span className="font-mono">actual_outcome</span> (SUCCESS/FAILED)
+            </p>
+            <p className="mt-1">
+              Optional: <span className="font-mono">total_payments</span>,{" "}
+              <span className="font-mono">successful_payments</span>,{" "}
+              <span className="font-mono">instalment_number</span>,{" "}
+              <span className="font-mono">total_instalments</span>,{" "}
+              <span className="font-mono">card_type</span>,{" "}
+              <span className="font-mono">card_expiry</span>,{" "}
+              <span className="font-mono">failure_reason</span>
+            </p>
+          </div>
           <input
             ref={inputRef}
             type="file"

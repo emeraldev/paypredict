@@ -504,8 +504,8 @@ async def seed() -> None:
         bt_failed = [d for d in bt_items_data if d["outcome"] == "FAILED"]
         bt_accuracy = bt_matched / len(bt_items_data) if bt_items_data else 0
         bt_failed_value = sum(float(d["amount"]) for d in bt_failed)
-        bt_high_failed = [d for d in bt_failed if d["risk"] == "HIGH"]
-        bt_flagged = sum(float(d["amount"]) for d in bt_high_failed)
+        bt_flagged_failures = [d for d in bt_failed if d["risk"] in ("HIGH", "MEDIUM")]
+        bt_flagged = sum(float(d["amount"]) for d in bt_flagged_failures)
 
         bt_run = BacktestRun(
             id=uuid.uuid4(),
@@ -518,7 +518,7 @@ async def seed() -> None:
             summary={
                 "overall_accuracy": round(bt_accuracy, 3),
                 "collection_rate_actual": round(1 - len(bt_failed) / 50, 3),
-                "collection_rate_if_acted": round(min(1, 1 - len(bt_failed) / 50 + len(bt_high_failed) * 0.6 / 50), 3),
+                "collection_rate_if_acted": round(min(1, 1 - len(bt_failed) / 50 + len(bt_flagged_failures) * 0.6 / 50), 3),
                 "estimated_annual_recovery": round(bt_flagged * 0.6 * 12, 2),
                 "total_failed_value": round(bt_failed_value, 2),
                 "flagged_in_advance_value": round(bt_flagged, 2),
