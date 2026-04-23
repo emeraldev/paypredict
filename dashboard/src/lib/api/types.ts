@@ -370,3 +370,78 @@ export interface ApiErrorBody {
   };
   detail?: string;
 }
+
+// ==================== Backtest ====================
+
+export interface BacktestRiskBucket {
+  count: number;
+  actually_failed: number;
+  accuracy: number;
+}
+
+export interface BacktestSummary {
+  overall_accuracy: number;
+  collection_rate_actual: number;
+  collection_rate_if_acted: number;
+  estimated_annual_recovery: number;
+  total_failed_value: number;
+  flagged_in_advance_value: number;
+}
+
+export interface BacktestFactorContribution {
+  factor: string;
+  avg_score_in_failures: number;
+  contribution: number;
+}
+
+export interface BacktestConfusionMatrix {
+  predicted_high_actual_failed: number;
+  predicted_high_actual_success: number;
+  predicted_medium_actual_failed: number;
+  predicted_medium_actual_success: number;
+  predicted_low_actual_failed: number;
+  predicted_low_actual_success: number;
+}
+
+export interface BacktestResponse {
+  backtest_id: string;
+  name: string | null;
+  total_collections: number;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  summary: BacktestSummary | null;
+  risk_distribution: Record<string, BacktestRiskBucket> | null;
+  top_failure_factors: BacktestFactorContribution[] | null;
+  confusion_matrix: BacktestConfusionMatrix | null;
+  errors?: Array<{ row: number; field: string; message: string }>;
+}
+
+export interface BacktestListItem {
+  backtest_id: string;
+  name: string | null;
+  total_collections: number;
+  status: string;
+  overall_accuracy: number | null;
+  created_at: string;
+}
+
+export interface BacktestListResponse {
+  items: BacktestListItem[];
+}
+
+export interface BacktestRequest {
+  name?: string;
+  collections: Array<{
+    external_customer_id: string;
+    external_collection_id: string;
+    collection_amount: number;
+    collection_currency: string;
+    collection_date: string;
+    collection_method: string;
+    customer_data?: Record<string, unknown>;
+    actual_outcome: string;
+    failure_reason?: string | null;
+  }>;
+}
+

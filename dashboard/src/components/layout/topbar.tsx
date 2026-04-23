@@ -13,6 +13,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/analytics": "Analytics",
   "/dashboard/outcomes": "Outcomes",
+  "/dashboard/backtest": "Backtest",
   "/dashboard/settings": "Settings",
 };
 
