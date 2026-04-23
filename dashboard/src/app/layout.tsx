@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider, themeNoFlashScript } from "@/hooks/use-theme";
 import "./globals.css";
 
@@ -43,8 +44,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeNoFlashScript }}
         />
         <ThemeProvider>
-          {children}
-          <Toaster richColors position="top-right" />
+          <AuthProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
