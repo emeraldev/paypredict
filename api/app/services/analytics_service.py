@@ -131,8 +131,8 @@ async def get_summary(
             low_risk_success_rate=low_success_rate,
             overall_accuracy=overall_accuracy,
         ),
-        total_value_scored=sr.total_value_scored,
-        total_value_at_risk=sr.value_at_risk,
+        total_value_scored=float(sr.total_value_scored),
+        total_value_at_risk=float(sr.value_at_risk),
         avg_score=round(float(sr.avg_score), 3),
         outcomes_reporting_rate=reporting_rate,
     )
