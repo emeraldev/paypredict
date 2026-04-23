@@ -157,6 +157,10 @@ async def score_bulk_sync(
 
     await db.flush()
 
+    # Evaluate alert threshold after scoring
+    from app.services.alert_service import evaluate_alerts
+    await evaluate_alerts(tenant, summary, db)
+
     return {
         "status": "completed",
         "total_items": len(results),
