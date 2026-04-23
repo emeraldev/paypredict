@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
+import { useApi } from "@/hooks/use-api";
+import { alertsApi } from "@/lib/api/alerts";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -38,6 +40,9 @@ export function Topbar() {
     .join("")
     .toUpperCase() ?? "?";
 
+  const { data: alertsData } = useApi(() => alertsApi.list(), []);
+  const unreadCount = alertsData?.unread_count ?? 0;
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
       <Button
@@ -66,9 +71,11 @@ export function Topbar() {
 
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <BellIcon className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-            3
-          </span>
+          {unreadCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              {unreadCount}
+            </span>
+          )}
         </Button>
 
         <ThemeToggle />

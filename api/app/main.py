@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.api.v1 import (
+    alerts,
     alerts_config,
     analytics,
     api_keys,
@@ -65,3 +66,4 @@ app.include_router(team.router, prefix="/v1")
 app.include_router(alerts_config.router, prefix="/v1")
 app.include_router(weights.router, prefix="/v1")
 app.include_router(backtest.router, prefix="/v1")
+app.include_router(alerts.router, prefix="/v1")
