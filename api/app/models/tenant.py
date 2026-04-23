@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -28,6 +28,12 @@ class Plan(str, enum.Enum):
     SCALE = "SCALE"
 
 
+class EmailDigest(str, enum.Enum):
+    OFF = "OFF"
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+
+
 class Tenant(Base):
     __tablename__ = "tenants"
 
@@ -46,6 +52,14 @@ class Tenant(Base):
     webhook_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     slack_webhook_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     alert_threshold: Mapped[float] = mapped_column(Float, default=0.20, nullable=False)
+    email_digest: Mapped[EmailDigest] = mapped_column(
+        Enum(EmailDigest, name="email_digest_enum"),
+        default=EmailDigest.OFF,
+        nullable=False,
+    )
+    email_recipients: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

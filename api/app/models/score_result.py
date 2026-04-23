@@ -48,4 +48,11 @@ class ScoreResult(Base):
     __table_args__ = (
         Index("ix_score_results_tenant_created", "tenant_id", "created_at"),
         Index("ix_score_results_tenant_risk", "tenant_id", "risk_level"),
+        # Composite for filtered list queries (dashboard scores list)
+        Index(
+            "ix_score_results_tenant_risk_created",
+            "tenant_id",
+            "risk_level",
+            "created_at",
+        ),
     )

@@ -5,7 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.api.v1 import health, scores, outcomes
+from app.api.v1 import (
+    alerts_config,
+    analytics,
+    api_keys,
+    auth,
+    health,
+    outcomes,
+    outcomes_list,
+    scores,
+    scores_list,
+    team,
+)
 
 
 @asynccontextmanager
@@ -34,5 +45,17 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/v1")
+
+# Lender-facing API-key endpoints (Phase 1)
 app.include_router(scores.router, prefix="/v1")
 app.include_router(outcomes.router, prefix="/v1")
+
+# Dashboard session-auth endpoints (Phase 2.5 — stubs return 501 until each
+# step lands)
+app.include_router(auth.router, prefix="/v1")
+app.include_router(scores_list.router, prefix="/v1")
+app.include_router(outcomes_list.router, prefix="/v1")
+app.include_router(analytics.router, prefix="/v1")
+app.include_router(api_keys.router, prefix="/v1")
+app.include_router(team.router, prefix="/v1")
+app.include_router(alerts_config.router, prefix="/v1")
