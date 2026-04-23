@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,18 +9,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ApiKey } from "@/lib/api/types";
-import { mockApiKeys } from "@/lib/mock-data";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { useApi } from "@/hooks/use-api";
+import { configApi } from "@/lib/api/config";
 import { ApiKeyRow } from "./api-key-row";
 import { CreateKeyDialog } from "./create-key-dialog";
 
 export function ApiKeysTab() {
-  const [keys, setKeys] = useState<ApiKey[]>(mockApiKeys);
+  const { data, loading, error, refetch } = useApi(() => configApi.getApiKeys(), []);
 
-  const handleRevoke = (id: string) => {
-    setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, is_active: false } : k)));
-    toast.success("API key revoked");
+  const handleRevoke = async (id: string) => {
+    try {
+      await configApi.revokeApiKey(id);
+      toast.success("API key revoked");
+      refetch();
+    } catch {
+      toast.error("Failed to revoke key");
+    }
   };
+
+  if (loading) return <LoadingSkeleton variant="rows" count={3} />;
+  if (error) return <p className="text-sm text-muted-foreground">Failed to load API keys: {error}</p>;
 
   return (
     <Card>
@@ -47,7 +55,7 @@ export function ApiKeysTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {keys.map((key) => (
+            {(data?.items ?? []).map((key) => (
               <ApiKeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
             ))}
           </TableBody>

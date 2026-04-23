@@ -2,11 +2,11 @@
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import type { ApiKey } from "@/lib/api/types";
+import type { ApiKeyListItem } from "@/lib/api/types";
 import { formatDate, formatRelativeTime } from "@/lib/utils/format-date";
 
 interface ApiKeyRowProps {
-  apiKey: ApiKey;
+  apiKey: ApiKeyListItem;
   onRevoke: (id: string) => void;
 }
 
@@ -15,7 +15,7 @@ export function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
     <TableRow>
       <TableCell className="font-medium">{apiKey.label}</TableCell>
       <TableCell className="font-mono text-xs text-muted-foreground">
-        {apiKey.key_prefix}•••••••••
+        {apiKey.prefix}•••••••••
       </TableCell>
       <TableCell>
         <span

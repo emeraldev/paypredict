@@ -11,10 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { ROLE_CONFIG } from "@/lib/constants";
-import { mockTeamMembers } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format-date";
+import { useApi } from "@/hooks/use-api";
+import { configApi } from "@/lib/api/config";
 
 function getInitials(name: string): string {
   return name
@@ -26,6 +28,13 @@ function getInitials(name: string): string {
 }
 
 export function TeamTab() {
+  const { data, loading, error } = useApi(() => configApi.getTeam(), []);
+
+  if (loading) return <LoadingSkeleton variant="rows" count={3} />;
+  if (error) return <p className="text-sm text-muted-foreground">Failed to load team: {error}</p>;
+
+  const members = data?.items ?? [];
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -49,7 +58,7 @@ export function TeamTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockTeamMembers.map((member) => (
+            {members.map((member) => (
               <TableRow key={member.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
