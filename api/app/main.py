@@ -11,6 +11,7 @@ from app.api.v1 import (
     api_keys,
     auth,
     backtest,
+    bulk_score,
     health,
     outcomes,
     outcomes_list,
@@ -50,6 +51,7 @@ app.include_router(health.router, prefix="/v1")
 
 # Lender-facing API-key endpoints (Phase 1)
 app.include_router(scores.router, prefix="/v1")
+app.include_router(bulk_score.router, prefix="/v1")
 app.include_router(outcomes.router, prefix="/v1")
 
 # Dashboard session-auth endpoints (Phase 2.5 — stubs return 501 until each
