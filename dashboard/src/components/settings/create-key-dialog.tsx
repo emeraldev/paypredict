@@ -14,20 +14,28 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { configApi } from "@/lib/api/config";
 
 export function CreateKeyDialog() {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!label.trim()) {
       toast.error("Enter a label for the key");
       return;
     }
-    // Mock key generation
-    const key = `pk_test_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
-    setGeneratedKey(key);
+    setCreating(true);
+    try {
+      const res = await configApi.createApiKey(label.trim());
+      setGeneratedKey(res.key);
+    } catch {
+      toast.error("Failed to create API key");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -89,7 +97,9 @@ export function CreateKeyDialog() {
 
         <DialogFooter>
           {!generatedKey ? (
-            <Button onClick={handleCreate}>Create key</Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? "Creating..." : "Create key"}
+            </Button>
           ) : (
             <Button onClick={handleClose}>Done</Button>
           )}
