@@ -22,7 +22,7 @@ export function CollectionRateChart({ data }: CollectionRateChartProps) {
   const formatted = data.map((p) => ({
     ...p,
     label: format(new Date(p.date), "dd MMM"),
-    ratePct: Math.round(p.rate * 100),
+    ratePct: Math.round(p.collection_rate * 100),
   }));
 
   return (

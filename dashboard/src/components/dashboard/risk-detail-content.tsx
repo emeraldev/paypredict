@@ -1,17 +1,17 @@
 import { CalendarIcon, ZapIcon } from "lucide-react";
-import { CustomerContextCards } from "@/components/shared/customer-context-cards";
 import { FactorBreakdown } from "@/components/shared/factor-breakdown";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
 import { Separator } from "@/components/ui/separator";
-import type { Collection } from "@/lib/api/types";
+import { Card, CardContent } from "@/components/ui/card";
+import type { ScoreDetailResponse } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatDate } from "@/lib/utils/format-date";
 import { displayScore, getRiskConfig } from "@/lib/utils/format-risk";
 
 interface RiskDetailContentProps {
-  collection: Collection;
+  detail: ScoreDetailResponse;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -23,8 +23,9 @@ const ACTION_LABELS: Record<string, string> = {
 
 const SECTION_LABEL = "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
 
-export function RiskDetailContent({ collection }: RiskDetailContentProps) {
-  const riskConfig = getRiskConfig(collection.risk_level);
+export function RiskDetailContent({ detail }: RiskDetailContentProps) {
+  const riskConfig = getRiskConfig(detail.risk_level);
+  const ctx = detail.customer_context;
 
   return (
     <div className="space-y-6 p-6">
@@ -38,15 +39,15 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
                 riskConfig.color,
               )}
             >
-              {displayScore(collection.score)}
+              {displayScore(detail.score)}
             </span>
           </div>
-          <RiskBadge level={collection.risk_level} className="text-sm px-3 py-1" />
+          <RiskBadge level={detail.risk_level} className="text-sm px-3 py-1" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <MethodBadge method={collection.collection_method} />
+          <MethodBadge method={detail.collection_method} />
           <span className="font-mono text-xs text-muted-foreground">
-            {collection.model_version}
+            {detail.model_version}
           </span>
         </div>
       </div>
@@ -60,12 +61,12 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
           </span>
         </div>
         <p className="mt-2 text-sm font-medium text-foreground">
-          {ACTION_LABELS[collection.recommended_action] ?? collection.recommended_action}
+          {ACTION_LABELS[detail.recommended_action] ?? detail.recommended_action}
         </p>
-        {collection.recommended_collection_date && (
+        {detail.recommended_collection_date && (
           <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <CalendarIcon className="h-3.5 w-3.5" />
-            Suggested date: {formatDate(collection.recommended_collection_date)}
+            Suggested date: {formatDate(detail.recommended_collection_date)}
           </p>
         )}
       </div>
@@ -77,17 +78,17 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
         <h3 className={SECTION_LABEL}>Collection</h3>
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <span className="text-muted-foreground">Customer</span>
-          <span className="font-medium text-foreground">{collection.external_customer_id}</span>
+          <span className="font-medium text-foreground">{detail.external_customer_id}</span>
           <span className="text-muted-foreground">Collection ID</span>
           <span className="font-mono text-xs text-foreground">
-            {collection.external_collection_id}
+            {detail.external_collection_id}
           </span>
           <span className="text-muted-foreground">Amount</span>
           <span className="font-mono font-semibold tabular-nums text-foreground">
-            {formatCurrency(collection.collection_amount, collection.collection_currency)}
+            {formatCurrency(detail.collection_amount, detail.collection_currency)}
           </span>
           <span className="text-muted-foreground">Due Date</span>
-          <span className="text-foreground">{formatDate(collection.collection_due_date)}</span>
+          <span className="text-foreground">{formatDate(detail.collection_due_date)}</span>
         </div>
       </div>
 
@@ -96,7 +97,39 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
       {/* Customer context */}
       <div className="space-y-3">
         <h3 className={SECTION_LABEL}>Customer Context</h3>
-        <CustomerContextCards customer={collection.customer_data} />
+        <div className="grid grid-cols-2 gap-3">
+          {ctx.total_payments != null && (
+            <Card className="border-border/60 bg-muted/40">
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Payment History</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {ctx.successful_payments ?? 0}/{ctx.total_payments}
+                  {ctx.success_rate != null && ` (${Math.round(ctx.success_rate * 100)}%)`}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {ctx.days_since_last_payment != null && (
+            <Card className="border-border/60 bg-muted/40">
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Days Since Last Payment</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {ctx.days_since_last_payment}d ago
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {detail.instalment_number != null && detail.total_instalments != null && (
+            <Card className="border-border/60 bg-muted/40">
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Instalment</p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {detail.instalment_number} of {detail.total_instalments}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
       <Separator />
@@ -105,8 +138,8 @@ export function RiskDetailContent({ collection }: RiskDetailContentProps) {
       <div className="space-y-3">
         <h3 className={SECTION_LABEL}>Factor Breakdown</h3>
         <FactorBreakdown
-          factors={collection.factors}
-          skippedFactors={collection.skipped_factors}
+          factors={detail.factors}
+          skippedFactors={detail.skipped_factors}
         />
       </div>
     </div>

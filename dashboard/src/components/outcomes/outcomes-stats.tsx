@@ -1,37 +1,32 @@
 import { StatCard } from "@/components/shared/stat-card";
-import type { OutcomeStats } from "@/lib/api/types";
+import type { OutcomeListStats } from "@/lib/api/types";
 
 interface OutcomesStatsProps {
-  stats: OutcomeStats;
+  stats: OutcomeListStats;
 }
 
 export function OutcomesStats({ stats }: OutcomesStatsProps) {
-  const accuracy =
-    stats.matched + stats.mismatched > 0
-      ? Math.round((stats.matched / (stats.matched + stats.mismatched)) * 100)
-      : 0;
-
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Total Reported"
-        value={stats.total_reported.toLocaleString()}
+        value={stats.total_outcomes.toLocaleString()}
         subtitle="Outcomes received"
       />
       <StatCard
         title="Collection Rate"
-        value={`${Math.round(stats.collection_rate * 100)}%`}
-        subtitle="Successful / total"
+        value={`${Math.round(stats.success_rate * 100)}%`}
+        subtitle={`${stats.success_count} succeeded, ${stats.failed_count} failed`}
       />
       <StatCard
-        title="Prediction Accuracy"
-        value={`${accuracy}%`}
-        subtitle={`${stats.matched} matched, ${stats.mismatched} mismatched`}
+        title="Match Rate"
+        value={`${Math.round(stats.match_rate * 100)}%`}
+        subtitle={`${stats.predictions_matched} matched`}
       />
       <StatCard
-        title="Pending"
-        value={stats.pending.toLocaleString()}
-        subtitle="Awaiting result"
+        title="Failed"
+        value={stats.failed_count.toLocaleString()}
+        subtitle="Collections that failed"
       />
     </div>
   );

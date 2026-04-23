@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
   CollectionsTable,
@@ -14,12 +14,15 @@ import {
 import { RiskDetailDrawer } from "@/components/dashboard/risk-detail-drawer";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
-import type { Collection } from "@/lib/api/types";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { useApi } from "@/hooks/use-api";
+import { scoresApi } from "@/lib/api/scores";
+import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import type { RiskLevel } from "@/lib/utils/format-risk";
-import { mockCollections } from "@/lib/mock-data";
+import { addDays, format } from "date-fns";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25;
 
 const DATE_RANGE_DAYS: Record<DateRangeFilter, number> = {
   today: 0,
@@ -29,57 +32,45 @@ const DATE_RANGE_DAYS: Record<DateRangeFilter, number> = {
   "30d": 30,
 };
 
+// Map CollectionsSortField to API sort_by
+const SORT_MAP: Record<CollectionsSortField, string> = {
+  score: "score",
+  due_date: "collection_due_date",
+};
+
 export default function DashboardPage() {
   const [riskFilter, setRiskFilter] = useState<RiskLevel | null>(null);
   const [methodFilter, setMethodFilter] = useState<CollectionMethod | "ALL">("ALL");
-  const [dateRange, setDateRange] = useState<DateRangeFilter>("7d");
+  const [dateRange, setDateRange] = useState<DateRangeFilter>("30d");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState<CollectionsSortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [selected, setSelected] = useState<Collection | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    const now = new Date();
-    const maxDays = DATE_RANGE_DAYS[dateRange];
-    return mockCollections
-      .filter((c) => (riskFilter ? c.risk_level === riskFilter : true))
-      .filter((c) => (methodFilter !== "ALL" ? c.collection_method === methodFilter : true))
-      .filter((c) => {
-        const due = new Date(c.collection_due_date);
-        const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        // Show items due within the window (including overdue)
-        return diffDays <= maxDays;
-      })
-      .filter((c) => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return (
-          c.external_customer_id.toLowerCase().includes(q) ||
-          c.external_collection_id.toLowerCase().includes(q)
-        );
-      });
-  }, [riskFilter, methodFilter, dateRange, search]);
+  // Build API params
+  const params: CollectionsListParams = {
+    page,
+    page_size: PAGE_SIZE,
+    risk_level: riskFilter,
+    collection_method: methodFilter === "ALL" ? null : methodFilter,
+    search: search.trim() || undefined,
+    sort_by: SORT_MAP[sortField],
+    sort_order: sortDirection,
+    date_from: format(new Date(), "yyyy-MM-dd"),
+    date_to: format(addDays(new Date(), DATE_RANGE_DAYS[dateRange]), "yyyy-MM-dd"),
+  };
 
-  const sorted = useMemo(() => {
-    const items = [...filtered];
-    items.sort((a, b) => {
-      let cmp = 0;
-      if (sortField === "score") {
-        cmp = a.score - b.score;
-      } else {
-        cmp =
-          new Date(a.collection_due_date).getTime() -
-          new Date(b.collection_due_date).getTime();
-      }
-      return sortDirection === "asc" ? cmp : -cmp;
-    });
-    return items;
-  }, [filtered, sortField, sortDirection]);
+  const { data, loading, error } = useApi(
+    () => scoresApi.list(params),
+    [page, riskFilter, methodFilter, dateRange, search, sortField, sortDirection],
+  );
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paged = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // Fetch detail for drawer
+  const { data: detail } = useApi(
+    () => (selectedId ? scoresApi.getDetail(selectedId) : Promise.resolve(null)),
+    [selectedId],
+  );
 
   const handleSortChange = (field: CollectionsSortField) => {
     if (field === sortField) {
@@ -90,16 +81,32 @@ export default function DashboardPage() {
     }
   };
 
+  const handleRowClick = useCallback((item: ScoreListItem) => {
+    setSelectedId(item.score_id);
+  }, []);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+        Failed to load collections: {error}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <SummaryCards
-        collections={mockCollections}
-        activeFilter={riskFilter}
-        onFilterChange={(f) => {
-          setRiskFilter(f);
-          setPage(1);
-        }}
-      />
+      {loading && !data ? (
+        <LoadingSkeleton variant="cards" count={4} />
+      ) : data ? (
+        <SummaryCards
+          summary={data.summary}
+          activeFilter={riskFilter}
+          onFilterChange={(f) => {
+            setRiskFilter(f);
+            setPage(1);
+          }}
+        />
+      ) : null}
 
       <CollectionsToolbar
         search={search}
@@ -120,28 +127,36 @@ export default function DashboardPage() {
       />
 
       <Card className="overflow-hidden p-0">
-        <CollectionsTable
-          collections={paged}
-          onRowClick={setSelected}
-          sortField={sortField}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
-        />
-        <div className="border-t border-border">
-          <DataTablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={sorted.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
-        </div>
+        {loading && !data ? (
+          <LoadingSkeleton variant="rows" count={10} />
+        ) : (
+          <>
+            <CollectionsTable
+              collections={data?.items ?? []}
+              onRowClick={handleRowClick}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSortChange={handleSortChange}
+            />
+            {data && (
+              <div className="border-t border-border">
+                <DataTablePagination
+                  currentPage={data.pagination.page}
+                  totalPages={data.pagination.total_pages}
+                  totalItems={data.pagination.total_items}
+                  pageSize={data.pagination.page_size}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       <RiskDetailDrawer
-        collection={selected}
-        open={selected !== null}
-        onClose={() => setSelected(null)}
+        detail={detail as ScoreDetailResponse | null}
+        open={selectedId !== null}
+        onClose={() => setSelectedId(null)}
       />
     </div>
   );

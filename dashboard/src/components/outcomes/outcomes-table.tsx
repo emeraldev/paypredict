@@ -9,11 +9,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import type { Outcome } from "@/lib/api/types";
+import type { OutcomeListItem } from "@/lib/api/types";
 import { OutcomesTableRow } from "./outcomes-table-row";
 
 interface OutcomesTableProps {
-  outcomes: Outcome[];
+  outcomes: OutcomeListItem[];
 }
 
 const HEADER_CLS =

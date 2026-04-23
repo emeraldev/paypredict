@@ -1,6 +1,4 @@
 """Pydantic schemas for the dashboard analytics endpoints."""
-from decimal import Decimal
-
 from pydantic import BaseModel
 
 
@@ -26,8 +24,8 @@ class AnalyticsSummaryResponse(BaseModel):
     collection_rate_change: float
     risk_distribution: RiskDistribution
     prediction_accuracy: PredictionAccuracy
-    total_value_scored: Decimal
-    total_value_at_risk: Decimal
+    total_value_scored: float
+    total_value_at_risk: float
     avg_score: float
     outcomes_reporting_rate: float
 

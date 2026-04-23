@@ -1,23 +1,36 @@
 "use client";
 
 import { AlertCircleIcon, CheckCircle2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { cn } from "@/lib/utils";
-import { mockWeights } from "@/lib/mock-data";
+import { useApi } from "@/hooks/use-api";
+import { configApi } from "@/lib/api/config";
 import { WeightSliderRow } from "./weight-slider-row";
 
-// Convert stored fractional weights (0-1) to slider percentages (0-100)
-function toPercentMap(weights: typeof mockWeights.weights): Record<string, number> {
+function toPercentMap(weights: { factor_name: string; weight: number }[]): Record<string, number> {
   return Object.fromEntries(weights.map((w) => [w.factor_name, Math.round(w.weight * 100)]));
 }
 
-const initialWeights = toPercentMap(mockWeights.weights);
-
 export function WeightsTab() {
-  const [weights, setWeights] = useState<Record<string, number>>(initialWeights);
+  const { data, loading, error } = useApi(() => configApi.getWeights(), []);
+  const [weights, setWeights] = useState<Record<string, number>>({});
+  const [initialWeights, setInitialWeights] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (data) {
+      const pctMap = toPercentMap(data.weights);
+      setWeights(pctMap);
+      setInitialWeights(pctMap);
+    }
+  }, [data]);
+
+  if (loading) return <LoadingSkeleton variant="rows" count={8} />;
+  if (error) return <p className="text-sm text-muted-foreground">Failed to load weights: {error}</p>;
+  if (!data) return null;
 
   const total = Object.values(weights).reduce((sum, v) => sum + v, 0);
   const isValid = total === 100;
@@ -31,12 +44,21 @@ export function WeightsTab() {
     toast.info("Weights reset to defaults");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isValid) {
       toast.error("Weights must sum to 100%");
       return;
     }
-    toast.success("Weights saved");
+    try {
+      const payload: Record<string, number> = {};
+      for (const [k, v] of Object.entries(weights)) {
+        payload[k] = v / 100;
+      }
+      await configApi.updateWeights(payload);
+      toast.success("Weights saved");
+    } catch {
+      toast.error("Failed to save weights");
+    }
   };
 
   return (
@@ -48,7 +70,7 @@ export function WeightsTab() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {mockWeights.weights.map((w) => (
+        {data.weights.map((w) => (
           <WeightSliderRow
             key={w.factor_name}
             factorName={w.factor_name}

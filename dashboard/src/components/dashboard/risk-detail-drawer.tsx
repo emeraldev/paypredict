@@ -1,16 +1,16 @@
 "use client";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import type { Collection } from "@/lib/api/types";
+import type { ScoreDetailResponse } from "@/lib/api/types";
 import { RiskDetailContent } from "./risk-detail-content";
 
 interface RiskDetailDrawerProps {
-  collection: Collection | null;
+  detail: ScoreDetailResponse | null;
   open: boolean;
   onClose: () => void;
 }
 
-export function RiskDetailDrawer({ collection, open, onClose }: RiskDetailDrawerProps) {
+export function RiskDetailDrawer({ detail, open, onClose }: RiskDetailDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
@@ -20,7 +20,7 @@ export function RiskDetailDrawer({ collection, open, onClose }: RiskDetailDrawer
         <SheetHeader className="sr-only">
           <SheetTitle>Collection detail</SheetTitle>
         </SheetHeader>
-        {collection && <RiskDetailContent collection={collection} />}
+        {detail && <RiskDetailContent detail={detail} />}
       </SheetContent>
     </Sheet>
   );

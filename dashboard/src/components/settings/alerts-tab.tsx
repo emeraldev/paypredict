@@ -1,23 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { mockAlertSettings } from "@/lib/mock-data";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { useApi } from "@/hooks/use-api";
+import { configApi } from "@/lib/api/config";
 
 export function AlertsTab() {
-  const [threshold, setThreshold] = useState(mockAlertSettings.alert_threshold * 100);
-  const [webhookUrl, setWebhookUrl] = useState(mockAlertSettings.webhook_url ?? "");
-  const [slackWebhookUrl, setSlackWebhookUrl] = useState(
-    mockAlertSettings.slack_webhook_url ?? "",
-  );
+  const { data, loading, error } = useApi(() => configApi.getAlertSettings(), []);
+  const [threshold, setThreshold] = useState(20);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
 
-  const handleSave = () => {
-    toast.success("Alert settings saved");
+  useEffect(() => {
+    if (data) {
+      setThreshold(data.high_risk_threshold * 100);
+      setWebhookUrl(data.webhook_url ?? "");
+      setSlackWebhookUrl(data.slack_webhook_url ?? "");
+    }
+  }, [data]);
+
+  if (loading) return <LoadingSkeleton variant="rows" count={4} />;
+  if (error) return <p className="text-sm text-muted-foreground">Failed to load alert settings: {error}</p>;
+
+  const handleSave = async () => {
+    try {
+      await configApi.updateAlertSettings({
+        high_risk_threshold: threshold / 100,
+        webhook_url: webhookUrl || null,
+        slack_webhook_url: slackWebhookUrl || null,
+      });
+      toast.success("Alert settings saved");
+    } catch {
+      toast.error("Failed to save alert settings");
+    }
   };
 
   return (

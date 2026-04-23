@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AuthGuard } from "@/components/layout/auth-guard";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
@@ -10,6 +11,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
+    <AuthGuard>
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <Sidebar />
@@ -20,5 +22,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </div>
     </SidebarProvider>
+    </AuthGuard>
   );
 }

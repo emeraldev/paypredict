@@ -1,68 +1,62 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { OutcomesFilterTabs } from "@/components/outcomes/outcomes-filter-tabs";
 import { OutcomesStats } from "@/components/outcomes/outcomes-stats";
 import { OutcomesTable } from "@/components/outcomes/outcomes-table";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
-import type { Outcome, OutcomeFilter, OutcomeStats } from "@/lib/api/types";
-import { mockOutcomes } from "@/lib/mock-data";
+import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { useApi } from "@/hooks/use-api";
+import { outcomesApi } from "@/lib/api/outcomes";
+import type { OutcomeFilter, OutcomesListParams } from "@/lib/api/types";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 25;
 
-function computeStats(outcomes: Outcome[]): OutcomeStats {
-  const total = outcomes.length;
-  const success = outcomes.filter((o) => o.outcome === "SUCCESS").length;
-  const pending = outcomes.filter((o) => o.outcome === "PENDING").length;
-  const resolved = outcomes.filter((o) => o.outcome !== "PENDING");
-
-  let matched = 0;
-  let mismatched = 0;
-  for (const o of resolved) {
-    if (!o.predicted_risk_level) continue;
-    const predictedFailure = o.predicted_risk_level === "HIGH";
-    const actuallyFailed = o.outcome === "FAILED";
-    if (predictedFailure === actuallyFailed) matched++;
-    else mismatched++;
+// Map UI filter tabs to API query params
+function filterToParams(filter: OutcomeFilter): Pick<OutcomesListParams, "outcome" | "match"> {
+  switch (filter) {
+    case "MATCHED":
+      return { match: "MATCHED" };
+    case "MISMATCHED":
+      return { match: "MISMATCHED" };
+    default:
+      return {};
   }
-
-  return {
-    total_reported: total,
-    collection_rate: total - pending > 0 ? success / (total - pending) : 0,
-    matched,
-    mismatched,
-    pending,
-  };
-}
-
-function applyFilter(outcomes: Outcome[], filter: OutcomeFilter): Outcome[] {
-  if (filter === "ALL") return outcomes;
-  if (filter === "PENDING") return outcomes.filter((o) => o.outcome === "PENDING");
-
-  return outcomes.filter((o) => {
-    if (o.outcome === "PENDING" || !o.predicted_risk_level) return false;
-    const predictedFailure = o.predicted_risk_level === "HIGH";
-    const actuallyFailed = o.outcome === "FAILED";
-    const isMatched = predictedFailure === actuallyFailed;
-    return filter === "MATCHED" ? isMatched : !isMatched;
-  });
 }
 
 export default function OutcomesPage() {
   const [filter, setFilter] = useState<OutcomeFilter>("ALL");
   const [page, setPage] = useState(1);
 
-  const stats = useMemo(() => computeStats(mockOutcomes), []);
-  const filtered = useMemo(() => applyFilter(mockOutcomes, filter), [filter]);
+  const params: OutcomesListParams = {
+    page,
+    page_size: PAGE_SIZE,
+    sort_by: "attempted_at",
+    sort_order: "desc",
+    ...filterToParams(filter),
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const { data, loading, error } = useApi(
+    () => outcomesApi.list(params),
+    [page, filter],
+  );
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+        Failed to load outcomes: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <OutcomesStats stats={stats} />
+      {loading && !data ? (
+        <LoadingSkeleton variant="cards" count={4} />
+      ) : data ? (
+        <OutcomesStats stats={data.stats} />
+      ) : null}
 
       <OutcomesFilterTabs
         value={filter}
@@ -73,16 +67,24 @@ export default function OutcomesPage() {
       />
 
       <Card className="overflow-hidden p-0">
-        <OutcomesTable outcomes={paged} />
-        <div className="border-t border-border">
-          <DataTablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
-        </div>
+        {loading && !data ? (
+          <LoadingSkeleton variant="rows" count={10} />
+        ) : (
+          <>
+            <OutcomesTable outcomes={data?.items ?? []} />
+            {data && (
+              <div className="border-t border-border">
+                <DataTablePagination
+                  currentPage={data.pagination.page}
+                  totalPages={data.pagination.total_pages}
+                  totalItems={data.pagination.total_items}
+                  pageSize={data.pagination.page_size}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
+          </>
+        )}
       </Card>
     </div>
   );

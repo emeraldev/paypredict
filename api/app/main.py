@@ -16,6 +16,7 @@ from app.api.v1 import (
     scores,
     scores_list,
     team,
+    weights,
 )
 
 
@@ -59,3 +60,4 @@ app.include_router(analytics.router, prefix="/v1")
 app.include_router(api_keys.router, prefix="/v1")
 app.include_router(team.router, prefix="/v1")
 app.include_router(alerts_config.router, prefix="/v1")
+app.include_router(weights.router, prefix="/v1")

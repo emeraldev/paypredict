@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import type { Collection } from "@/lib/api/types";
+import type { ScoreListItem } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { CollectionsTableRow } from "./collections-table-row";
 
@@ -17,8 +17,8 @@ export type CollectionsSortField = "score" | "due_date";
 export type SortDirection = "asc" | "desc";
 
 interface CollectionsTableProps {
-  collections: Collection[];
-  onRowClick: (collection: Collection) => void;
+  collections: ScoreListItem[];
+  onRowClick: (collection: ScoreListItem) => void;
   sortField: CollectionsSortField;
   sortDirection: SortDirection;
   onSortChange: (field: CollectionsSortField) => void;

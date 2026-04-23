@@ -1,18 +1,7 @@
-// MOCK DATA — single source of truth for all dashboard mocks.
-// Replace with real API calls in Step 8.
-
-import type {
-  AlertSettings,
-  AnalyticsSummary,
-  ApiKey,
-  Collection,
-  CollectionRatePoint,
-  FactorContribution,
-  Outcome,
-  Tenant,
-  TeamMember,
-  WeightsResponse,
-} from "@/lib/api/types";
+// DEPRECATED: Mock data retained for reference. Remove once all API connections verified.
+// All pages now fetch from the real FastAPI backend via lib/api/.
+// @ts-nocheck
+/* eslint-disable */
 
 // ==================== Tenant ====================
 

@@ -3,26 +3,16 @@
 import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { RiskScoreDisplay } from "@/components/shared/risk-score-display";
-import type { Outcome } from "@/lib/api/types";
+import type { OutcomeListItem } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatDateTime, formatRelativeTime } from "@/lib/utils/format-date";
 
 interface OutcomesTableRowProps {
-  outcome: Outcome;
+  outcome: OutcomeListItem;
 }
 
-type MatchStatus = "matched" | "mismatched" | "pending";
-
-function outcomeMatchesPrediction(outcome: Outcome): MatchStatus {
-  if (outcome.outcome === "PENDING") return "pending";
-  if (!outcome.predicted_risk_level) return "pending";
-  const predictedFailure = outcome.predicted_risk_level === "HIGH";
-  const actuallyFailed = outcome.outcome === "FAILED";
-  return predictedFailure === actuallyFailed ? "matched" : "mismatched";
-}
-
-const OUTCOME_BADGE: Record<Outcome["outcome"], { label: string; className: string }> = {
+const OUTCOME_BADGE: Record<string, { label: string; className: string }> = {
   SUCCESS: {
     label: "Success",
     className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -31,25 +21,20 @@ const OUTCOME_BADGE: Record<Outcome["outcome"], { label: string; className: stri
     label: "Failed",
     className: "bg-red-500/10 text-red-400 border-red-500/30",
   },
-  PENDING: {
-    label: "Pending",
-    className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  },
 };
 
-function MatchCell({ status }: { status: MatchStatus }) {
-  if (status === "matched") {
+function MatchCell({ matched }: { matched: boolean | null }) {
+  if (matched === true) {
     return <CheckCircle2Icon className="mx-auto h-4 w-4 text-emerald-400" />;
   }
-  if (status === "mismatched") {
+  if (matched === false) {
     return <XCircleIcon className="mx-auto h-4 w-4 text-red-400" />;
   }
   return <span className="text-xs text-muted-foreground">—</span>;
 }
 
 export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
-  const match = outcomeMatchesPrediction(outcome);
-  const badge = OUTCOME_BADGE[outcome.outcome];
+  const badge = OUTCOME_BADGE[outcome.outcome] ?? OUTCOME_BADGE.FAILED;
 
   return (
     <TableRow className="border-b border-border/50 transition-colors hover:bg-accent/40">
@@ -57,12 +42,10 @@ export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
         {outcome.external_collection_id}
       </TableCell>
       <TableCell className="py-3">
-        {outcome.predicted_score !== null &&
-        outcome.predicted_score !== undefined &&
-        outcome.predicted_risk_level ? (
+        {outcome.score !== null && outcome.risk_level ? (
           <RiskScoreDisplay
-            score={outcome.predicted_score}
-            riskLevel={outcome.predicted_risk_level}
+            score={outcome.score}
+            riskLevel={outcome.risk_level}
             showBar={false}
           />
         ) : (
@@ -94,7 +77,7 @@ export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
         {formatRelativeTime(outcome.reported_at)}
       </TableCell>
       <TableCell className="py-3 text-center">
-        <MatchCell status={match} />
+        <MatchCell matched={outcome.prediction_matched} />
       </TableCell>
     </TableRow>
   );
