@@ -7,7 +7,7 @@ import bcrypt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -20,6 +20,7 @@ from app.main import app
 from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.api_key import ApiKey
 from app.models.factor_weight import FactorWeight
+from app.models.backtest import BacktestItem, BacktestRun
 from app.models.score_request import ScoreRequest
 from app.models.score_result import ScoreResult
 from app.models.outcome import Outcome
@@ -81,7 +82,11 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
 
     yield tenant
 
-    # Cleanup
+    # Cleanup (order matters: children before parents)
+    # Delete backtest items via subquery on backtest_runs
+    bt_run_ids = select(BacktestRun.id).where(BacktestRun.tenant_id == tenant.id)
+    await db_session.execute(delete(BacktestItem).where(BacktestItem.backtest_run_id.in_(bt_run_ids)))
+    await db_session.execute(delete(BacktestRun).where(BacktestRun.tenant_id == tenant.id))
     await db_session.execute(delete(User).where(User.tenant_id == tenant.id))
     await db_session.execute(delete(Outcome).where(Outcome.tenant_id == tenant.id))
     await db_session.execute(delete(ScoreResult).where(ScoreResult.tenant_id == tenant.id))

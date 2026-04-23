@@ -10,6 +10,7 @@ from app.api.v1 import (
     analytics,
     api_keys,
     auth,
+    backtest,
     health,
     outcomes,
     outcomes_list,
@@ -61,3 +62,4 @@ app.include_router(api_keys.router, prefix="/v1")
 app.include_router(team.router, prefix="/v1")
 app.include_router(alerts_config.router, prefix="/v1")
 app.include_router(weights.router, prefix="/v1")
+app.include_router(backtest.router, prefix="/v1")
