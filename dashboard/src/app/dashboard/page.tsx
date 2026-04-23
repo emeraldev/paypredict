@@ -57,6 +57,7 @@ export default function DashboardPage() {
     search: search.trim() || undefined,
     sort_by: SORT_MAP[sortField],
     sort_order: sortDirection,
+    date_from: format(new Date(), "yyyy-MM-dd"),
     date_to: format(addDays(new Date(), DATE_RANGE_DAYS[dateRange]), "yyyy-MM-dd"),
   };
 
