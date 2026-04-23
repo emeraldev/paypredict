@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format-date";
 import { useApi } from "@/hooks/use-api";
 import { configApi } from "@/lib/api/config";
+import { InviteMemberDialog } from "./invite-member-dialog";
 
 function getInitials(name: string): string {
   return name
@@ -28,7 +29,7 @@ function getInitials(name: string): string {
 }
 
 export function TeamTab() {
-  const { data, loading, error } = useApi(() => configApi.getTeam(), []);
+  const { data, loading, error, refetch } = useApi(() => configApi.getTeam(), []);
 
   if (loading) return <LoadingSkeleton variant="rows" count={3} />;
   if (error) return <p className="text-sm text-muted-foreground">Failed to load team: {error}</p>;
@@ -44,7 +45,7 @@ export function TeamTab() {
             People with access to this tenant&apos;s dashboard.
           </p>
         </div>
-        <Button size="sm">Invite member</Button>
+        <InviteMemberDialog onInvited={refetch} />
       </CardHeader>
       <CardContent className="p-0">
         <Table>
