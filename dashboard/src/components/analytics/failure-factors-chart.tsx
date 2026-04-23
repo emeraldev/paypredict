@@ -19,11 +19,11 @@ interface FailureFactorsChartProps {
 
 export function FailureFactorsChart({ data }: FailureFactorsChartProps) {
   const chartData = [...data]
-    .sort((a, b) => b.contribution - a.contribution)
+    .sort((a, b) => b.avg_contribution - a.avg_contribution)
     .map((d) => ({
       ...d,
       label: FACTOR_LABELS[d.factor] ?? d.factor,
-      pct: Math.round(d.contribution * 100),
+      pct: Math.round(d.avg_contribution * 100),
     }));
 
   return (

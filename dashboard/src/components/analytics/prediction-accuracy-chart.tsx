@@ -15,8 +15,9 @@ import { CHART_THEME } from "@/lib/constants";
 
 interface PredictionAccuracyChartProps {
   data: {
-    high_risk_actually_failed: number;
-    low_risk_actually_succeeded: number;
+    high_risk_failure_rate: number;
+    low_risk_success_rate: number;
+    overall_accuracy: number;
   };
 }
 
@@ -24,12 +25,12 @@ export function PredictionAccuracyChart({ data }: PredictionAccuracyChartProps) 
   const chartData = [
     {
       label: "High → Failed",
-      accuracy: Math.round(data.high_risk_actually_failed * 100),
+      accuracy: Math.round(data.high_risk_failure_rate * 100),
       color: CHART_THEME.high,
     },
     {
       label: "Low → Succeeded",
-      accuracy: Math.round(data.low_risk_actually_succeeded * 100),
+      accuracy: Math.round(data.low_risk_success_rate * 100),
       color: CHART_THEME.low,
     },
   ];
