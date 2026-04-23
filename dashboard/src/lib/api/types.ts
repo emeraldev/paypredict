@@ -205,7 +205,7 @@ export interface OutcomeListItem {
   prediction_matched: boolean | null;
 }
 
-export type OutcomeFilter = "ALL" | "MATCHED" | "MISMATCHED" | "PENDING";
+export type OutcomeFilter = "ALL" | "MATCHED" | "MISMATCHED";
 
 export interface OutcomesListParams {
   page?: number;

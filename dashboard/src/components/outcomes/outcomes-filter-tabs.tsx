@@ -15,7 +15,6 @@ export function OutcomesFilterTabs({ value, onChange }: OutcomesFilterTabsProps)
         <TabsTrigger value="ALL">All</TabsTrigger>
         <TabsTrigger value="MATCHED">Matched predictions</TabsTrigger>
         <TabsTrigger value="MISMATCHED">Mismatched predictions</TabsTrigger>
-        <TabsTrigger value="PENDING">Pending</TabsTrigger>
       </TabsList>
     </Tabs>
   );
