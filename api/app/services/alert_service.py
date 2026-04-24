@@ -28,6 +28,11 @@ async def evaluate_alerts(
 
     Returns the Alert if one was created, None otherwise.
     """
+    # Refresh tenant from DB to get the latest webhook_url and threshold
+    # (the tenant object from get_current_tenant may be stale if config
+    # was updated in a different request)
+    await db.refresh(tenant)
+
     high_risk_count = scoring_summary.get("high_risk", 0)
     total = (
         scoring_summary.get("high_risk", 0)
