@@ -11,6 +11,8 @@ interface RiskDetailDrawerProps {
 }
 
 export function RiskDetailDrawer({ detail, open, onClose }: RiskDetailDrawerProps) {
+  if (!open) return null;
+
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent

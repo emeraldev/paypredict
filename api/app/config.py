@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev"
     )
+    database_url_test: str = (
+        "postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_test"
+    )
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -33,6 +36,11 @@ class Settings(BaseSettings):
     def database_url_sync(self) -> str:
         """Synchronous database URL for Alembic migrations."""
         return self.database_url.replace("+asyncpg", "+psycopg2")
+
+    @property
+    def database_url_test_sync(self) -> str:
+        """Synchronous test database URL for Alembic migrations in tests."""
+        return self.database_url_test.replace("+asyncpg", "+psycopg2")
 
 
 settings = Settings()

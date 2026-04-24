@@ -9,6 +9,7 @@ services:
       - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
 
   redis:
     image: redis:7-alpine

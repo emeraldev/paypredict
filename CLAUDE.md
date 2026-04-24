@@ -149,7 +149,7 @@ All API endpoints require `Authorization: Bearer <api_key>`. See `docs/api-refer
 
 ## Current development phase
 
-Phase 1 is complete. Phase 2 mocked dashboard is complete. Phase 2.5 (real API hookup) is the next step.
+Phase 1 complete. Phase 2 dashboard complete. Phase 2.5 API endpoints + dashboard wiring complete. Phase 3 (backtest, bulk scoring, webhooks, alerts) in progress.
 
 ### Phase 1 (Weeks 1-4) — COMPLETE:
 1. Project setup: FastAPI, SQLAlchemy, Alembic, Docker Compose for local dev
@@ -199,9 +199,11 @@ alembic revision --autogenerate -m "description"  # Generate (ALWAYS review befo
 alembic upgrade head                               # Apply
 alembic downgrade -1                               # Rollback one
 
-# Tests
+# Tests (uses separate paypredict_test database — never touches dev data)
 pytest                            # Run all tests
 pytest tests/test_scoring_engine.py -v  # Specific test file
+pytest tests/test_api/ -v         # All API endpoint tests
+pytest -x                         # Stop on first failure
 
 # Dashboard
 cd dashboard
@@ -216,12 +218,61 @@ npm run build                     # Production build (Turbopack default in Next 
 - API runs on port **8001** locally (8000 is taken by another local process)
 - Dashboard expects `NEXT_PUBLIC_API_URL=http://localhost:8001` in `dashboard/.env.local`
 
+## Test infrastructure
+
+Tests use a **separate `paypredict_test` database** with **transaction rollback per test** — production-grade isolation that ensures tests never interfere with each other or with dev/seed data.
+
+### How it works
+
+1. **Separate database:** `paypredict_test` is created alongside `paypredict_dev` by `api/init-db.sql` (mounted into Docker's entrypoint). Tests never touch the dev database.
+2. **Auto-migration:** A session-scoped pytest fixture runs `alembic upgrade head` against the test DB once per test session. You never need to manually migrate the test DB.
+3. **Transaction rollback:** Each test gets a database session wrapped in a transaction that is **always rolled back** after the test completes — even if the test fails. The app code calls `session.commit()` but it's patched to `flush()` (writes to DB within the transaction without actually committing). On teardown, the outer transaction rolls back and all data vanishes.
+4. **No cleanup code:** Fixtures don't need DELETE statements. The rollback handles everything unconditionally.
+
+### Setup (first time only)
+
+```bash
+# If the test database doesn't exist yet (container was created before init-db.sql was added):
+docker exec api-postgres-1 psql -U paypredict -d paypredict_dev -c "CREATE DATABASE paypredict_test OWNER paypredict;"
+```
+
+After this, just run `pytest` — migrations are applied automatically.
+
+### Key files
+
+- `api/tests/conftest.py` — all fixtures: `db_session` (transaction-wrapped), `sa_tenant`, `zm_tenant`, `sa_admin_user`, `async_client`
+- `api/init-db.sql` — creates `paypredict_test` on first Docker start
+- `api/alembic/env.py` — respects `ALEMBIC_DATABASE_URL` env var (set by test fixture)
+- `api/app/config.py` — `database_url_test` setting
+
+### Writing new tests
+
+```python
+@pytest.mark.asyncio
+async def test_something(async_client, sa_admin_user):
+    # Login to get JWT
+    r = await async_client.post("/v1/auth/login", json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD})
+    token = r.json()["token"]
+
+    # Make API calls with the token
+    r = await async_client.get("/v1/scores", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+
+    # All data created during this test is automatically rolled back
+```
+
+- Use `sa_tenant` fixture for tests that need a tenant (creates API key + factor weights)
+- Use `sa_admin_user` fixture for tests that need JWT auth (creates an ADMIN user)
+- Use `async_client` for HTTP endpoint tests (injects the test DB session into the app)
+- Use `db_session` directly for service-layer tests
+- Never manually delete test data — the transaction rollback handles it
+
 ## Code style and conventions
 
 ### Backend (Python)
 - Type hints on all functions. Pydantic models for all request/response schemas. Async handlers where possible.
 - Factor classes: One file per factor. Class name matches factor name in PascalCase. File name is snake_case.
-- Tests: One test file per module. Use pytest fixtures for common setup. Test every factor with edge cases (zero history, expired cards, empty wallets).
+- Tests: One test file per module. Use pytest fixtures from `conftest.py`. Tests run against `paypredict_test` DB with transaction rollback — never manually clean up test data. Test every factor with edge cases.
 - Migrations: Always generate, review, then apply. Never push directly to production DB. Never manually create tables or migrations
 - API responses: Always include score_id for traceability. Factor breakdowns always included (transparency is a feature).
 - Error responses: Use standard HTTP codes. 400 for bad request, 401 for auth, 404 for not found, 422 for validation, 429 for rate limit, 500 for server error. Always return JSON with error detail.

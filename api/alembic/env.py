@@ -19,8 +19,11 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Override sqlalchemy.url from settings. If ALEMBIC_DATABASE_URL is set
+# (used by the test fixture), use that instead.
+import os
+_db_url = os.environ.get("ALEMBIC_DATABASE_URL", settings.database_url)
+config.set_main_option("sqlalchemy.url", _db_url)
 
 
 def run_migrations_offline() -> None:

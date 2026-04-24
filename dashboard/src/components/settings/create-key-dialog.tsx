@@ -16,7 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { configApi } from "@/lib/api/config";
 
-export function CreateKeyDialog() {
+interface CreateKeyDialogProps {
+  onCreated?: () => void;
+}
+
+export function CreateKeyDialog({ onCreated }: CreateKeyDialogProps) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
@@ -45,11 +49,15 @@ export function CreateKeyDialog() {
   };
 
   const handleClose = () => {
+    const wasCreated = generatedKey !== null;
     setOpen(false);
     setTimeout(() => {
       setLabel("");
       setGeneratedKey(null);
     }, 200);
+    if (wasCreated && onCreated) {
+      onCreated();
+    }
   };
 
   return (

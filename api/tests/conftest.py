@@ -1,16 +1,23 @@
-"""Shared test fixtures."""
+"""Shared test fixtures.
 
+Uses a separate paypredict_test database with transaction rollback per test:
+- Session scope: run Alembic migrations once against the test DB
+- Function scope: each test runs inside a transaction that rolls back on teardown
+  so no test data persists and tests can't interfere with each other
+"""
+
+import os
 import uuid
 from datetime import date
 
 import bcrypt
 import pytest
 import pytest_asyncio
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    async_sessionmaker,
     create_async_engine,
 )
 
@@ -20,9 +27,6 @@ from app.main import app
 from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.api_key import ApiKey
 from app.models.factor_weight import FactorWeight
-from app.models.score_request import ScoreRequest
-from app.models.score_result import ScoreResult
-from app.models.outcome import Outcome
 from app.models.user import User, UserRole
 from app.scoring.registry import get_default_weights
 from app.services.auth_service import hash_password
@@ -36,21 +40,52 @@ TEST_USER_EMAIL = "demo@paypredict.test"
 TEST_USER_PASSWORD = "demo-password-1234"
 
 
+# ---- Session-scoped: migrate the test DB once ----
+
+@pytest.fixture(scope="session", autouse=True)
+def _migrate_test_db():
+    """Run Alembic migrations against the test database once per test session."""
+    # Tell alembic/env.py to use the test DB URL
+    os.environ["ALEMBIC_DATABASE_URL"] = settings.database_url_test
+    alembic_cfg = AlembicConfig("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    yield
+    del os.environ["ALEMBIC_DATABASE_URL"]
+
+
+# ---- Function-scoped: transaction rollback per test ----
+
 @pytest_asyncio.fixture
 async def db_session():
-    """Provide a database session. Creates a fresh engine per test to avoid event loop issues."""
-    engine = create_async_engine(settings.database_url, echo=False)
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    """Provide a session wrapped in a transaction that rolls back after each test.
 
-    async with session_factory() as session:
+    The app code calls session.commit() via get_db(), but we patch commit()
+    to flush (write to DB within the txn) without actually committing. The
+    outer transaction is rolled back on teardown, so all data vanishes.
+    """
+    engine = create_async_engine(settings.database_url_test, echo=False)
+
+    async with engine.connect() as conn:
+        txn = await conn.begin()
+        session = AsyncSession(bind=conn, expire_on_commit=False)
+
+        # Patch commit -> flush so the app's commits stay inside the transaction
+        async def _savepoint_commit():
+            await session.flush()
+
+        session.commit = _savepoint_commit  # type: ignore[assignment]
+
         yield session
+
+        await session.close()
+        await txn.rollback()
 
     await engine.dispose()
 
 
 @pytest_asyncio.fixture
 async def sa_tenant(db_session: AsyncSession) -> Tenant:
-    """Create a test SA tenant (cleaned up after test)."""
+    """Create a test SA tenant. Rolled back automatically after each test."""
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Test SA Tenant",
@@ -77,19 +112,8 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
             weight=weight,
         ))
 
-    await db_session.commit()
-
-    yield tenant
-
-    # Cleanup
-    await db_session.execute(delete(User).where(User.tenant_id == tenant.id))
-    await db_session.execute(delete(Outcome).where(Outcome.tenant_id == tenant.id))
-    await db_session.execute(delete(ScoreResult).where(ScoreResult.tenant_id == tenant.id))
-    await db_session.execute(delete(ScoreRequest).where(ScoreRequest.tenant_id == tenant.id))
-    await db_session.execute(delete(FactorWeight).where(FactorWeight.tenant_id == tenant.id))
-    await db_session.execute(delete(ApiKey).where(ApiKey.tenant_id == tenant.id))
-    await db_session.execute(delete(Tenant).where(Tenant.id == tenant.id))
-    await db_session.commit()
+    await db_session.flush()
+    return tenant
 
 
 @pytest_asyncio.fixture
@@ -103,15 +127,14 @@ async def sa_admin_user(sa_tenant: Tenant, db_session: AsyncSession) -> User:
         role=UserRole.ADMIN,
     )
     db_session.add(user)
-    await db_session.commit()
-    # Eagerly load tenant for downstream usage (auth_service expects it)
+    await db_session.flush()
     user.tenant = sa_tenant
     return user
 
 
 @pytest_asyncio.fixture
 async def zm_tenant(db_session: AsyncSession) -> Tenant:
-    """Create a test ZM tenant (cleaned up after test)."""
+    """Create a test ZM tenant."""
     tenant = Tenant(
         id=uuid.uuid4(),
         name="Test ZM Tenant",
@@ -122,12 +145,8 @@ async def zm_tenant(db_session: AsyncSession) -> Tenant:
         alert_threshold=0.20,
     )
     db_session.add(tenant)
-    await db_session.commit()
-
-    yield tenant
-
-    await db_session.execute(delete(Tenant).where(Tenant.id == tenant.id))
-    await db_session.commit()
+    await db_session.flush()
+    return tenant
 
 
 @pytest_asyncio.fixture
