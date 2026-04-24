@@ -17,8 +17,15 @@ import { backtestApi } from "@/lib/api/backtest";
 import type { BacktestResponse } from "@/lib/api/types";
 import { formatCompactCurrency } from "@/lib/utils/format-currency";
 
+interface CsvError {
+  row: number;
+  field: string;
+  message: string;
+}
+
 export default function BacktestPage() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
+  const [csvErrors, setCsvErrors] = useState<CsvError[]>([]);
   const { data: pastBacktests, loading: loadingPast, refetch } = useApi(
     () => backtestApi.list(),
     [],
@@ -28,9 +35,11 @@ export default function BacktestPage() {
     const res = data as BacktestResponse;
     // Check if it's a validation error response
     if (res.errors && res.errors.length > 0) {
+      setCsvErrors(res.errors);
       toast.error(`CSV has ${res.errors.length} validation error(s)`);
       return;
     }
+    setCsvErrors([]);
     setResult(res);
     refetch();
     toast.success("Backtest complete");
@@ -53,6 +62,30 @@ export default function BacktestPage() {
           onResult={handleResult}
           onError={(msg) => toast.error(msg)}
         />
+      )}
+
+      {/* CSV validation errors */}
+      {csvErrors.length > 0 && (
+        <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="p-4">
+            <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">
+              {csvErrors.length} validation error{csvErrors.length > 1 ? "s" : ""} found:
+            </p>
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {csvErrors.map((err, i) => (
+                <p key={i} className="text-xs text-red-600 dark:text-red-400/80 font-mono">
+                  Row {err.row}{err.field ? `, ${err.field}` : ""}: {err.message}
+                </p>
+              ))}
+            </div>
+            <button
+              onClick={() => setCsvErrors([])}
+              className="mt-3 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Results */}
