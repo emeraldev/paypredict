@@ -40,7 +40,7 @@ export function ApiKeysTab() {
             Manage keys used to authenticate against the PayPredict API.
           </p>
         </div>
-        <CreateKeyDialog />
+        <CreateKeyDialog onCreated={refetch} />
       </CardHeader>
       <CardContent className="p-0">
         <Table>
