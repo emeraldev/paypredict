@@ -56,5 +56,14 @@ async def update_weights(
             existing[factor_name].weight = weight
             existing[factor_name].updated_by = user.id
 
+    await db.flush()
+
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, user.tenant_id, EventType.WEIGHTS_UPDATED,
+        metadata={"actor_name": user.name},
+        actor_id=user.id,
+    )
+
     await db.commit()
     return await get_weights(user=user, db=db)

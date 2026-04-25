@@ -26,5 +26,11 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
 ) -> AlertsConfigResponse:
     result = await update_alerts_config(db, user.tenant_id, req)
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, user.tenant_id, EventType.ALERT_THRESHOLD_CHANGED,
+        metadata={"actor_name": user.name},
+        actor_id=user.id,
+    )
     await db.commit()
     return result

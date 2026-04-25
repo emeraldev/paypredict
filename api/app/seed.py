@@ -28,6 +28,7 @@ from app.models.score_request import CollectionCurrency, CollectionMethod, Score
 from app.models.score_result import RiskLevel, ScoreResult
 from app.models.alert import Alert, AlertType
 from app.models.backtest import BacktestItem, BacktestRun, BacktestStatus
+from app.models.notification import Notification, NotificationCategory, NotificationSeverity
 from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.user import User, UserRole
 from app.scoring.engine import ScoringEngine
@@ -554,6 +555,92 @@ async def seed() -> None:
                 prediction_matched=d["matched"],
             ))
 
+        # ---- Notifications (5 for SA tenant: 3 unread, 2 read) ----
+        sa_admin_id = None
+        # Find the SA admin user we created earlier
+        from sqlalchemy import select as sa_select
+        admin_result = await db.execute(
+            sa_select(User).where(User.email == "admin@demo-sa.paypredict.dev")
+        )
+        sa_admin = admin_result.scalar_one_or_none()
+        if sa_admin:
+            sa_admin_id = sa_admin.id
+
+        db.add(Notification(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            category=NotificationCategory.SYSTEM,
+            severity=NotificationSeverity.CRITICAL,
+            event_type="high_risk_batch",
+            title="High-risk batch detected",
+            message="12 of 50 collections (24%) scored as high risk — exceeds your 20% threshold",
+            link_to="/dashboard?risk_level=HIGH",
+            link_label="View high-risk collections",
+            metadata_={"high_risk_count": 12, "total_count": 50, "percentage": 0.24, "threshold": 0.2},
+            is_read=False,
+            created_at=now - timedelta(hours=2),
+        ))
+        db.add(Notification(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            category=NotificationCategory.SYSTEM,
+            severity=NotificationSeverity.WARNING,
+            event_type="collection_rate_drop",
+            title="Collection rate dropping",
+            message="Collection rate dropped to 72.1% — down 6.3% from last week",
+            link_to="/dashboard/analytics",
+            link_label="View analytics",
+            metadata_={"current_rate": 0.721, "drop": 0.063},
+            is_read=False,
+            created_at=now - timedelta(hours=5),
+        ))
+        db.add(Notification(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            category=NotificationCategory.SYSTEM,
+            severity=NotificationSeverity.INFO,
+            event_type="backtest_complete",
+            title="Backtest complete",
+            message="Backtest completed — 50 collections scored with 82% accuracy",
+            link_to="/dashboard/backtest",
+            link_label="View backtest results",
+            metadata_={"total_collections": 50, "accuracy": 0.82},
+            is_read=False,
+            created_at=now - timedelta(days=1),
+        ))
+        db.add(Notification(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            category=NotificationCategory.ACTIVITY,
+            severity=NotificationSeverity.INFO,
+            event_type="weights_updated",
+            title="Factor weights updated",
+            message="Factor weights updated by SA Admin",
+            link_to="/dashboard/settings?tab=weights",
+            link_label="View weights",
+            metadata_={"actor_name": "SA Admin"},
+            actor_id=sa_admin_id,
+            is_read=True,
+            read_at=now - timedelta(days=2, hours=-1),
+            created_at=now - timedelta(days=2),
+        ))
+        db.add(Notification(
+            id=uuid.uuid4(),
+            tenant_id=sa_tenant.id,
+            category=NotificationCategory.ACTIVITY,
+            severity=NotificationSeverity.INFO,
+            event_type="api_key_created",
+            title="API key created",
+            message="New API key 'Production' created by SA Admin",
+            link_to="/dashboard/settings?tab=api-keys",
+            link_label="View API keys",
+            metadata_={"actor_name": "SA Admin", "key_label": "Production"},
+            actor_id=sa_admin_id,
+            is_read=True,
+            read_at=now - timedelta(days=3, hours=-2),
+            created_at=now - timedelta(days=3),
+        ))
+
         await db.commit()
 
         # ---- Summary ----
@@ -567,6 +654,7 @@ async def seed() -> None:
         print(f"  Outcomes: {outcome_count} ({outcome_count}/{len(all_scores)} = {outcome_count*100//len(all_scores)}%)")
         print()
         print(f"  Alerts:   3 (1 unread, 2 read)")
+        print(f"  Notifs:   5 (3 unread, 2 read)")
         print(f"  Backtest: 1 completed run (50 items)")
         print()
         print("=== SA Tenant ===")

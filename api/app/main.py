@@ -14,6 +14,7 @@ from app.api.v1 import (
     backtest,
     bulk_score,
     health,
+    notifications,
     outcomes,
     outcomes_list,
     scores,
@@ -67,3 +68,4 @@ app.include_router(alerts_config.router, prefix="/v1")
 app.include_router(weights.router, prefix="/v1")
 app.include_router(backtest.router, prefix="/v1")
 app.include_router(alerts.router, prefix="/v1")
+app.include_router(notifications.router, prefix="/v1")
