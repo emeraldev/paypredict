@@ -225,7 +225,7 @@ Seed data should tell a clear story for demos:
 
 - **Branch naming:** `feature/scoring-engine`, `fix/auth-middleware`, `docs/factor-reference`
 - **Commit messages:** Present tense, imperative. "Add historical failure factor" not "Added historical failure factor"
-- **PR required for main.** No direct pushes to main branch.
+- **PR required for main.** No direct pushes to main branch. Do not ever add that a PR is genrated by Claude with the PR description.
 
 ---
 
