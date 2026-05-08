@@ -88,6 +88,18 @@ async def evaluate_alerts(
     if tenant.slack_webhook_url:
         await send_slack_alert(tenant.slack_webhook_url, message)
 
+    # Create dashboard notification (bell dropdown)
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, tenant.id, EventType.HIGH_RISK_BATCH,
+        metadata={
+            "high_risk_count": high_risk_count,
+            "total_count": total,
+            "percentage": high_risk_pct,
+            "threshold": tenant.alert_threshold,
+        },
+    )
+
     return alert
 
 

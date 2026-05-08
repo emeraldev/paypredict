@@ -39,6 +39,12 @@ async def create_key(
     db: AsyncSession = Depends(get_db),
 ) -> ApiKeyCreateResponse:
     result = await create_api_key(db, user.tenant_id, req)
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, user.tenant_id, EventType.API_KEY_CREATED,
+        metadata={"actor_name": user.name, "key_label": req.label},
+        actor_id=user.id,
+    )
     await db.commit()
     return result
 
@@ -61,5 +67,18 @@ async def revoke_key(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    # Get the key label before deleting for the notification
+    from sqlalchemy import select as sa_select
+    from app.models.api_key import ApiKey
+    key_result = await db.execute(sa_select(ApiKey).where(ApiKey.id == key_id, ApiKey.tenant_id == user.tenant_id))
+    key_obj = key_result.scalar_one_or_none()
+    key_label = key_obj.label if key_obj else "Unknown"
+
     await delete_api_key(db, user.tenant_id, key_id)
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, user.tenant_id, EventType.API_KEY_REVOKED,
+        metadata={"actor_name": user.name, "key_label": key_label},
+        actor_id=user.id,
+    )
     await db.commit()

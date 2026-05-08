@@ -137,6 +137,17 @@ async def run_backtest(
 
     await db.flush()
 
+    # Create dashboard notification
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, tenant.id, EventType.BACKTEST_COMPLETE,
+        metadata={
+            "backtest_id": str(run.id),
+            "total_collections": run.total_collections,
+            "accuracy": summary.overall_accuracy,
+        },
+    )
+
     return BacktestResponse(
         backtest_id=run.id,
         name=run.name,

@@ -38,6 +38,12 @@ async def invite(
     db: AsyncSession = Depends(get_db),
 ) -> TeamMemberItem:
     result = await invite_member(db, user.tenant_id, req)
+    from app.services.notification_service import EventType, create_notification
+    await create_notification(
+        db, user.tenant_id, EventType.TEAM_MEMBER_INVITED,
+        metadata={"actor_name": user.name, "invitee_name": req.name, "invitee_role": req.role.value},
+        actor_id=user.id,
+    )
     await db.commit()
     return result
 
