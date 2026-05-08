@@ -96,7 +96,7 @@ paypredict/
 │   │       ├── api/                    # client.ts (single fetch wrapper) + types + endpoint wrappers
 │   │       ├── utils/                  # format-currency, format-date, format-risk, format-method
 │   │       ├── constants.ts            # RISK_CONFIG, METHOD_CONFIG, FACTOR_LABELS — single source of truth
-│   │       └── mock-data.ts            # ONLY file with mock data — replace in Step 8
+│   │       └── mock-data.ts            # DEPRECATED — retained for reference, zero imports
 │   └── .env.local                      # NEXT_PUBLIC_API_URL=http://localhost:8001
 │
 ├── docs/                          # Documentation content
@@ -105,7 +105,7 @@ paypredict/
 
 ## Database tables
 
-Core tables: Tenant, ApiKey, FactorWeight, ScoreRequest, ScoreResult, Outcome, User, Alert
+Core tables: Tenant, ApiKey, FactorWeight, ScoreRequest, ScoreResult, Outcome, User, Alert, BacktestRun, BacktestItem, Notification
 
 Key relationships:
 - Tenant (1) → (many) ApiKey, FactorWeight, ScoreRequest, User
@@ -128,61 +128,89 @@ All factors inherit from BaseFactor with calculate() → float and explain() →
 
 ## API endpoints summary
 
+### Lender-facing (API key auth)
 ```
 POST   /v1/score                     # Score single collection (~1ms)
-POST   /v1/score/bulk                # Score batch (async)
-GET    /v1/score/bulk/{job_id}       # Poll bulk results
+POST   /v1/score/bulk                # Score batch (<=50 sync, >50 async via Celery)
+GET    /v1/score/bulk/{job_id}       # Poll async bulk job status/results
 POST   /v1/outcomes                  # Report collection outcome
-POST   /v1/outcomes/bulk             # Report batch outcomes
-GET    /v1/analytics/summary         # Collection rates, accuracy
-GET    /v1/analytics/collection-rate # Rate over time
-GET    /v1/analytics/factors         # Factor contribution ranking
-GET    /v1/analytics/accuracy        # Predicted vs actual
-GET    /v1/config/weights            # Current weights
-PUT    /v1/config/weights            # Update weights
-GET    /v1/config/factors            # Available factors
-POST   /v1/webhooks                  # Register webhook
 GET    /v1/health                    # Health check
 ```
 
-All API endpoints require `Authorization: Bearer <api_key>`. See `docs/api-reference.md` for full request/response schemas.
+### Dashboard-facing (JWT session auth)
+```
+POST   /v1/auth/login                # Email + password → JWT
+GET    /v1/auth/me                   # Current user from JWT
+POST   /v1/auth/logout               # Stateless logout
+
+GET    /v1/scores                    # List scores (filter, sort, paginate + summary)
+GET    /v1/scores/{id}               # Score detail (factors, customer context, outcome)
+GET    /v1/outcomes                   # List outcomes (filter, stats)
+
+GET    /v1/analytics/summary         # Period summary with rate change
+GET    /v1/analytics/collection-rate # Time-series (daily/weekly)
+GET    /v1/analytics/factors         # Factor contributions + correlation
+GET    /v1/analytics/accuracy        # Confusion matrix
+
+GET    /v1/config/weights            # Current weights
+PUT    /v1/config/weights            # Update weights
+GET    /v1/config/api-keys           # List API keys
+POST   /v1/config/api-keys           # Create key (returns raw key once)
+PATCH  /v1/config/api-keys/{id}      # Toggle active/inactive
+DELETE /v1/config/api-keys/{id}      # Revoke key
+GET    /v1/config/team               # List team (admin-only)
+POST   /v1/config/team               # Invite member
+PATCH  /v1/config/team/{id}          # Update role
+DELETE /v1/config/team/{id}          # Remove member
+GET    /v1/config/alerts             # Alert settings
+PUT    /v1/config/alerts             # Update alert settings
+
+POST   /v1/backtest                  # Run backtest (JSON, max 500)
+POST   /v1/backtest/upload           # Run backtest from CSV
+GET    /v1/backtest/{id}             # Get backtest results
+GET    /v1/backtests                 # List past backtests
+GET    /v1/backtest/template         # Download CSV template
+
+GET    /v1/notifications             # List notifications (paginated, filterable)
+GET    /v1/notifications/unread-count # Lightweight count for bell polling
+PATCH  /v1/notifications/{id}/read   # Mark single notification read
+POST   /v1/notifications/read-all    # Mark all notifications read
+
+GET    /v1/alerts                    # List alerts (legacy)
+PATCH  /v1/alerts/{id}/read          # Mark alert read (legacy)
+PATCH  /v1/alerts/read-all           # Mark all alerts read (legacy)
+```
+
+Auto-generated OpenAPI docs available at `/docs` when the API server is running.
 
 ## Current development phase
 
-Phase 1 complete. Phase 2 dashboard complete. Phase 2.5 API endpoints + dashboard wiring complete. Phase 3 (backtest, bulk scoring, webhooks, alerts) in progress.
+Phases 1–3 complete. 201 tests passing. Next: deployment, Phase 4 features, or polish.
 
-### Phase 1 (Weeks 1-4) — COMPLETE:
-1. Project setup: FastAPI, SQLAlchemy, Alembic, Docker Compose for local dev
-2. Database schema + migrations (all 8 tables)
-3. Auth middleware (API key validation → tenant resolution)
-4. Health endpoint
-5. BaseFactor class + card/debit factor implementations (all 8)
-6. Mobile wallet factor implementations (all 8)
-7. ScoringEngine orchestrator + factor registry
-8. POST /v1/score endpoint
-9. POST /v1/outcomes endpoint
-10. Seed data script for demo
-11. Unit tests for all factors + engine (117 tests passing including method-filtering tests)
+### Phase 1 (Weeks 1-4) — COMPLETE
+Scoring engine, 16 factors, POST /v1/score, POST /v1/outcomes, seed data, 117 tests.
 
-### Phase 2 (Weeks 5-8) — Dashboard MOCKED, COMPLETE:
-1. Next.js 16 + shadcn project setup (zinc, base-ui under shadcn, Tailwind v4)
-2. Shared utilities, types, API client, mock data
-3. Shared components (risk badge, factor bar, stat card, pagination, etc.)
-4. Dashboard layout: collapsible sidebar, mobile sheet, topbar with theme toggle
-5. Dashboard home page: summary cards, collections table, filter toolbar, risk detail drawer
-6. Analytics page: collection rate, risk distribution, prediction accuracy, top failure factors
-7. Outcomes page: filter tabs, match indicators, stats
-8. Settings page: weights tab with sliders, API keys, alerts, team — all 4 tabs
-9. Light/dark theme toggle with no-flash inline script
+### Phase 2 (Weeks 5-8) — COMPLETE
+Next.js 16 dashboard with all pages (dashboard, analytics, outcomes, settings), light/dark theme.
 
-### Phase 2.5 — TODO (deferred):
-- **Backend GET endpoints needed:** GET /v1/scores (list), GET /v1/scores/{id}, GET /v1/outcomes (list), GET /v1/analytics/summary, /collection-rate, /factors, GET /v1/config/tenant, /weights, /api-keys, /team, /alerts, plus PUT/POST/DELETE for writable settings
-- **Dashboard hooks** (use-collections, use-analytics, use-outcomes, use-tenant-config) — currently consume mock-data.ts directly
-- **Replace mock-data.ts imports** with hook calls + add loading skeletons / error boundaries
-- **NextAuth v5** for dashboard auth (currently stubbed)
+### Phase 2.5 — COMPLETE
+JWT auth, all dashboard-facing API endpoints, dashboard wired to real API (zero mock-data imports), login page, auth guard. 166 tests.
 
-### Phase 3 (Weeks 9-12): Async scoring, alerts, webhooks
-### Phase 4 (Months 4-6): Timing optimiser, analytics depth, ML prep
+### Phase 3 — COMPLETE
+- Backtest tool: CSV upload, scoring (reuses ScoringEngine), confusion matrix, results page
+- Bulk scoring: sync (<=50) + async (Celery) paths
+- Webhook delivery: HMAC-SHA256, 3 retries, Slack
+- Alert evaluation: threshold check after bulk scoring, creates Alert + Notification
+- Notification system: bell dropdown, 14 event templates, integrated with all config routes
+- Separate test DB (paypredict_test) + transaction rollback per test
+- E2E test script (34/34 checks)
+- Expanded seed: 230 scores, 177 outcomes, 3 alerts, 5 notifications, 1 backtest
+- 201 tests passing
+
+### Phase 4 (Months 4-6) — TODO
+- Timing optimiser — optimal collection date recommendation
+- Analytics depth — cohort analysis, factor trends, A/B weight testing
+- ML prep — labelled dataset export, feature engineering, model training
 
 ## Commands
 
@@ -204,6 +232,12 @@ pytest                            # Run all tests
 pytest tests/test_scoring_engine.py -v  # Specific test file
 pytest tests/test_api/ -v         # All API endpoint tests
 pytest -x                         # Stop on first failure
+
+# E2E test (requires running API server)
+python scripts/test_flow.py       # 34 checks against http://localhost:8001
+
+# Celery worker (for async bulk scoring >50 items)
+celery -A app.tasks.celery_app worker --loglevel=info
 
 # Dashboard
 cd dashboard
