@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { LogOutIcon, MenuIcon, SearchIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,11 @@ export function Topbar() {
   const { setMobileOpen } = useSidebar();
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const title = getRouteTitle(pathname);
   const initials = user?.name
     .split(" ")
@@ -39,6 +45,33 @@ export function Topbar() {
     .join("")
     .toUpperCase() ?? "?";
 
+  // Sync input value with URL search param when navigating
+  useEffect(() => {
+    setSearchQuery(searchParams.get("search") ?? "");
+  }, [searchParams]);
+
+  // Cmd+K / Ctrl+K focuses the search input
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
+
+  const handleSearchSubmit = (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q) {
+      router.push(`/dashboard?search=${encodeURIComponent(q)}`);
+    } else {
+      router.push("/dashboard");
+    }
+    inputRef.current?.blur();
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
@@ -55,16 +88,19 @@ export function Topbar() {
       <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="relative hidden md:block">
+        <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search..."
+            ref={inputRef}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search collections..."
             className="h-9 w-56 rounded-lg pl-9 pr-12 text-sm"
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
             ⌘K
           </kbd>
-        </div>
+        </form>
 
         <NotificationBell />
 
