@@ -1,7 +1,6 @@
 "use client";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -18,6 +17,7 @@ import { formatRelativeTime } from "@/lib/utils/format-date";
 import { useApi } from "@/hooks/use-api";
 import { configApi } from "@/lib/api/config";
 import { InviteMemberDialog } from "./invite-member-dialog";
+import { ManageMemberDialog } from "./manage-member-dialog";
 
 function getInitials(name: string): string {
   return name
@@ -92,9 +92,7 @@ export function TeamTab() {
                     : "Never"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    Manage
-                  </Button>
+                  <ManageMemberDialog member={member} onUpdated={refetch} />
                 </TableCell>
               </TableRow>
             ))}
