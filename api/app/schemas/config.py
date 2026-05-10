@@ -71,6 +71,7 @@ class TeamListResponse(BaseModel):
 class AlertsConfigResponse(BaseModel):
     high_risk_threshold: float
     webhook_url: str | None
+    webhook_secret: str
     slack_webhook_url: str | None
     email_digest: EmailDigest
     email_recipients: list[str]

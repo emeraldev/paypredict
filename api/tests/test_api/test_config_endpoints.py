@@ -246,6 +246,37 @@ async def test_alerts_get(async_client, sa_admin_user):
     assert "high_risk_threshold" in data
     assert "email_digest" in data
     assert data["email_digest"] == "OFF"
+    # Webhook secret should be exposed and have the whsec_ prefix
+    assert data["webhook_secret"].startswith("whsec_")
+
+
+@pytest.mark.asyncio
+async def test_alerts_rotate_secret(async_client, sa_admin_user):
+    """Rotating the secret returns a new whsec_-prefixed value that
+    differs from the previous one, and persists across reads."""
+    token = await _login(async_client)
+
+    initial = await async_client.get("/v1/config/alerts", headers=_auth(token))
+    original_secret = initial.json()["webhook_secret"]
+
+    rotated = await async_client.post(
+        "/v1/config/alerts/regenerate-secret", headers=_auth(token)
+    )
+    assert rotated.status_code == 200
+    new_secret = rotated.json()["webhook_secret"]
+    assert new_secret.startswith("whsec_")
+    assert new_secret != original_secret
+
+    # GET reflects the new secret
+    after = await async_client.get("/v1/config/alerts", headers=_auth(token))
+    assert after.json()["webhook_secret"] == new_secret
+
+
+@pytest.mark.asyncio
+async def test_alerts_rotate_no_auth(async_client, sa_tenant):
+    """Rotation requires session auth."""
+    r = await async_client.post("/v1/config/alerts/regenerate-secret")
+    assert r.status_code == 401
 
 
 @pytest.mark.asyncio

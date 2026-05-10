@@ -217,18 +217,33 @@ async def remove_member(
 
 # ==================== Alerts ====================
 
+import secrets as _secrets
+
+
+def _generate_webhook_secret() -> str:
+    """Generate a new webhook signing secret. The "whsec_" prefix mirrors
+    the convention used by Stripe and other webhook-signing platforms so
+    leaked secrets are easy to identify in code search/grep."""
+    return "whsec_" + _secrets.token_urlsafe(32)
+
+
+def _to_alerts_response(tenant: Tenant) -> AlertsConfigResponse:
+    return AlertsConfigResponse(
+        high_risk_threshold=tenant.alert_threshold,
+        webhook_url=tenant.webhook_url,
+        webhook_secret=tenant.webhook_secret,
+        slack_webhook_url=tenant.slack_webhook_url,
+        email_digest=tenant.email_digest,
+        email_recipients=tenant.email_recipients,
+    )
+
+
 async def get_alerts_config(
     db: AsyncSession, tenant_id: uuid.UUID
 ) -> AlertsConfigResponse:
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one()
-    return AlertsConfigResponse(
-        high_risk_threshold=tenant.alert_threshold,
-        webhook_url=tenant.webhook_url,
-        slack_webhook_url=tenant.slack_webhook_url,
-        email_digest=tenant.email_digest,
-        email_recipients=tenant.email_recipients,
-    )
+    return _to_alerts_response(tenant)
 
 
 async def update_alerts_config(
@@ -250,10 +265,15 @@ async def update_alerts_config(
 
     await db.flush()
 
-    return AlertsConfigResponse(
-        high_risk_threshold=tenant.alert_threshold,
-        webhook_url=tenant.webhook_url,
-        slack_webhook_url=tenant.slack_webhook_url,
-        email_digest=tenant.email_digest,
-        email_recipients=tenant.email_recipients,
-    )
+    return _to_alerts_response(tenant)
+
+
+async def rotate_webhook_secret(
+    db: AsyncSession, tenant_id: uuid.UUID
+) -> AlertsConfigResponse:
+    """Generate a new webhook secret and invalidate the previous one."""
+    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = result.scalar_one()
+    tenant.webhook_secret = _generate_webhook_secret()
+    await db.flush()
+    return _to_alerts_response(tenant)
