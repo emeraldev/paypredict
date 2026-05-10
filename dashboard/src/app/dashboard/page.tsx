@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import {
   CollectionsTable,
@@ -18,6 +20,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
 import { scoresApi } from "@/lib/api/scores";
 import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
+import { downloadCsv } from "@/lib/utils/csv-export";
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import type { RiskLevel } from "@/lib/utils/format-risk";
 import { addDays, format } from "date-fns";
@@ -39,14 +42,22 @@ const SORT_MAP: Record<CollectionsSortField, string> = {
 };
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
   const [riskFilter, setRiskFilter] = useState<RiskLevel | null>(null);
   const [methodFilter, setMethodFilter] = useState<CollectionMethod | "ALL">("ALL");
   const [dateRange, setDateRange] = useState<DateRangeFilter>("30d");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState<CollectionsSortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Update search when URL param changes (topbar search submits navigate here)
+  useEffect(() => {
+    const fromUrl = searchParams.get("search") ?? "";
+    setSearch(fromUrl);
+    setPage(1);
+  }, [searchParams]);
 
   // Build API params
   const params: CollectionsListParams = {
@@ -84,6 +95,38 @@ export default function DashboardPage() {
   const handleRowClick = useCallback((item: ScoreListItem) => {
     setSelectedId(item.score_id);
   }, []);
+
+  const handleExport = async () => {
+    try {
+      // Fetch the full filtered set (max page_size) — not just the current page
+      const fullData = await scoresApi.list({ ...params, page: 1, page_size: 100 });
+      if (fullData.items.length === 0) {
+        toast.error("No collections to export");
+        return;
+      }
+      const rows = fullData.items.map((s) => ({
+        score_id: s.score_id,
+        customer_id: s.external_customer_id,
+        collection_id: s.external_collection_id,
+        amount: s.collection_amount,
+        currency: s.collection_currency,
+        due_date: s.collection_due_date,
+        method: s.collection_method,
+        instalment: s.instalment_number != null && s.total_instalments != null
+          ? `${s.instalment_number}/${s.total_instalments}`
+          : "",
+        score: s.score.toFixed(4),
+        risk_level: s.risk_level,
+        recommended_action: s.recommended_action,
+        scored_at: s.scored_at,
+      }));
+      const today = format(new Date(), "yyyy-MM-dd");
+      downloadCsv(`paypredict-collections-${today}.csv`, rows);
+      toast.success(`Exported ${rows.length} collections`);
+    } catch {
+      toast.error("Export failed");
+    }
+  };
 
   if (error) {
     return (
@@ -124,6 +167,7 @@ export default function DashboardPage() {
           setDateRange(v);
           setPage(1);
         }}
+        onExport={handleExport}
       />
 
       <Card className="overflow-hidden p-0">
