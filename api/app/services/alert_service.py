@@ -74,7 +74,7 @@ async def evaluate_alerts(
     if tenant.webhook_url:
         await deliver_webhook(
             url=tenant.webhook_url,
-            secret="paypredict",  # TODO: per-tenant webhook secret
+            secret=tenant.webhook_secret,
             event="high_risk_alert",
             payload={
                 "alert_id": str(alert.id),
