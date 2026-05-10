@@ -75,11 +75,16 @@ def _apply_filters(
     *,
     outcome_status: str | None,
     match_filter: str | None,
+    search: str | None = None,
     date_from: date | None,
     date_to: date | None,
 ) -> Select:
     if outcome_status:
         query = query.where(Outcome.outcome == OutcomeStatus(outcome_status))
+
+    if search:
+        pattern = f"%{search}%"
+        query = query.where(Outcome.external_collection_id.ilike(pattern))
 
     if date_from:
         query = query.where(Outcome.attempted_at >= date_from)
@@ -124,6 +129,7 @@ async def _compute_stats(
     *,
     outcome_status: str | None,
     match_filter: str | None,
+    search: str | None = None,
     date_from: date | None,
     date_to: date | None,
 ) -> OutcomeListStats:
@@ -133,6 +139,7 @@ async def _compute_stats(
         base,
         outcome_status=outcome_status,
         match_filter=match_filter,
+        search=search,
         date_from=date_from,
         date_to=date_to,
     )
@@ -191,6 +198,7 @@ async def list_outcomes(
     page_size: int = 25,
     outcome_status: str | None = None,
     match_filter: str | None = None,
+    search: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     sort_by: str = "attempted_at",
@@ -201,6 +209,7 @@ async def list_outcomes(
         query,
         outcome_status=outcome_status,
         match_filter=match_filter,
+        search=search,
         date_from=date_from,
         date_to=date_to,
     )
@@ -217,6 +226,7 @@ async def list_outcomes(
         tenant_id,
         outcome_status=outcome_status,
         match_filter=match_filter,
+        search=search,
         date_from=date_from,
         date_to=date_to,
     )
