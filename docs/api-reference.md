@@ -317,23 +317,64 @@ Returns the list of available factors for the tenant's factor_set, with descript
 
 ### Webhooks
 
+Webhooks are configured per tenant on the alert settings, not via a separate registration endpoint. Each tenant has a single webhook URL and a tenant-scoped signing secret.
+
+**Configure webhook URL:**
+
 ```
-POST   /v1/webhooks    # Register a new webhook endpoint
-GET    /v1/webhooks    # List registered webhooks
-DELETE /v1/webhooks/{id}
+GET   /v1/config/alerts            # Returns webhook_url + webhook_secret
+PUT   /v1/config/alerts            # Update webhook_url, slack_webhook_url, threshold
+POST  /v1/config/alerts/regenerate-secret   # Rotate webhook_secret
 ```
 
-**Register request:**
+**Sample `GET /v1/config/alerts` response:**
 
 ```json
 {
-  "url": "https://api.lender.com/paypredict-webhook",
-  "events": ["bulk_scoring_complete", "high_risk_alert"],
-  "secret": "whsec_your_signing_secret"
+  "high_risk_threshold": 0.20,
+  "webhook_url": "https://api.lender.com/paypredict-webhook",
+  "webhook_secret": "whsec_xY9zK2mP4nQ8rT3vW5xY...",
+  "slack_webhook_url": null,
+  "email_digest": "OFF",
+  "email_recipients": []
 }
 ```
 
-Webhook payloads are signed with the secret using HMAC-SHA256 in the `X-PayPredict-Signature` header.
+The secret is auto-generated when the tenant is created and is fully visible to authenticated tenant admins. Rotate it via `POST /v1/config/alerts/regenerate-secret` if compromised — the old value is invalidated immediately.
+
+#### Signature verification
+
+Every webhook delivery includes these headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-PayPredict-Event` | Event name (e.g. `high_risk_alert`) |
+| `X-PayPredict-Signature` | `sha256=<hex>` HMAC of the raw request body using your tenant's `webhook_secret` |
+| `X-PayPredict-Delivery` | UUID, unique per attempt (3 retries with exponential backoff) |
+| `Content-Type` | `application/json` |
+
+**Verify in Python:**
+
+```python
+import hmac, hashlib
+
+def verify_paypredict_signature(body: bytes, header: str, secret: str) -> bool:
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", header)
+```
+
+**Verify in Node:**
+
+```js
+const crypto = require("crypto");
+
+function verifyPaypredictSignature(body, header, secret) {
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(header));
+}
+```
+
+Use the raw request body before any JSON parsing — re-serialising changes whitespace and breaks the signature.
 
 ---
 

@@ -345,6 +345,7 @@ export interface TeamListResponse {
 export interface AlertSettings {
   high_risk_threshold: number;
   webhook_url: string | null;
+  webhook_secret: string;
   slack_webhook_url: string | null;
   email_digest: "OFF" | "DAILY" | "WEEKLY";
   email_recipients: string[];

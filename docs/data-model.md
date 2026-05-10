@@ -20,8 +20,11 @@ factor_set:          enum (CARD_DEBIT, MOBILE_WALLET, CUSTOM), not null  # Colle
 is_active:           boolean, default true
 plan:                enum (PILOT, STARTER, GROWTH, SCALE), default PILOT
 webhook_url:         string, nullable          # For async results + alerts
+webhook_secret:      string, not null          # Per-tenant HMAC-SHA256 signing key (whsec_<random>)
 slack_webhook_url:   string, nullable
 alert_threshold:     float, default 0.20       # Alert when >20% of batch is high-risk
+email_digest:        enum (OFF, DAILY, WEEKLY), default OFF
+email_recipients:    text[], default []
 created_at:          datetime, not null
 updated_at:          datetime, not null
 ```

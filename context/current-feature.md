@@ -97,3 +97,5 @@ Phase 3 complete. Notification system shipped. 201 tests passing.
 - 2026-04-24: E2E test script — 34/34 checks pass
 - 2026-04-24: Bug fixes — Sheet backdrop flash, backtest recovery calc, annualization, tenant refresh, API key refetch, CSV error display
 - 2026-05-08: Notification system — model, service (14 templates), 4 endpoints, bell dropdown, integrated with all config routes, 5 seed notifications, 201 tests
+- 2026-05-09: Quick fixes — Cmd+K command palette (global search across collections/outcomes/backtests), CSV export wired (Dashboard + Outcomes, paginated through all pages), settings tabs read ?tab= URL param, Team Manage dialog (role change + remove), bulk scoring DB persistence in Celery path
+- 2026-05-09: Per-tenant webhook secret — replaces hardcoded shared "paypredict" secret. Tenant.webhook_secret column, auto-generated whsec_<random>, exposed in GET /v1/config/alerts, POST /v1/config/alerts/regenerate-secret to rotate, dashboard UI shows + copies + rotates the secret. Closes a cross-tenant forgery risk before paying customers exist. 203 tests.

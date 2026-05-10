@@ -6,7 +6,11 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.config import AlertsConfigResponse, AlertsConfigUpdateRequest
-from app.services.config_service import get_alerts_config, update_alerts_config
+from app.services.config_service import (
+    get_alerts_config,
+    rotate_webhook_secret,
+    update_alerts_config,
+)
 
 router = APIRouter(prefix="/config/alerts", tags=["config"])
 
@@ -32,5 +36,18 @@ async def update_config(
         metadata={"actor_name": user.name},
         actor_id=user.id,
     )
+    await db.commit()
+    return result
+
+
+@router.post("/regenerate-secret", response_model=AlertsConfigResponse)
+async def regenerate_secret(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AlertsConfigResponse:
+    """Rotate the tenant's webhook signing secret. The previous secret is
+    immediately invalidated — any in-flight webhooks signed with the old
+    secret will fail signature verification on the receiver."""
+    result = await rotate_webhook_secret(db, user.tenant_id)
     await db.commit()
     return result
