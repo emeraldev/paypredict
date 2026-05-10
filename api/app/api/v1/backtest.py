@@ -100,11 +100,12 @@ async def download_template() -> StreamingResponse:
 
 @router.get("s", response_model=BacktestListResponse)
 async def list_all(
+    search: str | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> BacktestListResponse:
-    """List all backtest runs for the tenant."""
-    return await list_backtests(db, user.tenant_id)
+    """List all backtest runs for the tenant. Optional search filters by name."""
+    return await list_backtests(db, user.tenant_id, search=search)
 
 
 @router.get("/{backtest_id}", response_model=BacktestResponse)

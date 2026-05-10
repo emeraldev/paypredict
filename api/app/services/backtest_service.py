@@ -363,14 +363,19 @@ async def get_backtest(
 
 
 async def list_backtests(
-    db: AsyncSession, tenant_id: uuid.UUID
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    search: str | None = None,
 ) -> BacktestListResponse:
-    """List all backtest runs for a tenant."""
-    result = await db.execute(
+    """List all backtest runs for a tenant. Optional search filters by name."""
+    query = (
         select(BacktestRun)
         .where(BacktestRun.tenant_id == tenant_id)
         .order_by(BacktestRun.created_at.desc())
     )
+    if search:
+        query = query.where(BacktestRun.name.ilike(f"%{search}%"))
+    result = await db.execute(query)
     runs = result.scalars().all()
 
     items = []

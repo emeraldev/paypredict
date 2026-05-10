@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LogOutIcon, MenuIcon, SearchIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { CommandPalette } from "@/components/command-palette/command-palette";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/hooks/use-sidebar";
@@ -32,10 +32,7 @@ export function Topbar() {
   const { setMobileOpen } = useSidebar();
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const title = getRouteTitle(pathname);
   const initials = user?.name
@@ -45,81 +42,69 @@ export function Topbar() {
     .join("")
     .toUpperCase() ?? "?";
 
-  // Sync input value with URL search param when navigating
-  useEffect(() => {
-    setSearchQuery(searchParams.get("search") ?? "");
-  }, [searchParams]);
-
-  // Cmd+K / Ctrl+K focuses the search input
+  // Cmd+K / Ctrl+K opens the command palette from anywhere
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        inputRef.current?.focus();
+        setPaletteOpen((open) => !open);
       }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
-  const handleSearchSubmit = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    if (q) {
-      router.push(`/dashboard?search=${encodeURIComponent(q)}`);
-    } else {
-      router.push("/dashboard");
-    }
-    inputRef.current?.blur();
-  };
-
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
-      >
-        <MenuIcon className="h-5 w-5" />
-      </Button>
-
-      <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
-
-      <div className="ml-auto flex items-center gap-2">
-        <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search collections..."
-            className="h-9 w-56 rounded-lg pl-9 pr-12 text-sm"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            ⌘K
-          </kbd>
-        </form>
-
-        <NotificationBell />
-
-        <ThemeToggle />
-
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-        </Avatar>
-
+    <>
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-sm md:px-6">
         <Button
           variant="ghost"
           size="icon"
-          onClick={logout}
-          aria-label="Sign out"
-          title="Sign out"
+          className="md:hidden"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
         >
-          <LogOutIcon className="h-4 w-4" />
+          <MenuIcon className="h-5 w-5" />
         </Button>
-      </div>
-    </header>
+
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
+
+        <div className="ml-auto flex items-center gap-2">
+          {/* Command palette trigger — looks like a search input but opens the palette */}
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="relative hidden h-9 w-56 items-center gap-2 rounded-lg border border-border bg-card pl-3 pr-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground md:flex"
+            aria-label="Open command palette"
+          >
+            <SearchIcon className="h-4 w-4 shrink-0" />
+            <span className="flex-1 truncate">Search...</span>
+            <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </button>
+
+          <NotificationBell />
+
+          <ThemeToggle />
+
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={logout}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOutIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    </>
   );
 }

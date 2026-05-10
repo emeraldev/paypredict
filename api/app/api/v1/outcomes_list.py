@@ -19,6 +19,7 @@ async def outcomes_list(
     page_size: int = Query(25, ge=1, le=100),
     outcome: str | None = Query(None, pattern="^(SUCCESS|FAILED)$"),
     match: str | None = Query(None, pattern="^(MATCHED|MISMATCHED)$"),
+    search: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     sort_by: str = Query(
@@ -40,6 +41,7 @@ async def outcomes_list(
         page_size=page_size,
         outcome_status=outcome,
         match_filter=match,
+        search=search,
         date_from=date_from,
         date_to=date_to,
         sort_by=sort_by,
