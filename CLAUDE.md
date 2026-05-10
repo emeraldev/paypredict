@@ -30,7 +30,8 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 
 - **No PII stored.** We only store external_customer_id and external_collection_id from lenders. Never names, phone numbers, IDs, or card numbers.
 - **Immutable scores.** ScoreResults are never updated after creation. Rescoring creates a new ScoreRequest + ScoreResult pair. This is for audit trail and ML training data integrity.
-- **Multi-tenant from day one.** Every table has tenant_id. Row-level security in PostgreSQL. Each lender is a tenant with separate API keys, weights, and factor configuration.
+- **Multi-tenant from day one.** Every table has tenant_id. Row-level security in PostgreSQL. Each lender is a tenant with separate API keys, weights, factor configuration, and webhook signing secret.
+- **Per-tenant webhook signing secret.** Each tenant has a unique `webhook_secret` (auto-generated on tenant creation, `whsec_<random>` format). All outgoing webhook deliveries are signed with HMAC-SHA256 using the tenant's secret. Customers can rotate via `POST /v1/config/alerts/regenerate-secret` if compromised. NEVER share secrets across tenants — that would allow cross-tenant forgery.
 - **JSONB for flexibility.** Factor breakdowns and request payloads use JSONB so factor sets can evolve without schema migrations.
 - **Factor sets are collection-method-based, not country-based.** The `factor_set` field (CARD_DEBIT, MOBILE_WALLET) determines which scoring factors to use based on how payments are collected. The `market` field (SA, ZM) is separate and determines currency, payday defaults, and regulatory context. This means the same factor set can be reused across any country that uses the same collection method.
 - **Factor registry pattern.** Tenant's `factor_set` determines which factor classes load. Adding a new collection method = writing new factor classes + registering them. No API or engine changes needed.
@@ -47,11 +48,20 @@ paypredict/
 │   │   ├── config.py              # Settings from env vars
 │   │   ├── dependencies.py        # Auth, tenant resolution, rate limiting
 │   │   ├── api/v1/               # Route handlers
-│   │   │   ├── scores.py         # POST /v1/score, /v1/score/bulk
+│   │   │   ├── scores.py         # POST /v1/score
+│   │   │   ├── scores_list.py    # GET /v1/scores, /v1/scores/{id}
+│   │   │   ├── bulk_score.py     # POST /v1/score/bulk + GET /v1/score/bulk/{job_id}
 │   │   │   ├── outcomes.py       # POST /v1/outcomes
+│   │   │   ├── outcomes_list.py  # GET /v1/outcomes
 │   │   │   ├── analytics.py      # GET /v1/analytics/*
-│   │   │   ├── config.py         # GET/PUT /v1/config/*
-│   │   │   ├── webhooks.py       # CRUD /v1/webhooks
+│   │   │   ├── auth.py           # POST /v1/auth/login, /me, /logout
+│   │   │   ├── api_keys.py       # CRUD /v1/config/api-keys
+│   │   │   ├── team.py           # CRUD /v1/config/team (admin-only)
+│   │   │   ├── weights.py        # GET/PUT /v1/config/weights
+│   │   │   ├── alerts_config.py  # GET/PUT /v1/config/alerts + regenerate-secret
+│   │   │   ├── backtest.py       # POST /v1/backtest, upload, list, get
+│   │   │   ├── alerts.py         # GET /v1/alerts (legacy)
+│   │   │   ├── notifications.py  # GET /v1/notifications, mark-read
 │   │   │   └── health.py         # GET /v1/health
 │   │   ├── scoring/
 │   │   │   ├── engine.py          # ScoringEngine orchestrator
@@ -162,8 +172,9 @@ GET    /v1/config/team               # List team (admin-only)
 POST   /v1/config/team               # Invite member
 PATCH  /v1/config/team/{id}          # Update role
 DELETE /v1/config/team/{id}          # Remove member
-GET    /v1/config/alerts             # Alert settings
+GET    /v1/config/alerts             # Alert settings (incl. webhook_secret)
 PUT    /v1/config/alerts             # Update alert settings
+POST   /v1/config/alerts/regenerate-secret  # Rotate per-tenant webhook signing secret
 
 POST   /v1/backtest                  # Run backtest (JSON, max 500)
 POST   /v1/backtest/upload           # Run backtest from CSV
