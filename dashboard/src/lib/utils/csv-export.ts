@@ -1,4 +1,36 @@
 /**
+ * Fetch all pages of a paginated list endpoint and return the flat list.
+ * Stops at maxRows to avoid runaway memory use.
+ *
+ * The fetcher must accept (page, pageSize) and return a list response with
+ * `items` and `pagination.total_pages`.
+ */
+export async function fetchAllPages<T>(
+  fetcher: (page: number, pageSize: number) => Promise<{
+    items: T[];
+    pagination: { total_pages: number };
+  }>,
+  options: { pageSize?: number; maxRows?: number } = {},
+): Promise<T[]> {
+  const pageSize = options.pageSize ?? 100;
+  const maxRows = options.maxRows ?? 5000;
+
+  const all: T[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages && all.length < maxRows) {
+    const res = await fetcher(page, pageSize);
+    all.push(...res.items);
+    totalPages = res.pagination.total_pages;
+    page += 1;
+  }
+
+  return all.slice(0, maxRows);
+}
+
+
+/**
  * Convert an array of objects to CSV and trigger a browser download.
  * Quotes fields containing commas, quotes, or newlines.
  */

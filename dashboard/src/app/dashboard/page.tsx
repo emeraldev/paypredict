@@ -20,7 +20,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
 import { scoresApi } from "@/lib/api/scores";
 import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
-import { downloadCsv } from "@/lib/utils/csv-export";
+import { downloadCsv, fetchAllPages } from "@/lib/utils/csv-export";
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import type { RiskLevel } from "@/lib/utils/format-risk";
 import { addDays, format } from "date-fns";
@@ -98,13 +98,15 @@ export default function DashboardPage() {
 
   const handleExport = async () => {
     try {
-      // Fetch the full filtered set (max page_size) — not just the current page
-      const fullData = await scoresApi.list({ ...params, page: 1, page_size: 100 });
-      if (fullData.items.length === 0) {
+      // Fetch ALL pages of the filtered set (capped at 5000 rows for safety)
+      const items = await fetchAllPages(
+        (page, pageSize) => scoresApi.list({ ...params, page, page_size: pageSize }),
+      );
+      if (items.length === 0) {
         toast.error("No collections to export");
         return;
       }
-      const rows = fullData.items.map((s) => ({
+      const rows = items.map((s) => ({
         score_id: s.score_id,
         customer_id: s.external_customer_id,
         collection_id: s.external_collection_id,
