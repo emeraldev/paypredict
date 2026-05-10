@@ -35,8 +35,12 @@ export const backtestApi = {
   get: (id: string) =>
     api.get<BacktestResponse>(`/v1/backtest/${id}`),
 
-  list: () =>
-    api.get<BacktestListResponse>("/v1/backtests"),
+  list: (params: { search?: string } = {}) => {
+    const qs = params.search
+      ? `?search=${encodeURIComponent(params.search)}`
+      : "";
+    return api.get<BacktestListResponse>(`/v1/backtests${qs}`);
+  },
 
   templateUrl: () => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";

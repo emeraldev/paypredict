@@ -212,6 +212,7 @@ export interface OutcomesListParams {
   page_size?: number;
   outcome?: "SUCCESS" | "FAILED";
   match?: "MATCHED" | "MISMATCHED";
+  search?: string;
   date_from?: string;
   date_to?: string;
   sort_by?: string;
