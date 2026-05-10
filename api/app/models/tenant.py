@@ -50,6 +50,7 @@ class Tenant(Base):
         Enum(Plan, name="plan_enum"), default=Plan.PILOT, nullable=False
     )
     webhook_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    webhook_secret: Mapped[str] = mapped_column(String(255), nullable=False)
     slack_webhook_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     alert_threshold: Mapped[float] = mapped_column(Float, default=0.20, nullable=False)
     email_digest: Mapped[EmailDigest] = mapped_column(

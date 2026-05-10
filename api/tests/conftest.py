@@ -94,6 +94,7 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
         plan=Plan.STARTER,
         is_active=True,
         alert_threshold=0.20,
+        webhook_secret="whsec_test_sa_secret_for_unit_tests",
     )
     db_session.add(tenant)
 
@@ -143,6 +144,7 @@ async def zm_tenant(db_session: AsyncSession) -> Tenant:
         plan=Plan.STARTER,
         is_active=True,
         alert_threshold=0.20,
+        webhook_secret="whsec_test_zm_secret_for_unit_tests",
     )
     db_session.add(tenant)
     await db_session.flush()

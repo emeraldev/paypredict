@@ -149,6 +149,7 @@ async def seed() -> None:
             plan=Plan.STARTER,
             is_active=True,
             alert_threshold=0.20,
+            webhook_secret="whsec_" + secrets.token_urlsafe(32),
             created_at=now,
             updated_at=now,
         )
@@ -160,6 +161,7 @@ async def seed() -> None:
             plan=Plan.STARTER,
             is_active=True,
             alert_threshold=0.20,
+            webhook_secret="whsec_" + secrets.token_urlsafe(32),
             created_at=now,
             updated_at=now,
         )
