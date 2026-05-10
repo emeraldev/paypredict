@@ -35,4 +35,6 @@ export const configApi = {
   getAlertSettings: () => api.get<AlertSettings>("/v1/config/alerts"),
   updateAlertSettings: (settings: Partial<AlertSettings>) =>
     api.put<AlertSettings>("/v1/config/alerts", settings),
+  rotateWebhookSecret: () =>
+    api.post<AlertSettings>("/v1/config/alerts/regenerate-secret", {}),
 };
