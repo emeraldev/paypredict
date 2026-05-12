@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { BacktestListItem } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/format-date";
 
 interface PastBacktestsListProps {

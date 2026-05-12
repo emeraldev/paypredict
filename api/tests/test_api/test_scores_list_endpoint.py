@@ -141,6 +141,47 @@ async def test_list_scores_sort(async_client, sa_admin_user):
 
 
 @pytest.mark.asyncio
+async def test_list_scores_sort_by_customer(async_client, sa_admin_user):
+    """Sort by external_customer_id ascending."""
+    token = await _login(async_client)
+    await _create_score(async_client, customer_id="charlie")
+    await _create_score(async_client, customer_id="alpha")
+    await _create_score(async_client, customer_id="bravo")
+
+    r = await async_client.get(
+        "/v1/scores?sort_by=external_customer_id&sort_order=asc",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    customers = [i["external_customer_id"] for i in r.json()["items"]]
+    assert customers == ["alpha", "bravo", "charlie"]
+
+
+@pytest.mark.asyncio
+async def test_list_scores_sort_by_method(async_client, sa_admin_user):
+    """sort_by=collection_method is accepted (not rejected by validator)."""
+    token = await _login(async_client)
+    await _create_score(async_client, customer_id="c1")
+
+    r = await async_client.get(
+        "/v1/scores?sort_by=collection_method&sort_order=asc",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_list_scores_sort_by_invalid_rejected(async_client, sa_admin_user):
+    """Unknown sort_by values are rejected with 422."""
+    token = await _login(async_client)
+    r = await async_client.get(
+        "/v1/scores?sort_by=password",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_list_scores_no_auth(async_client, sa_tenant):
     """No JWT → 401."""
     r = await async_client.get("/v1/scores")

@@ -39,6 +39,9 @@ const DATE_RANGE_DAYS: Record<DateRangeFilter, number> = {
 const SORT_MAP: Record<CollectionsSortField, string> = {
   score: "score",
   due_date: "collection_due_date",
+  customer: "external_customer_id",
+  amount: "collection_amount",
+  method: "collection_method",
 };
 
 export default function DashboardPage() {
@@ -88,7 +91,7 @@ export default function DashboardPage() {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortField(field);
-      setSortDirection("desc");
+      setSortDirection(field === "customer" || field === "method" ? "asc" : "desc");
     }
   };
 
@@ -183,6 +186,19 @@ export default function DashboardPage() {
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
+              hasActiveFilters={
+                riskFilter !== null ||
+                methodFilter !== "ALL" ||
+                dateRange !== "30d" ||
+                search.trim().length > 0
+              }
+              onClearFilters={() => {
+                setRiskFilter(null);
+                setMethodFilter("ALL");
+                setDateRange("30d");
+                setSearch("");
+                setPage(1);
+              }}
             />
             {data && (
               <div className="border-t border-border">

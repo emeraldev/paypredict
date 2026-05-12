@@ -46,6 +46,8 @@ _SORT_COLUMNS = {
     "collection_amount": ScoreRequest.collection_amount,
     "collection_due_date": ScoreRequest.collection_due_date,
     "created_at": ScoreResult.created_at,
+    "external_customer_id": ScoreRequest.external_customer_id,
+    "collection_method": ScoreRequest.collection_method,
 }
 
 

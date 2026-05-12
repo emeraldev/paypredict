@@ -113,7 +113,14 @@ export default function OutcomesPage() {
           <LoadingSkeleton variant="rows" count={10} />
         ) : (
           <>
-            <OutcomesTable outcomes={data?.items ?? []} />
+            <OutcomesTable
+              outcomes={data?.items ?? []}
+              filter={filter}
+              onClearFilter={() => {
+                setFilter("ALL");
+                setPage(1);
+              }}
+            />
             {data && (
               <div className="border-t border-border">
                 <DataTablePagination
