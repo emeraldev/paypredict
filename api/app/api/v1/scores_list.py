@@ -27,7 +27,7 @@ async def scores_list(
     search: str | None = None,
     sort_by: str = Query(
         "score",
-        pattern="^(score|collection_amount|collection_due_date|created_at)$",
+        pattern="^(score|collection_amount|collection_due_date|created_at|external_customer_id|collection_method)$",
     ),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     user: User = Depends(get_current_user),

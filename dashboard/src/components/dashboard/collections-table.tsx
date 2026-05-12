@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, InboxIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpDownIcon,
+  ArrowUpIcon,
+  FilterXIcon,
+  InboxIcon,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -8,12 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { ScoreListItem } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { CollectionsTableRow } from "./collections-table-row";
 
-export type CollectionsSortField = "score" | "due_date";
+export type CollectionsSortField = "score" | "due_date" | "customer" | "amount" | "method";
 export type SortDirection = "asc" | "desc";
 
 interface CollectionsTableProps {
@@ -22,6 +29,8 @@ interface CollectionsTableProps {
   sortField: CollectionsSortField;
   sortDirection: SortDirection;
   onSortChange: (field: CollectionsSortField) => void;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 const HEADER_CLS =
@@ -35,13 +44,22 @@ interface SortableHeaderProps {
   onClick: () => void;
 }
 
-function SortableHeader({ label, active, direction, onClick }: SortableHeaderProps) {
+function SortableHeader({
+  label,
+  active,
+  direction,
+  onClick,
+  align = "left",
+}: SortableHeaderProps & { align?: "left" | "right" }) {
   const Icon = !active ? ArrowUpDownIcon : direction === "asc" ? ArrowUpIcon : ArrowDownIcon;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-1 transition-colors hover:text-foreground"
+      className={cn(
+        "flex w-full items-center gap-1 transition-colors hover:text-foreground",
+        align === "right" && "justify-end",
+      )}
     >
       {label}
       <Icon className="h-3 w-3" />
@@ -55,13 +73,28 @@ export function CollectionsTable({
   sortField,
   sortDirection,
   onSortChange,
+  hasActiveFilters = false,
+  onClearFilters,
 }: CollectionsTableProps) {
   if (collections.length === 0) {
-    return (
+    return hasActiveFilters ? (
       <EmptyState
-        icon={<InboxIcon className="h-10 w-10" />}
-        title="No collections found"
-        description="Try adjusting your filters or search query."
+        icon={<FilterXIcon className="h-6 w-6" />}
+        title="No collections match these filters"
+        description="Try widening the date range, clearing the search, or removing the method filter."
+        action={
+          onClearFilters && (
+            <Button variant="outline" size="sm" onClick={onClearFilters}>
+              Clear filters
+            </Button>
+          )
+        }
+      />
+    ) : (
+      <EmptyState
+        icon={<InboxIcon className="h-6 w-6" />}
+        title="No upcoming collections"
+        description="Once your lender sends scoring requests via /v1/score, they'll appear here ranked by risk."
       />
     );
   }
@@ -80,8 +113,25 @@ export function CollectionsTable({
                 onClick={() => onSortChange("score")}
               />
             </TableHead>
-            <TableHead className={HEADER_CLS}>Customer</TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[120px] text-right")}>Amount</TableHead>
+            <TableHead className={HEADER_CLS}>
+              <SortableHeader
+                label="Customer"
+                field="customer"
+                active={sortField === "customer"}
+                direction={sortDirection}
+                onClick={() => onSortChange("customer")}
+              />
+            </TableHead>
+            <TableHead className={cn(HEADER_CLS, "w-[120px] text-right")}>
+              <SortableHeader
+                label="Amount"
+                field="amount"
+                active={sortField === "amount"}
+                direction={sortDirection}
+                onClick={() => onSortChange("amount")}
+                align="right"
+              />
+            </TableHead>
             <TableHead className={cn(HEADER_CLS, "w-[160px]")}>
               <SortableHeader
                 label="Due Date"
@@ -92,7 +142,15 @@ export function CollectionsTable({
               />
             </TableHead>
             <TableHead className={cn(HEADER_CLS, "w-[120px]")}>Instalment</TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[140px]")}>Method</TableHead>
+            <TableHead className={cn(HEADER_CLS, "w-[140px]")}>
+              <SortableHeader
+                label="Method"
+                field="method"
+                active={sortField === "method"}
+                direction={sortDirection}
+                onClick={() => onSortChange("method")}
+              />
+            </TableHead>
             <TableHead className={cn(HEADER_CLS, "w-[80px] text-right")} />
           </TableRow>
         </TableHeader>

@@ -46,6 +46,20 @@ SYNC_THRESHOLD = 50
 JOB_TTL = 3600  # 1 hour
 
 
+def _factor_to_db_shape(f: dict) -> dict:
+    """Translate a response-shape factor entry ({"factor": ...}) to the
+    DB JSONB shape ({"factor_name": ...}) that matches the single-score
+    path and what analytics_service.get_factor_contributions reads.
+    """
+    return {
+        "factor_name": f["factor"],
+        "raw_score": f["raw_score"],
+        "weight": f["weight"],
+        "weighted_score": f["weighted_score"],
+        "explanation": f["explanation"],
+    }
+
+
 def _score_one(
     tenant: Tenant,
     item: dict,
@@ -133,7 +147,7 @@ async def score_bulk_sync(
             score=scored["score"],
             risk_level=RiskLevel(scored["risk_level"]),
             factors={
-                "evaluated": scored["factors"],
+                "evaluated": [_factor_to_db_shape(f) for f in scored["factors"]],
                 "skipped": scored["skipped_factors"],
             },
             recommended_action=scored["recommended_action"],

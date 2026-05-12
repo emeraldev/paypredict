@@ -1,6 +1,6 @@
 "use client";
 
-import { BellIcon } from "lucide-react";
+import { CheckCheckIcon } from "lucide-react";
 import type { NotificationItem as NotificationType } from "@/lib/api/notifications";
 import { NotificationItem } from "./notification-item";
 
@@ -38,9 +38,16 @@ export function NotificationDropdown({
       {/* List */}
       <div className="max-h-[400px] overflow-y-auto divide-y divide-border/50">
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
-            <BellIcon className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm">No notifications yet</p>
+          <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground ring-1 ring-border/60">
+              <CheckCheckIcon className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">You&apos;re all caught up</p>
+              <p className="text-xs text-muted-foreground">
+                Alerts, weight changes, and key activity will appear here.
+              </p>
+            </div>
           </div>
         ) : (
           notifications.map((n) => (

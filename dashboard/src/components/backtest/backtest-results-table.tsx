@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, InboxIcon, XCircleIcon } from "lucide-react";
+import { BarChart3Icon, CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -27,9 +27,9 @@ export function BacktestResultsTable({ backtest }: BacktestResultsTableProps) {
   if (!dist) {
     return (
       <EmptyState
-        icon={<InboxIcon className="h-10 w-10" />}
-        title="No results"
-        description="Run a backtest to see results."
+        icon={<BarChart3Icon className="h-6 w-6" />}
+        title="No backtest results yet"
+        description="Upload a CSV of past collections + outcomes to see how the scoring model would have performed."
       />
     );
   }

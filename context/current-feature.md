@@ -4,7 +4,7 @@ All core phases complete. Next: deployment, Phase 4 features, or polish.
 
 ## Status
 
-Phase 3 complete. Notification system shipped. 201 tests passing.
+Phase 3 complete. Notification system shipped. CI green on every PR. 208 tests passing.
 
 ## Completed Phases
 
@@ -64,7 +64,7 @@ Phase 3 complete. Notification system shipped. 201 tests passing.
 - ML prep — labelled dataset export, feature engineering, model training
 
 ### Infrastructure
-- CI/CD (GitHub Actions)
+- ~~CI/CD (GitHub Actions)~~ — backend pytest + frontend lint/build, gate job for branch protection
 - AWS deployment (ECS Fargate, af-south-1)
 - NextAuth v5 (SSO, refresh tokens)
 - Rate limiting middleware
@@ -99,3 +99,6 @@ Phase 3 complete. Notification system shipped. 201 tests passing.
 - 2026-05-08: Notification system — model, service (14 templates), 4 endpoints, bell dropdown, integrated with all config routes, 5 seed notifications, 201 tests
 - 2026-05-09: Quick fixes — Cmd+K command palette (global search across collections/outcomes/backtests), CSV export wired (Dashboard + Outcomes, paginated through all pages), settings tabs read ?tab= URL param, Team Manage dialog (role change + remove), bulk scoring DB persistence in Celery path
 - 2026-05-09: Per-tenant webhook secret — replaces hardcoded shared "paypredict" secret. Tenant.webhook_secret column, auto-generated whsec_<random>, exposed in GET /v1/config/alerts, POST /v1/config/alerts/regenerate-secret to rotate, dashboard UI shows + copies + rotates the secret. Closes a cross-tenant forgery risk before paying customers exist. 203 tests.
+- 2026-05-12: CI/CD — GitHub Actions workflow with backend (pytest + Postgres/Redis services) and frontend (lint + build) jobs, plus a ci-passed gate for branch protection. Concurrency cancels stale runs. README CI badge. Dropped deprecated mock-data.ts; downgraded react-hooks/set-state-in-effect to warn (the default flags legitimate external-data sync patterns).
+- 2026-05-12: Cosmetic/UX — Customer/Amount/Method columns sortable on dashboard (backend whitelist extended to external_customer_id + collection_method, 3 new sort tests). Analytics period picker (7d/14d/30d/60d/90d) replaces hardcoded 30d. Empty states redesigned with circular icon backdrop and context-aware copy/actions across collections, outcomes, backtest results, and notifications dropdown. 206 tests.
+- 2026-05-12: Fix blank Top Failure Contributors chart — bulk scoring path was persisting factor entries with key "factor" instead of "factor_name" (single-score path was correct). Analytics SQL reads "factor_name" → returned NULL → Pydantic 500. Fixed bulk_scoring_service + Celery task to persist canonical shape, hardened analytics SQL with COALESCE on both keys, and shipped a one-time migration to normalize 3 legacy rows. API response shape unchanged. 208 tests.

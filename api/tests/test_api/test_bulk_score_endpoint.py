@@ -1,6 +1,10 @@
 """Tests for POST /v1/score/bulk (sync path, <= 50 items)."""
-import pytest
+import uuid
 
+import pytest
+from sqlalchemy import select
+
+from app.models.score_result import ScoreResult
 from tests.conftest import TEST_API_KEY
 
 
@@ -73,6 +77,36 @@ async def test_bulk_score_max_sync(async_client, sa_tenant):
     assert r.status_code == 200
     assert r.json()["status"] == "completed"
     assert r.json()["total_items"] == 50
+
+
+@pytest.mark.asyncio
+async def test_bulk_score_persists_factor_name_key(async_client, sa_tenant, db_session):
+    """Bulk-scored rows must persist with the canonical 'factor_name' JSONB
+    key (not 'factor'). Analytics reads 'factor_name'; the legacy 'factor'
+    key was a bug that produced blank Top Failure Contributors charts."""
+    r = await async_client.post(
+        "/v1/score/bulk",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={"collections": _sample_items(2)},
+    )
+    assert r.status_code == 200
+    score_ids = [uuid.UUID(item["score_id"]) for item in r.json()["results"]]
+
+    # Read back the persisted JSONB shape.
+    rows = (
+        await db_session.execute(
+            select(ScoreResult.factors).where(ScoreResult.id.in_(score_ids))
+        )
+    ).all()
+    assert len(rows) == 2
+    for (factors,) in rows:
+        evaluated = factors["evaluated"]
+        assert evaluated, "evaluated list must not be empty"
+        for entry in evaluated:
+            assert "factor_name" in entry, (
+                f"DB row uses legacy 'factor' key instead of 'factor_name': {entry}"
+            )
+            assert "factor" not in entry
 
 
 @pytest.mark.asyncio
