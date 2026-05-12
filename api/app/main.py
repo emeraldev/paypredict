@@ -106,8 +106,13 @@ async def public_redoc():
 
 
 # ---- Internal docs (dev + dashboard) ----
+#
+# Two independent gates protect the internal Swagger:
+#   1. `environment != "production"`     (set ENVIRONMENT=production in prod)
+#   2. `internal_docs_enabled` is True   (set INTERNAL_DOCS_ENABLED=false in prod)
+# Either gate being wrong is enough to disable the surface — defense in depth.
 
-if settings.environment != "production":
+if settings.internal_docs_visible:
 
     @app.get("/openapi-internal.json", include_in_schema=False)
     async def internal_openapi() -> JSONResponse:

@@ -6,6 +6,10 @@ models (BacktestRequest, TeamInviteRequest, NotificationItem, etc.) do
 not leak into the public docs even though they live in the same app.
 Endpoint paths and behaviour are identical between the two schemas —
 only documentation visibility differs.
+
+Schemas are memoised on the FastAPI app instance on first build; routes
+don't change after startup, so re-running the filter on every Swagger
+load is wasted CPU.
 """
 import json
 import re
@@ -19,31 +23,56 @@ from app.api.docs_config import (
     PUBLIC_TAG_METADATA,
     PUBLIC_TAGS,
 )
+from app.config import settings
 
 _REF_RE = re.compile(r'"\$ref"\s*:\s*"#/components/schemas/([^"]+)"')
 
 
 def get_public_openapi_schema(app: FastAPI) -> dict:
-    """OpenAPI schema with only the public-tagged endpoints and only the
-    component schemas those endpoints actually reference."""
+    """Memoised public OpenAPI schema — tag-filtered + schema-pruned."""
+    cached = getattr(app.state, "_public_openapi_schema", None)
+    if cached is not None:
+        return cached
     full = get_openapi(
         title="PayPredict API",
         version="1.0.0",
         description=PUBLIC_API_DESCRIPTION,
         routes=app.routes,
         tags=PUBLIC_TAG_METADATA,
+        servers=_servers_block(),
     )
-    return _filter_schema_by_tags(full, PUBLIC_TAGS)
+    schema = _filter_schema_by_tags(full, PUBLIC_TAGS)
+    app.state._public_openapi_schema = schema
+    return schema
 
 
 def get_internal_openapi_schema(app: FastAPI) -> dict:
-    """OpenAPI schema with every endpoint included — dev/dashboard view."""
-    return get_openapi(
+    """Memoised internal OpenAPI schema — every endpoint included."""
+    cached = getattr(app.state, "_internal_openapi_schema", None)
+    if cached is not None:
+        return cached
+    schema = get_openapi(
         title="PayPredict Internal API",
         version="1.0.0",
         description=INTERNAL_API_DESCRIPTION,
         routes=app.routes,
+        servers=_servers_block(),
     )
+    app.state._internal_openapi_schema = schema
+    return schema
+
+
+def _servers_block() -> list[dict] | None:
+    """Return the OpenAPI `servers` array, or None if no public URL is set.
+
+    Declaring a servers block makes lender SDK code-generators
+    (openapi-generator, Speakeasy, etc.) emit the right base URL by
+    default. With `public_api_url` empty, omit the block so Swagger UI
+    falls back to the current host.
+    """
+    if not settings.public_api_url:
+        return None
+    return [{"url": settings.public_api_url, "description": settings.environment}]
 
 
 def _filter_schema_by_tags(schema: dict, allowed_tags: list[str]) -> dict:
