@@ -1,5 +1,7 @@
 # PayPredict
 
+[![CI](https://github.com/emeraldev/paypredict/actions/workflows/ci.yml/badge.svg)](https://github.com/emeraldev/paypredict/actions/workflows/ci.yml)
+
 Pre-collection risk scoring for African lenders. Predicts which instalment collections will fail before they're attempted.
 
 ## Overview
