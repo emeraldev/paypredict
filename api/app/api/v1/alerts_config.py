@@ -12,7 +12,7 @@ from app.services.config_service import (
     update_alerts_config,
 )
 
-router = APIRouter(prefix="/config/alerts", tags=["config"])
+router = APIRouter(prefix="/config/alerts", tags=["Alert Settings"])
 
 
 @router.get("", response_model=AlertsConfigResponse)

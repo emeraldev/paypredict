@@ -17,7 +17,7 @@ from app.schemas.backtest import (
 from app.services.backtest_service import get_backtest, list_backtests, run_backtest
 from app.services.csv_parser import parse_backtest_csv
 
-router = APIRouter(prefix="/backtest", tags=["backtest"])
+router = APIRouter(prefix="/backtest", tags=["Backtest"])
 
 CSV_TEMPLATE = (
     "external_customer_id,external_collection_id,collection_amount,"

@@ -7,7 +7,7 @@ from app.models.tenant import Tenant
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
 from app.services.outcome_service import record_outcome
 
-router = APIRouter(tags=["outcomes"])
+router = APIRouter(tags=["Outcomes"])
 
 
 @router.post(

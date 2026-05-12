@@ -14,7 +14,7 @@ from app.services.bulk_scoring_service import (
     _load_weights,
 )
 
-router = APIRouter(tags=["scoring"])
+router = APIRouter(tags=["Scoring"])
 
 
 @router.post("/score/bulk")

@@ -20,7 +20,7 @@ from app.services.config_service import (
     update_member_role,
 )
 
-router = APIRouter(prefix="/config/team", tags=["config"])
+router = APIRouter(prefix="/config/team", tags=["Team"])
 
 
 @router.get("", response_model=TeamListResponse)

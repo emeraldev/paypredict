@@ -92,6 +92,25 @@ async def get_current_user(
     return user
 
 
+async def get_tenant_from_either(
+    credentials: HTTPAuthorizationCredentials | None = Security(session_security),
+    db: AsyncSession = Depends(get_db),
+) -> Tenant:
+    """Resolve a tenant from either a lender API key (pk_*) or a dashboard JWT.
+
+    Used on endpoints that appear in the public lender docs but are also
+    consumed by the dashboard — currently analytics + config/weights. The
+    `pk_` prefix is the cheap discriminator: API keys are minted with
+    `pk_live_` / `pk_test_` prefixes, JWTs are dot-separated.
+    """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if credentials.credentials.startswith("pk_"):
+        return await get_current_tenant(credentials, db)
+    user = await get_current_user(credentials, db)
+    return user.tenant
+
+
 def require_admin(user: User = Depends(get_current_user)) -> User:
     """Restrict an endpoint to ADMIN-role users.
 

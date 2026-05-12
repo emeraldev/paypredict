@@ -11,7 +11,7 @@ from app.models.user import User
 from app.schemas.scores_list import ScoreDetailResponse, ScoresListResponse
 from app.services.scores_service import get_score_detail, list_scores
 
-router = APIRouter(tags=["scores"])
+router = APIRouter(tags=["Dashboard Scores"])
 
 
 @router.get("/scores", response_model=ScoresListResponse)

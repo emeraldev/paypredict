@@ -7,7 +7,7 @@ from app.models.tenant import Tenant
 from app.schemas.score import ScoreRequest, ScoreResponse
 from app.services.scoring_service import score_collection
 
-router = APIRouter(tags=["scoring"])
+router = APIRouter(tags=["Scoring"])
 
 
 @router.post("/score", response_model=ScoreResponse)

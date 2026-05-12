@@ -14,7 +14,7 @@ from app.services.alert_service import (
     mark_all_read,
 )
 
-router = APIRouter(prefix="/alerts", tags=["alerts"])
+router = APIRouter(prefix="/alerts", tags=["Alerts (legacy)"])
 
 
 @router.get("")
