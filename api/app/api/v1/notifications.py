@@ -14,7 +14,7 @@ from app.services.notification_service import (
     mark_as_read,
 )
 
-router = APIRouter(prefix="/notifications", tags=["notifications"])
+router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
 @router.get("")

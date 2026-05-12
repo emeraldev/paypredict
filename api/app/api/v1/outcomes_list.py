@@ -10,7 +10,7 @@ from app.models.user import User
 from app.schemas.outcomes_list import OutcomesListResponse
 from app.services.outcomes_service import list_outcomes
 
-router = APIRouter(tags=["outcomes"])
+router = APIRouter(tags=["Dashboard Outcomes"])
 
 
 @router.get("/outcomes", response_model=OutcomesListResponse)

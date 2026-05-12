@@ -21,7 +21,7 @@ from app.services.config_service import (
     toggle_api_key,
 )
 
-router = APIRouter(prefix="/config/api-keys", tags=["config"])
+router = APIRouter(prefix="/config/api-keys", tags=["API Keys"])
 
 
 @router.get("", response_model=ApiKeyListResponse)

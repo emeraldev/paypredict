@@ -18,7 +18,7 @@ from app.services.auth_service import (
     touch_last_login,
 )
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 def _user_to_response(user: User) -> UserResponse:

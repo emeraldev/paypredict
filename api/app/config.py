@@ -32,6 +32,21 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Public-facing API URL. Declared in the OpenAPI `servers` block so
+    # lender SDK code-generators know the base URL. Leave empty to omit.
+    public_api_url: str = ""
+
+    # Internal Swagger docs (`/docs/internal`) are gated by BOTH this flag
+    # AND `environment != "production"` — defense in depth against an
+    # accidental ENVIRONMENT misconfiguration leaking the full schema.
+    # Defaults True in dev, False otherwise so staging/CI behave like prod.
+    internal_docs_enabled: bool = True
+
+    @property
+    def internal_docs_visible(self) -> bool:
+        """Return True only when both gates allow the internal Swagger UI."""
+        return self.environment != "production" and self.internal_docs_enabled
+
     @property
     def database_url_sync(self) -> str:
         """Synchronous database URL for Alembic migrations."""
