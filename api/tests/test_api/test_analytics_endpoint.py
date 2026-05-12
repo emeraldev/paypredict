@@ -1,5 +1,6 @@
 """Tests for GET /v1/analytics/* endpoints."""
 import pytest
+from sqlalchemy import select
 
 from tests.conftest import TEST_API_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD
 
@@ -159,6 +160,44 @@ async def test_factors_with_data(async_client, sa_admin_user):
     assert "factor" in factor
     assert "avg_contribution" in factor
     assert "correlation_with_failure" in factor
+
+
+@pytest.mark.asyncio
+async def test_factors_tolerates_legacy_jsonb_key(async_client, sa_admin_user, db_session):
+    """Score rows from the pre-fix bulk path used 'factor' instead of
+    'factor_name' in the JSONB. The factors endpoint must still return 200
+    with COALESCE-fallback (and skip rows that have neither key, rather
+    than 500ing on a None factor_name)."""
+    from sqlalchemy import update
+    from app.models.score_result import ScoreResult
+
+    token = await _login(async_client)
+    await _create_score_and_outcome(async_client, customer_id="legacy_001", outcome="FAILED")
+
+    # Rewrite the persisted JSONB to simulate a legacy bulk-scored row.
+    result = await db_session.execute(
+        select(ScoreResult).order_by(ScoreResult.created_at.desc()).limit(1)
+    )
+    row = result.scalar_one()
+    legacy_factors = {
+        "evaluated": [
+            {"factor": entry["factor_name"], **{k: v for k, v in entry.items() if k != "factor_name"}}
+            for entry in row.factors["evaluated"]
+        ],
+        "skipped": row.factors.get("skipped", []),
+    }
+    await db_session.execute(
+        update(ScoreResult).where(ScoreResult.id == row.id).values(factors=legacy_factors)
+    )
+    await db_session.flush()
+
+    r = await async_client.get(
+        "/v1/analytics/factors?period=30d",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200, r.text
+    # Legacy entries are still surfaced via the COALESCE.
+    assert len(r.json()["factors"]) > 0
 
 
 # ---- Accuracy (confusion matrix) ----

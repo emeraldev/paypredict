@@ -13,7 +13,7 @@ from app.models.score_request import CollectionCurrency, CollectionMethod, Score
 from app.models.score_result import RiskLevel, ScoreResult
 from app.models.tenant import FactorSet
 from app.scoring.engine import ScoringEngine
-from app.services.bulk_scoring_service import _score_one, _to_json_safe, JOB_TTL
+from app.services.bulk_scoring_service import _factor_to_db_shape, _score_one, _to_json_safe, JOB_TTL
 from app.tasks.celery_app import celery_app
 
 _engine = ScoringEngine()
@@ -58,7 +58,7 @@ async def _persist_batch(
                     score=scored["score"],
                     risk_level=RiskLevel(scored["risk_level"]),
                     factors={
-                        "evaluated": scored["factors"],
+                        "evaluated": [_factor_to_db_shape(f) for f in scored["factors"]],
                         "skipped": scored["skipped_factors"],
                     },
                     recommended_action=scored["recommended_action"],

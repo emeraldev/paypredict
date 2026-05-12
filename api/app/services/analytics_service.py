@@ -194,35 +194,18 @@ async def get_factor_contributions(
     """
     cutoff = period_start(period)
 
-    # Subquery: unnest factors JSONB for scores in the period that have outcomes
-    # Using raw SQL for the JSONB unnest — SQLAlchemy's JSONB support for
-    # array unnesting is verbose and less readable than a CTE.
-    raw = text("""
-        SELECT
-            f.value ->> 'factor_name' AS factor_name,
-            (f.value ->> 'weighted_score')::float AS weighted_score,
-            CASE WHEN o.outcome = 'FAILED' THEN 1.0 ELSE 0.0 END AS is_failed
-        FROM score_results sr
-        CROSS JOIN LATERAL jsonb_array_elements(sr.factors -> 'evaluated') AS f(value)
-        LEFT JOIN outcomes o ON o.score_result_id = sr.id
-        WHERE sr.tenant_id = :tenant_id
-          AND sr.created_at >= :cutoff
-    """)
-
-    sub = select(
-        text("factor_name"),
-        text("weighted_score"),
-        text("is_failed"),
-    ).select_from(text(f"({raw.text}) AS sub")).params(
-        tenant_id=str(tenant_id), cutoff=cutoff
-    )
-
-    # This approach is cleaner — execute the raw SQL directly
+    # COALESCE on both keys defends against legacy rows written by the old
+    # bulk path (key was "factor") before the bulk writer was fixed.
+    # WHERE clause then drops any unidentifiable rows so the Pydantic
+    # response schema (factor: str) never sees a NULL.
     result = await db.execute(
         text("""
             WITH factor_data AS (
                 SELECT
-                    f.value ->> 'factor_name' AS factor_name,
+                    COALESCE(
+                        f.value ->> 'factor_name',
+                        f.value ->> 'factor'
+                    ) AS factor_name,
                     (f.value ->> 'weighted_score')::float AS weighted_score,
                     CASE WHEN o.outcome = 'FAILED' THEN 1.0 ELSE 0.0 END AS is_failed
                 FROM score_results sr
@@ -236,6 +219,7 @@ async def get_factor_contributions(
                 ROUND(AVG(weighted_score)::numeric, 4) AS avg_contribution,
                 ROUND(CORR(weighted_score, is_failed)::numeric, 4) AS correlation
             FROM factor_data
+            WHERE factor_name IS NOT NULL
             GROUP BY factor_name
             ORDER BY avg_contribution DESC
         """),
