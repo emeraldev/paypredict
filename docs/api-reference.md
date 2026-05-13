@@ -413,16 +413,43 @@ HTTP status codes:
 
 ## Rate limits
 
-| Plan | Requests/minute | Bulk batch size |
-|------|----------------|----------------|
-| Pilot | 60 | 100 |
-| Starter | 200 | 500 |
-| Growth | 500 | 1,000 |
-| Scale | Custom | Custom |
+| Plan | Requests/minute |
+|------|----------------|
+| Pilot | 60 |
+| Starter | 200 |
+| Growth | 500 |
+| Scale | 2,000 (custom on request) |
 
-Rate limit headers included in every response:
+### How it works
+
+- **Per tenant, per minute.** Each API request increments a counter scoped to your tenant and the current calendar minute. The window resets cleanly on each minute boundary — no sliding-window jitter to model.
+- **Bulk endpoints count as one request.** `POST /v1/score/bulk` with 1,000 collections burns a single ticket. The hard cap on items per bulk call (also 1,000) is enforced separately and unrelated to the rate limit.
+- **Rate-limited endpoints**: every scoring + outcome path — `POST /v1/score`, `POST /v1/score/bulk`, `GET /v1/score/bulk/{job_id}`, `POST /v1/outcomes`.
+- **Dashboard endpoints** (your team logging into the PayPredict UI) are **not** rate-limited.
+
+### Headers on every response
+
 ```
+X-RateLimit-Limit: 200          # Your tier ceiling per minute
+X-RateLimit-Remaining: 187      # Requests left in this window
+X-RateLimit-Reset: 1712678400   # Unix timestamp when the window resets
+```
+
+### When you exceed the limit
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 23
 X-RateLimit-Limit: 200
-X-RateLimit-Remaining: 187
+X-RateLimit-Remaining: 0
 X-RateLimit-Reset: 1712678400
+Content-Type: application/json
+
+{"detail": "Rate limit exceeded (200 requests/min for the STARTER plan). Retry in 23s."}
 ```
+
+`Retry-After` is the number of seconds until the window resets. Once over the limit, retries before the reset **do not** burn additional tickets — so a tight retry loop won't extend the cool-off period. The recommended client behaviour is to back off using `Retry-After` and resume after the indicated delay.
+
+### When you might need a higher tier
+
+If you're consistently hitting `X-RateLimit-Remaining: 0` near the window boundary, your effective throughput is capped by the tier. Contact support to discuss a Custom limit.

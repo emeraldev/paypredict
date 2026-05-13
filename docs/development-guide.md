@@ -71,8 +71,10 @@ volumes:
 
 ```bash
 # api/.env (local development)
-DATABASE_URL=postgresql+asyncpg://paypredict:localdev@localhost:5432/paypredict_dev
-REDIS_URL=redis://localhost:6379/0
+# Ports match api/docker-compose.yml — Postgres + Redis are remapped from
+# their defaults so they don't clash with anything already running on the host.
+DATABASE_URL=postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev
+REDIS_URL=redis://localhost:6380/0
 SECRET_KEY=local-dev-secret-change-in-production
 ENVIRONMENT=development
 LOG_LEVEL=DEBUG
