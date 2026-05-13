@@ -4,6 +4,7 @@ consumed by the dashboard. Accept either an API key (lender) or a JWT
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_tenant_from_either
 from app.models.tenant import Tenant
@@ -20,7 +21,7 @@ from app.services.analytics_service import (
     get_summary,
 )
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+router = APIRouter(prefix="/analytics", tags=["Analytics"], responses=LENDER_API_RESPONSES)
 
 
 @router.get("/summary", response_model=AnalyticsSummaryResponse)

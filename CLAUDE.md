@@ -192,11 +192,18 @@ PATCH  /v1/alerts/{id}/read          # Mark alert read (legacy)
 PATCH  /v1/alerts/read-all           # Mark all alerts read (legacy)
 ```
 
-Auto-generated OpenAPI docs available at `/docs` when the API server is running.
+Two OpenAPI surfaces are served from the same FastAPI app:
+
+- `/docs` — **public Swagger UI** that lenders see. Filtered by tag to only include Scoring, Outcomes, Analytics, Configuration, Webhooks (description-only with HMAC verification examples), and Health. Component schemas are pruned to only those reachable from public paths, so internal Pydantic models (Backtest / Team / ApiKey / Notification / etc.) do not leak.
+- `/docs/internal` — **full Swagger UI** with every endpoint, used by the dashboard team during development. Gated by two independent flags: `environment != "production"` AND `internal_docs_enabled` (settings.internal_docs_visible). Returns 404 in production.
+- `/redoc` — ReDoc rendering of the public schema.
+- `/openapi.json` / `/openapi-internal.json` — the raw schemas.
+
+When adding a new endpoint, set `tags=[...]` to one of the canonical values in `app/api/docs_config.py`. That single setting decides whether it appears in the public or internal Swagger. Untagged endpoints are internal-only by default.
 
 ## Current development phase
 
-Phases 1–3 complete. 201 tests passing. Next: deployment, Phase 4 features, or polish.
+Phases 1–3 complete. 217 tests passing. Next: deployment, Phase 4 features, or polish.
 
 ### Phase 1 (Weeks 1-4) — COMPLETE
 Scoring engine, 16 factors, POST /v1/score, POST /v1/outcomes, seed data, 117 tests.
@@ -216,7 +223,7 @@ JWT auth, all dashboard-facing API endpoints, dashboard wired to real API (zero 
 - Separate test DB (paypredict_test) + transaction rollback per test
 - E2E test script (34/34 checks)
 - Expanded seed: 230 scores, 177 outcomes, 3 alerts, 5 notifications, 1 backtest
-- 201 tests passing
+- 217 tests passing
 
 ### Phase 4 (Months 4-6) — TODO
 - Timing optimiser — optimal collection date recommendation

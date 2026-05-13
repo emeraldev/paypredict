@@ -4,13 +4,14 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.outcomes_list import OutcomesListResponse
 from app.services.outcomes_service import list_outcomes
 
-router = APIRouter(tags=["Dashboard Outcomes"])
+router = APIRouter(tags=["Dashboard Outcomes"], responses=DASHBOARD_API_RESPONSES)
 
 
 @router.get("/outcomes", response_model=OutcomesListResponse)

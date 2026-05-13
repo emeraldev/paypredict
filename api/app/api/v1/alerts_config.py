@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -12,7 +13,11 @@ from app.services.config_service import (
     update_alerts_config,
 )
 
-router = APIRouter(prefix="/config/alerts", tags=["Alert Settings"])
+router = APIRouter(
+    prefix="/config/alerts",
+    tags=["Alert Settings"],
+    responses=DASHBOARD_API_RESPONSES,
+)
 
 
 @router.get("", response_model=AlertsConfigResponse)

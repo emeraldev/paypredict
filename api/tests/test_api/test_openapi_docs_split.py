@@ -43,6 +43,7 @@ EXPECTED_PUBLIC_SCHEMAS = {
     "FactorBreakdown",
     "FactorContributionItem",
     "FactorsResponse",
+    "HTTPError",
     "HTTPValidationError",
     "OutcomeRequest",
     "OutcomeResponse",
@@ -130,6 +131,65 @@ async def test_internal_openapi_includes_public_and_dashboard(async_client):
         assert dashboard_path in paths, (
             f"Dashboard path {dashboard_path} missing from internal docs"
         )
+
+
+@pytest.mark.asyncio
+async def test_public_openapi_advertises_webhooks_tag(async_client):
+    """The Webhooks tag is description-only — no operations reference it —
+    but the public Swagger UI needs it so lenders see signature
+    verification + retry guidance."""
+    r = await async_client.get("/openapi.json")
+    tag_names = {t["name"] for t in r.json().get("tags", [])}
+    assert "Webhooks" in tag_names
+    webhooks_tag = next(t for t in r.json()["tags"] if t["name"] == "Webhooks")
+    desc = webhooks_tag.get("description", "")
+    assert "X-PayPredict-Signature" in desc
+    assert "hmac" in desc.lower()
+
+
+@pytest.mark.asyncio
+async def test_lender_routes_document_401_and_429(async_client):
+    """Every lender-facing operation must surface both 401 and 429 in its
+    responses so SDK code-generators emit retry / backoff logic."""
+    r = await async_client.get("/openapi.json")
+    paths = r.json()["paths"]
+    # Lender-facing ops (everything that isn't /v1/health*)
+    lender_ops = [
+        (path, method)
+        for path, methods in paths.items()
+        for method in methods
+        if not path.startswith("/v1/health")
+    ]
+    assert lender_ops, "Sanity: there should be lender-facing operations"
+    for path, method in lender_ops:
+        codes = set(paths[path][method].get("responses", {}).keys())
+        assert "401" in codes, f"{method.upper()} {path} missing 401 response"
+        assert "429" in codes, f"{method.upper()} {path} missing 429 response"
+
+
+@pytest.mark.asyncio
+async def test_429_response_documents_rate_limit_headers(async_client):
+    """The 429 response must surface Retry-After + X-RateLimit-* headers so
+    lender retry logic can read them without guessing."""
+    r = await async_client.get("/openapi.json")
+    score_op = r.json()["paths"]["/v1/score"]["post"]
+    headers = score_op["responses"]["429"].get("headers", {})
+    for required in ("Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"):
+        assert required in headers, f"429 missing {required} header doc"
+
+
+@pytest.mark.asyncio
+async def test_openapi_version_matches_pyproject(async_client):
+    """OpenAPI version is read from pyproject.toml at startup, not hardcoded."""
+    from app.config import APP_VERSION
+
+    r = await async_client.get("/openapi.json")
+    assert r.json()["info"]["version"] == APP_VERSION
+    # Sanity: APP_VERSION should not be the fallback string returned when
+    # pyproject.toml can't be read.
+    assert APP_VERSION != "0.0.0", (
+        "pyproject.toml fallback hit — version did not load from disk"
+    )
 
 
 @pytest.mark.asyncio

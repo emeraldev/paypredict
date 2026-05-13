@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES, NOT_FOUND_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -14,7 +15,11 @@ from app.services.alert_service import (
     mark_all_read,
 )
 
-router = APIRouter(prefix="/alerts", tags=["Alerts (legacy)"])
+router = APIRouter(
+    prefix="/alerts",
+    tags=["Alerts (legacy)"],
+    responses={**DASHBOARD_API_RESPONSES, **NOT_FOUND_RESPONSES},
+)
 
 
 @router.get("")

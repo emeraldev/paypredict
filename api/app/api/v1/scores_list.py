@@ -5,13 +5,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES, NOT_FOUND_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.scores_list import ScoreDetailResponse, ScoresListResponse
 from app.services.scores_service import get_score_detail, list_scores
 
-router = APIRouter(tags=["Dashboard Scores"])
+router = APIRouter(
+    tags=["Dashboard Scores"],
+    responses={**DASHBOARD_API_RESPONSES, **NOT_FOUND_RESPONSES},
+)
 
 
 @router.get("/scores", response_model=ScoresListResponse)

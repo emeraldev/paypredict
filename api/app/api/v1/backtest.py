@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES, NOT_FOUND_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserRole
@@ -17,7 +18,11 @@ from app.schemas.backtest import (
 from app.services.backtest_service import get_backtest, list_backtests, run_backtest
 from app.services.csv_parser import parse_backtest_csv
 
-router = APIRouter(prefix="/backtest", tags=["Backtest"])
+router = APIRouter(
+    prefix="/backtest",
+    tags=["Backtest"],
+    responses={**DASHBOARD_API_RESPONSES, **NOT_FOUND_RESPONSES},
+)
 
 CSV_TEMPLATE = (
     "external_customer_id,external_collection_id,collection_amount,"
