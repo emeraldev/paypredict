@@ -67,6 +67,10 @@ jobs:
       - name: Run pytest
         # Tests auto-migrate the test DB via a session-scoped fixture.
         # Each test runs in a transaction that rolls back on teardown.
+        # REDIS_URL matches the docker-compose port mapping (host:6380) so
+        # the rate-limit tests can talk to the service container.
+        env:
+          REDIS_URL: redis://localhost:6380/0
         run: pytest -q --tb=short
 
   frontend:

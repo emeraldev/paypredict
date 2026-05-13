@@ -4,7 +4,7 @@ All core phases complete. Next: deployment, Phase 4 features, or polish.
 
 ## Status
 
-Phase 3 complete. Notification system shipped. CI green on every PR. 217 tests passing.
+Phase 3 complete. Notification system shipped. CI green on every PR. 224 tests passing.
 
 ## Completed Phases
 
@@ -104,3 +104,4 @@ Phase 3 complete. Notification system shipped. CI green on every PR. 217 tests p
 - 2026-05-12: Fix blank Top Failure Contributors chart — bulk scoring path was persisting factor entries with key "factor" instead of "factor_name" (single-score path was correct). Analytics SQL reads "factor_name" → returned NULL → Pydantic 500. Fixed bulk_scoring_service + Celery task to persist canonical shape, hardened analytics SQL with COALESCE on both keys, and shipped a one-time migration to normalize 3 legacy rows. API response shape unchanged. 208 tests.
 - 2026-05-12: Split Swagger docs by tag — `/docs` now shows only lender-facing endpoints (Scoring, Outcomes, Analytics, Configuration, Health); the full surface (incl. Auth, Notifications, Backtest, Dashboard Scores/Outcomes, API Keys, Team, Alert Settings) lives at `/docs/internal`. `/docs/internal` is disabled when ENVIRONMENT=production. **Endpoint paths unchanged** — the split is OpenAPI-schema-only, so no dashboard/test code moved. Dual-auth dependency added so the public shared endpoints (analytics + config/weights) accept either an API key (pk_*) or a dashboard JWT. Public docs get a quick-start description + per-tag descriptions.
 - 2026-05-13: Docs polish (deferred items from the split PR) — (1) every protected route declares 401/422 in OpenAPI; lender routes additionally declare 429 with documented Retry-After + X-RateLimit-* headers; admin routes add 403; detail routes add 404. (2) New description-only `Webhooks` tag in the public Swagger UI carries signature-verification examples in Python and Node + retry guidance. (3) OpenAPI version is read from `pyproject.toml` at startup (single source of truth). 217 tests (+4 new docs assertions). Rate-limit enforcement deferred to its own PR.
+- 2026-05-13: Rate-limit enforcement — fixed-window per-tenant counter in Redis (`ratelimit:{tenant_id}:{minute}`) gates POST /v1/score, POST /v1/score/bulk, GET /v1/score/bulk/{job_id}, POST /v1/outcomes. Limits drawn from PLAN_RATE_LIMITS (PILOT 60, STARTER 200, GROWTH 500, SCALE 2000 req/min — matches docs/api-reference.md). New `enforce_rate_limit` dependency in `app/dependencies.py` wraps `get_current_tenant`, increments the counter, and either attaches `X-RateLimit-Limit/Remaining/Reset` headers on success or raises 429 with the same headers plus `Retry-After`. Bulk endpoints count as one ticket regardless of batch size. Dashboard JWT endpoints are unaffected. 224 tests (+7 new).

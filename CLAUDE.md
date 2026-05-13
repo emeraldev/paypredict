@@ -37,6 +37,7 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 - **Factor registry pattern.** Tenant's `factor_set` determines which factor classes load. Adding a new collection method = writing new factor classes + registering them. No API or engine changes needed.
 - **Collection method filtering.** Each factor declares which collection methods it applies to via `applicable_methods`. The engine skips inapplicable factors (e.g. CardHealth is skipped for DEBIT_ORDER collections) and re-normalises the remaining weights to sum to 1.0. Skipped factors are reported in the API response for transparency.
 - **Alembic for all migrations.** Never use auto-generate blindly. Review every migration. Run in dev first, then production. Never push schema changes directly.
+- **Rate limiting on lender API endpoints.** Fixed one-minute window per tenant, backed by Redis (`ratelimit:{tenant_id}:{minute_epoch}` key, ~70s TTL). Tier limits live in `app/config.py:PLAN_RATE_LIMITS` and must stay in sync with the table in `docs/api-reference.md`. Enforced via the `enforce_rate_limit` dependency in `app/dependencies.py` — drop-in replacement for `get_current_tenant` on any lender-facing route. Dashboard JWT routes and dual-auth endpoints (`/v1/analytics/*`, `/v1/config/weights`) are intentionally not rate-limited yet.
 
 ## Project structure
 
