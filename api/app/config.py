@@ -1,4 +1,24 @@
+import tomllib
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _read_project_version() -> str:
+    """Read `version` from the api/ pyproject.toml so the FastAPI app and
+    every OpenAPI surface track a single source of truth. Falls back to
+    "0.0.0" if the file is missing (e.g. running outside an editable
+    install) — the version then advertises itself as a dev build rather
+    than crashing import."""
+    try:
+        path = Path(__file__).resolve().parent.parent / "pyproject.toml"
+        with path.open("rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except (FileNotFoundError, KeyError):
+        return "0.0.0"
+
+
+APP_VERSION = _read_project_version()
 
 
 class Settings(BaseSettings):

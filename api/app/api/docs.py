@@ -23,7 +23,7 @@ from app.api.docs_config import (
     PUBLIC_TAG_METADATA,
     PUBLIC_TAGS,
 )
-from app.config import settings
+from app.config import APP_VERSION, settings
 
 _REF_RE = re.compile(r'"\$ref"\s*:\s*"#/components/schemas/([^"]+)"')
 
@@ -35,7 +35,7 @@ def get_public_openapi_schema(app: FastAPI) -> dict:
         return cached
     full = get_openapi(
         title="PayPredict API",
-        version="1.0.0",
+        version=APP_VERSION,
         description=PUBLIC_API_DESCRIPTION,
         routes=app.routes,
         tags=PUBLIC_TAG_METADATA,
@@ -53,7 +53,7 @@ def get_internal_openapi_schema(app: FastAPI) -> dict:
         return cached
     schema = get_openapi(
         title="PayPredict Internal API",
-        version="1.0.0",
+        version=APP_VERSION,
         description=INTERNAL_API_DESCRIPTION,
         routes=app.routes,
         servers=_servers_block(),

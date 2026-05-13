@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
 from app.dependencies import (
     get_current_user,
@@ -17,7 +18,7 @@ from app.models.factor_weight import FactorWeight
 from app.models.tenant import Tenant
 from app.models.user import User
 
-router = APIRouter(prefix="/config", tags=["Configuration"])
+router = APIRouter(prefix="/config", tags=["Configuration"], responses=LENDER_API_RESPONSES)
 
 
 @router.get("/weights")

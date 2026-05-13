@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_tenant
 from app.models.tenant import Tenant
@@ -14,7 +15,7 @@ from app.services.bulk_scoring_service import (
     _load_weights,
 )
 
-router = APIRouter(tags=["Scoring"])
+router = APIRouter(tags=["Scoring"], responses=LENDER_API_RESPONSES)
 
 
 @router.post("/score/bulk")

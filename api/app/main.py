@@ -32,7 +32,7 @@ from app.api.v1 import (
     team,
     weights,
 )
-from app.config import settings
+from app.config import APP_VERSION, settings
 
 
 @asynccontextmanager
@@ -48,7 +48,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
 # /openapi.json, so we own that path explicitly.
 app = FastAPI(
     title="PayPredict API",
-    version="1.0.0",
+    version=APP_VERSION,
     docs_url=None,
     redoc_url=None,
     openapi_url=None,

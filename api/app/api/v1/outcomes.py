@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_tenant
 from app.models.tenant import Tenant
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
 from app.services.outcome_service import record_outcome
 
-router = APIRouter(tags=["Outcomes"])
+router = APIRouter(tags=["Outcomes"], responses=LENDER_API_RESPONSES)
 
 
 @router.post(

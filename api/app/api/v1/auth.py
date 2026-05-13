@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import DASHBOARD_API_RESPONSES
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -18,7 +19,7 @@ from app.services.auth_service import (
     touch_last_login,
 )
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"], responses=DASHBOARD_API_RESPONSES)
 
 
 def _user_to_response(user: User) -> UserResponse:
