@@ -2,16 +2,26 @@ import uuid
 from datetime import datetime, timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, Security
+import redis
+from fastapi import Depends, HTTPException, Response, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import get_db
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.rate_limit_service import (
+    check_and_increment,
+    headers_for,
+)
+
+# One process-wide Redis client; redis-py is thread-safe and pools
+# connections internally.
+_rate_limit_redis = redis.from_url(settings.redis_url, decode_responses=True)
 
 security = HTTPBearer()
 session_security = HTTPBearer(auto_error=False)
@@ -109,6 +119,38 @@ async def get_tenant_from_either(
         return await get_current_tenant(credentials, db)
     user = await get_current_user(credentials, db)
     return user.tenant
+
+
+async def enforce_rate_limit(
+    response: Response,
+    tenant: Tenant = Depends(get_current_tenant),
+) -> Tenant:
+    """Enforce the per-tenant per-minute request limit defined by the
+    tenant's plan tier and attach the standard `X-RateLimit-*` headers
+    to the response (whether or not the request is rejected).
+
+    Drop-in replacement for `get_current_tenant` on lender-facing API
+    routes. Use this anywhere the public docs declare a 429 response.
+    """
+    result = check_and_increment(
+        tenant.id, tenant.plan.value, _rate_limit_redis,
+    )
+    for k, v in headers_for(result).items():
+        response.headers[k] = v
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Rate limit exceeded ({result.limit} requests/min for "
+                f"the {tenant.plan.value} plan). Retry in "
+                f"{result.retry_after}s."
+            ),
+            headers={
+                **headers_for(result),
+                "Retry-After": str(result.retry_after),
+            },
+        )
+    return tenant
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

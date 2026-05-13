@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
-from app.dependencies import get_current_tenant
+from app.dependencies import enforce_rate_limit
 from app.models.tenant import Tenant
 from app.schemas.bulk_score import BulkScoreRequest
 from app.services.bulk_scoring_service import (
@@ -21,7 +21,7 @@ router = APIRouter(tags=["Scoring"], responses=LENDER_API_RESPONSES)
 @router.post("/score/bulk")
 async def score_bulk(
     body: BulkScoreRequest,
-    tenant: Tenant = Depends(get_current_tenant),
+    tenant: Tenant = Depends(enforce_rate_limit),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Score a batch of collections.
@@ -52,7 +52,7 @@ async def score_bulk(
 @router.get("/score/bulk/{job_id}")
 async def poll_bulk_job(
     job_id: str,
-    tenant: Tenant = Depends(get_current_tenant),
+    tenant: Tenant = Depends(enforce_rate_limit),
 ) -> dict:
     """Poll the status of an async bulk scoring job."""
     result = get_job_status(job_id)

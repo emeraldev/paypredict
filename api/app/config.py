@@ -21,6 +21,21 @@ def _read_project_version() -> str:
 APP_VERSION = _read_project_version()
 
 
+# Lender-facing rate limits, per plan tier. Numbers are requests per
+# `RATE_LIMIT_WINDOW_SECONDS`. Values match docs/api-reference.md so the
+# documented 429 contract and the enforced limit can't drift apart. The
+# "Scale" tier advertises Custom in the docs — 2000/min is the default
+# until a per-tenant override lands.
+PLAN_RATE_LIMITS: dict[str, int] = {
+    "PILOT": 60,
+    "STARTER": 200,
+    "GROWTH": 500,
+    "SCALE": 2000,
+}
+
+RATE_LIMIT_WINDOW_SECONDS = 60
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
