@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
-from app.dependencies import get_tenant_from_either
+from app.dependencies import enforce_rate_limit_or_jwt
 from app.models.tenant import Tenant
 from app.schemas.analytics import (
     AccuracyResponse,
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"], responses=LENDER_API
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def summary(
     period: str = Query("30d", pattern="^(7d|14d|30d|60d|90d)$"),
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> AnalyticsSummaryResponse:
     """Aggregate analytics summary for the given period."""
@@ -38,7 +38,7 @@ async def summary(
 async def collection_rate(
     period: str = Query("30d", pattern="^(7d|14d|30d|60d|90d)$"),
     interval: str = Query("daily", pattern="^(daily|weekly)$"),
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> CollectionRateResponse:
     """Collection rate over time, bucketed by day or week."""
@@ -48,7 +48,7 @@ async def collection_rate(
 @router.get("/factors", response_model=FactorsResponse)
 async def factors(
     period: str = Query("30d", pattern="^(7d|14d|30d|60d|90d)$"),
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> FactorsResponse:
     """Average factor contributions and correlation with failure."""
@@ -58,7 +58,7 @@ async def factors(
 @router.get("/accuracy", response_model=AccuracyResponse)
 async def accuracy(
     period: str = Query("30d", pattern="^(7d|14d|30d|60d|90d)$"),
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> AccuracyResponse:
     """Confusion matrix: predicted risk level vs actual outcome."""

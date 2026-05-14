@@ -121,16 +121,15 @@ async def get_tenant_from_either(
     return user.tenant
 
 
-async def enforce_rate_limit(
-    response: Response,
-    tenant: Tenant = Depends(get_current_tenant),
-) -> Tenant:
-    """Enforce the per-tenant per-minute request limit defined by the
-    tenant's plan tier and attach the standard `X-RateLimit-*` headers
-    to the response (whether or not the request is rejected).
+def _apply_rate_limit(tenant: Tenant, response: Response) -> None:
+    """Charge one rate-limit ticket to this tenant.
 
-    Drop-in replacement for `get_current_tenant` on lender-facing API
-    routes. Use this anywhere the public docs declare a 429 response.
+    Mutates `response.headers` to include the standard `X-RateLimit-*`
+    triple whether or not the request is allowed. Raises HTTPException
+    with status 429 (plus `Retry-After` header) when the tenant has
+    exhausted its window. Used by both `enforce_rate_limit`
+    (API-key-only routes) and `enforce_rate_limit_or_jwt` (dual-auth
+    routes, only on the API-key path).
     """
     result = check_and_increment(
         tenant.id, tenant.plan.value, _rate_limit_redis,
@@ -150,7 +149,45 @@ async def enforce_rate_limit(
                 "Retry-After": str(result.retry_after),
             },
         )
+
+
+async def enforce_rate_limit(
+    response: Response,
+    tenant: Tenant = Depends(get_current_tenant),
+) -> Tenant:
+    """Enforce the per-tenant per-minute request limit defined by the
+    tenant's plan tier and attach the standard `X-RateLimit-*` headers
+    to the response (whether or not the request is rejected).
+
+    Drop-in replacement for `get_current_tenant` on lender-facing API
+    routes. Use this anywhere the public docs declare a 429 response.
+    """
+    _apply_rate_limit(tenant, response)
     return tenant
+
+
+async def enforce_rate_limit_or_jwt(
+    response: Response,
+    credentials: HTTPAuthorizationCredentials | None = Security(session_security),
+    db: AsyncSession = Depends(get_db),
+) -> Tenant:
+    """Dual-auth version of `enforce_rate_limit`.
+
+    Drop-in replacement for `get_tenant_from_either` on shared endpoints
+    that appear in both the public lender docs and the dashboard. When
+    the caller used an API key, the request consumes a rate-limit ticket
+    and gets `X-RateLimit-*` headers. When the caller used a dashboard
+    JWT, no ticket is charged and no headers are emitted — the
+    dashboard team should never throttle itself.
+    """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if credentials.credentials.startswith("pk_"):
+        tenant = await get_current_tenant(credentials, db)
+        _apply_rate_limit(tenant, response)
+        return tenant
+    user = await get_current_user(credentials, db)
+    return user.tenant
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

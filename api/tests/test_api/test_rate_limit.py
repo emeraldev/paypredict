@@ -160,6 +160,88 @@ def test_get_limit_for_plan_falls_back_to_pilot_for_unknown():
     assert get_limit_for_plan("ENTERPRISE_DELUXE_PRO") == config.PLAN_RATE_LIMITS["PILOT"]
 
 
+@pytest.mark.asyncio
+async def test_dual_auth_api_key_path_is_rate_limited(
+    async_client, sa_tenant, reset_rate_limit_redis, monkeypatch
+):
+    """`/v1/analytics/*` and `/v1/config/weights` accept either an API key
+    or a dashboard JWT. The API-key path must consume a ticket and
+    surface X-RateLimit-* headers; exhausting the bucket must 429."""
+    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 2)
+
+    r1 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
+    r2 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
+    r3 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
+
+    assert r1.status_code == 200
+    assert r1.headers["X-RateLimit-Limit"] == "2"
+    assert r1.headers["X-RateLimit-Remaining"] == "1"
+    assert r2.status_code == 200
+    assert r2.headers["X-RateLimit-Remaining"] == "0"
+    assert r3.status_code == 429
+    assert r3.headers["Retry-After"]
+
+
+@pytest.mark.asyncio
+async def test_dual_auth_jwt_path_is_not_rate_limited(
+    async_client, sa_admin_user, monkeypatch
+):
+    """A dashboard user hitting the same shared endpoint via JWT must
+    bypass the rate limiter entirely: no X-RateLimit-* headers and no
+    429 even after many calls. We set the API-key limit to 0 so any
+    accidental rate-limit application would immediately fail."""
+    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 0)
+
+    from tests.conftest import TEST_USER_EMAIL, TEST_USER_PASSWORD
+    login = await async_client.post(
+        "/v1/auth/login",
+        json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD},
+    )
+    token = login.json()["token"]
+    jwt_headers = {"Authorization": f"Bearer {token}"}
+
+    # Hit the endpoint a few times to make sure it doesn't 429.
+    for _ in range(3):
+        r = await async_client.get("/v1/analytics/summary?period=30d", headers=jwt_headers)
+        assert r.status_code == 200, r.text
+        assert "X-RateLimit-Limit" not in r.headers, (
+            "Dashboard JWT calls must not surface rate-limit headers"
+        )
+
+    # The weights endpoint behaves the same way.
+    r = await async_client.get("/v1/config/weights", headers=jwt_headers)
+    assert r.status_code == 200
+    assert "X-RateLimit-Limit" not in r.headers
+
+
+@pytest.mark.asyncio
+async def test_dual_auth_jwt_does_not_consume_api_key_bucket(
+    async_client, sa_admin_user, sa_tenant, reset_rate_limit_redis, monkeypatch
+):
+    """A dashboard JWT call to a shared endpoint must not consume the
+    same tenant's API-key bucket. Otherwise the team using the dashboard
+    could starve their own lender integration of rate-limit budget."""
+    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 1)
+
+    from tests.conftest import TEST_USER_EMAIL, TEST_USER_PASSWORD
+    login = await async_client.post(
+        "/v1/auth/login",
+        json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD},
+    )
+    token = login.json()["token"]
+    jwt_headers = {"Authorization": f"Bearer {token}"}
+
+    # 5 dashboard calls — should NOT touch the API-key bucket.
+    for _ in range(5):
+        r = await async_client.get("/v1/analytics/summary?period=30d", headers=jwt_headers)
+        assert r.status_code == 200
+
+    # The single API-key ticket is still available.
+    r = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
+    assert r.status_code == 200, r.text
+    assert r.headers["X-RateLimit-Remaining"] == "0"
+
+
 def test_check_and_increment_isolates_tenants():
     """Two tenants exhausting their own buckets must not affect each other."""
     import uuid
