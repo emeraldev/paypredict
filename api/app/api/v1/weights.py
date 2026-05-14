@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.docs_config import LENDER_API_RESPONSES
 from app.database import get_db
 from app.dependencies import (
+    enforce_rate_limit_or_jwt,
     get_current_user,
-    get_tenant_from_either,
     session_security,
 )
 from app.models.factor_weight import FactorWeight
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/config", tags=["Configuration"], responses=LENDER_AP
 
 @router.get("/weights")
 async def get_weights(
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Return the tenant's factor weights."""
@@ -45,7 +45,7 @@ async def get_weights(
 @router.put("/weights")
 async def update_weights(
     body: dict,
-    tenant: Tenant = Depends(get_tenant_from_either),
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     credentials: HTTPAuthorizationCredentials | None = Security(session_security),
     db: AsyncSession = Depends(get_db),
 ) -> dict:

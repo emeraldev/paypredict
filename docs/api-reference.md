@@ -424,7 +424,9 @@ HTTP status codes:
 
 - **Per tenant, per minute.** Each API request increments a counter scoped to your tenant and the current calendar minute. The window resets cleanly on each minute boundary — no sliding-window jitter to model.
 - **Bulk endpoints count as one request.** `POST /v1/score/bulk` with 1,000 collections burns a single ticket. The hard cap on items per bulk call (also 1,000) is enforced separately and unrelated to the rate limit.
-- **Rate-limited endpoints**: every scoring + outcome path — `POST /v1/score`, `POST /v1/score/bulk`, `GET /v1/score/bulk/{job_id}`, `POST /v1/outcomes`.
+- **Rate-limited endpoints**:
+  - Scoring + outcomes: `POST /v1/score`, `POST /v1/score/bulk`, `GET /v1/score/bulk/{job_id}`, `POST /v1/outcomes`.
+  - Shared endpoints **when called via API key**: `GET /v1/analytics/*`, `GET /v1/config/weights`, `PUT /v1/config/weights`. The same endpoints called by your dashboard team via the UI session bypass the limit entirely — your own ops team can never throttle itself.
 - **Dashboard endpoints** (your team logging into the PayPredict UI) are **not** rate-limited.
 
 ### Headers on every response
