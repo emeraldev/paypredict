@@ -1,4 +1,4 @@
-import { CalendarIcon, ZapIcon } from "lucide-react";
+import { CalendarIcon, TrendingDownIcon, ZapIcon } from "lucide-react";
 import { FactorBreakdown } from "@/components/shared/factor-breakdown";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
@@ -63,12 +63,39 @@ export function RiskDetailContent({ detail }: RiskDetailContentProps) {
         <p className="mt-2 text-sm font-medium text-foreground">
           {ACTION_LABELS[detail.recommended_action] ?? detail.recommended_action}
         </p>
-        {detail.recommended_collection_date && (
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarIcon className="h-3.5 w-3.5" />
-            Suggested date: {formatDate(detail.recommended_collection_date)}
-          </p>
-        )}
+        {detail.recommended_action === "shift_date" &&
+          detail.recommended_collection_date &&
+          detail.score_improvement != null && (
+            <div className="mt-3 space-y-1 border-t border-amber-500/20 pt-3">
+              <p className="flex items-center gap-1.5 text-xs text-foreground">
+                <CalendarIcon className="h-3.5 w-3.5 text-amber-400" />
+                Shift to{" "}
+                <span className="font-semibold">
+                  {formatDate(detail.recommended_collection_date)}
+                </span>
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <TrendingDownIcon className="h-3.5 w-3.5" />
+                Risk drops by{" "}
+                <span className="font-semibold tabular-nums">
+                  {Math.round(detail.score_improvement * 100)} pts
+                </span>
+                {detail.recommended_score != null && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    (to {displayScore(detail.recommended_score)})
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+        {detail.recommended_action !== "shift_date" &&
+          detail.recommended_collection_date && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarIcon className="h-3.5 w-3.5" />
+              Suggested date: {formatDate(detail.recommended_collection_date)}
+            </p>
+          )}
       </div>
 
       <Separator />

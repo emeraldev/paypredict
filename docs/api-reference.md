@@ -74,8 +74,10 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
   "score_id": "sr_uuid",
   "score": 0.68,
   "risk_level": "HIGH",
-  "recommended_action": "flag_for_review",
-  "recommended_collection_date": "2026-04-02",
+  "recommended_action": "shift_date",
+  "recommended_collection_date": "2026-04-25",
+  "recommended_score": 0.51,
+  "score_improvement": 0.17,
   "factors": [
     {
       "factor": "historical_failure_rate",
@@ -87,7 +89,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
   ],
   "model_version": "heuristic_card_v1",
   "scored_at": "2026-04-08T14:23:01Z",
-  "scoring_duration_ms": 12
+  "scoring_duration_ms": 32
 }
 ```
 
@@ -95,6 +97,19 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
 - All customer_data fields are optional. Missing data results in moderate default scores for affected factors (typically 0.3-0.5). More data = more accurate scores.
 - The engine automatically selects the correct factor set based on the tenant's `factor_set` configuration (CARD_DEBIT or MOBILE_WALLET). Card fields are ignored for wallet tenants and vice versa.
 - `recommended_action` values: `collect_normally`, `shift_date`, `flag_for_review`, `pre_collection_sms`
+
+### Timing optimiser
+
+Every score also runs through a timing search across ±14 days around the supplied `collection_due_date`. When the search finds a strictly better date and the predicted improvement is at least **0.10**, the response carries:
+
+- `recommended_action: "shift_date"` (overrides the risk-level action)
+- `recommended_collection_date` — the optimal date (never in the past)
+- `recommended_score` — what the score would be if collected on that date
+- `score_improvement` — how much risk drops (`score` − `recommended_score`)
+
+When no shift is worthwhile, all three fields are `null` and `recommended_action` falls back to the risk-level mapping. The bulk endpoint applies the same optimiser per item.
+
+Latency budget grows from ~1ms to ~30ms per request (28 extra factor evaluations); bulk-of-50 sync stays well under 2s.
 
 ---
 

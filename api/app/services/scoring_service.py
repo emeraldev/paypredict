@@ -11,6 +11,7 @@ from app.models.score_result import RiskLevel, ScoreResult
 from app.models.tenant import Tenant
 from app.schemas.score import ScoreRequest as ScoreRequestSchema, ScoreResponse, FactorBreakdown
 from app.scoring.engine import ScoringEngine
+from app.scoring.timing_optimiser import optimise_collection_date
 
 engine = ScoringEngine()
 
@@ -42,6 +43,22 @@ async def score_collection(
         collection_data=collection_data,
         custom_weights=custom_weights if custom_weights else None,
         collection_method=collection_method,
+    )
+
+    # Timing optimiser — search ±14 days for a better collection date.
+    # Overrides recommended_action to "shift_date" if a meaningful
+    # improvement exists.
+    timing = optimise_collection_date(
+        engine,
+        factor_set=tenant.factor_set.value,
+        customer_data=customer_data,
+        collection_data=collection_data,
+        collection_method=collection_method,
+        original_score=result.score,
+        custom_weights=custom_weights if custom_weights else None,
+    )
+    recommended_action = (
+        "shift_date" if timing.should_shift else result.recommended_action
     )
 
     # Persist ScoreRequest
@@ -78,7 +95,10 @@ async def score_collection(
             ],
             "skipped": result.skipped_factors,
         },
-        recommended_action=result.recommended_action,
+        recommended_action=recommended_action,
+        recommended_collection_date=timing.recommended_date,
+        recommended_score=timing.recommended_score,
+        score_improvement=timing.score_improvement if timing.should_shift else None,
         model_version=result.model_version,
         scoring_duration_ms=result.scoring_duration_ms,
     )
@@ -89,8 +109,10 @@ async def score_collection(
         score_id=score_result.id,
         score=result.score,
         risk_level=result.risk_level,
-        recommended_action=result.recommended_action,
-        recommended_collection_date=None,
+        recommended_action=recommended_action,
+        recommended_collection_date=timing.recommended_date,
+        recommended_score=timing.recommended_score,
+        score_improvement=timing.score_improvement if timing.should_shift else None,
         factors=[
             FactorBreakdown(
                 factor=f.factor_name,

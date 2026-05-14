@@ -62,6 +62,9 @@ async def _persist_batch(
                         "skipped": scored["skipped_factors"],
                     },
                     recommended_action=scored["recommended_action"],
+                    recommended_collection_date=scored.get("recommended_collection_date"),
+                    recommended_score=scored.get("recommended_score"),
+                    score_improvement=scored.get("score_improvement"),
                     model_version=scored["model_version"],
                     scoring_duration_ms=scored["scoring_duration_ms"],
                 )

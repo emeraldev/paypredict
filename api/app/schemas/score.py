@@ -66,6 +66,10 @@ class ScoreResponse(BaseModel):
     risk_level: str
     recommended_action: str
     recommended_collection_date: date | None = None
+    # Both fields are populated together by the timing optimiser when
+    # `recommended_action == "shift_date"`; otherwise both are None.
+    recommended_score: float | None = None
+    score_improvement: float | None = None
     factors: list[FactorBreakdown]
     skipped_factors: list[str] = Field(default_factory=list)
     model_version: str

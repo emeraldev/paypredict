@@ -99,3 +99,77 @@ async def test_score_minimal_customer_data(async_client, sa_tenant):
     assert response.status_code == 200
     data = response.json()
     assert len(data["factors"]) == 7  # CARD skips debit_order_return_history
+
+
+@pytest.mark.asyncio
+async def test_score_response_includes_timing_optimiser_fields(async_client, sa_tenant):
+    """The new timing-optimiser fields are present on every response.
+    For a request that doesn't warrant a shift, they are null and the
+    action is the standard risk-level mapping."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={
+            "external_customer_id": "cust_no_shift",
+            "external_collection_id": "col_no_shift",
+            "collection_amount": 1500.00,
+            "collection_currency": "ZAR",
+            # No known_salary_day; due date in the lowest-risk window per
+            # SA defaults (day <= 5 → 0.1).
+            "collection_due_date": "2027-04-03",
+            "collection_method": "CARD",
+            "customer_data": {
+                "total_payments": 20,
+                "successful_payments": 19,
+                "card_type": "debit",
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # New fields are present on the response shape, even when not used.
+    assert "recommended_collection_date" in data
+    assert "recommended_score" in data
+    assert "score_improvement" in data
+    # No shift warranted → all three are null, action is the risk-level default.
+    assert data["recommended_collection_date"] is None
+    assert data["recommended_score"] is None
+    assert data["score_improvement"] is None
+    assert data["recommended_action"] != "shift_date"
+
+
+@pytest.mark.asyncio
+async def test_score_recommends_shift_when_timing_is_bad(async_client, sa_tenant):
+    """A collection due the day BEFORE the customer's payday should
+    trigger a shift recommendation to the payday window."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={
+            "external_customer_id": "cust_shift",
+            "external_collection_id": "col_shift",
+            "collection_amount": 1500.00,
+            "collection_currency": "ZAR",
+            # Salary day 25, due date 24 → days_after = 30 → worst window.
+            "collection_due_date": "2027-04-24",
+            "collection_method": "CARD",
+            "customer_data": {
+                "total_payments": 10,
+                "successful_payments": 8,
+                "card_type": "debit",
+                "known_salary_day": 25,
+            },
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recommended_action"] == "shift_date"
+    assert data["recommended_collection_date"] is not None
+    assert data["score_improvement"] is not None and data["score_improvement"] >= 0.10
+    # Recommended date lands in the lowest-risk window [25, 28].
+    recommended_day = int(data["recommended_collection_date"].split("-")[2])
+    assert 25 <= recommended_day <= 28, (
+        f"Expected day in [25, 28], got {data['recommended_collection_date']}"
+    )
+    # Recommended score is strictly less than the original.
+    assert data["recommended_score"] < data["score"]

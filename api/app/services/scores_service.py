@@ -184,6 +184,7 @@ def _row_to_list_item(req: ScoreRequest, res: ScoreResult) -> ScoreListItem:
         score=res.score,
         risk_level=res.risk_level.value,
         recommended_action=res.recommended_action,
+        recommended_collection_date=res.recommended_collection_date,
         model_version=res.model_version,
         scored_at=res.created_at,
     )
@@ -290,6 +291,8 @@ def _build_detail(
         risk_level=res.risk_level.value,
         recommended_action=res.recommended_action,
         recommended_collection_date=res.recommended_collection_date,
+        recommended_score=res.recommended_score,
+        score_improvement=res.score_improvement,
         factors=factors,
         skipped_factors=skipped,
         model_version=res.model_version,
