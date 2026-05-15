@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/table";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { configApi } from "@/lib/api/config";
 import { ApiKeyRow } from "./api-key-row";
 import { CreateKeyDialog } from "./create-key-dialog";
 
 export function ApiKeysTab() {
   const { data, loading, error, refetch } = useApi(() => configApi.getApiKeys(), []);
+  const { isAdmin } = useAuth();
 
   const handleRevoke = async (id: string) => {
     try {
@@ -37,10 +39,12 @@ export function ApiKeysTab() {
         <div>
           <CardTitle className="text-base">API Keys</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Manage keys used to authenticate against the PayPredict API.
+            {isAdmin
+              ? "Manage keys used to authenticate against the PayPredict API."
+              : "View keys used to authenticate against the PayPredict API. Admins can create and revoke keys."}
           </p>
         </div>
-        <CreateKeyDialog onCreated={refetch} />
+        {isAdmin && <CreateKeyDialog onCreated={refetch} />}
       </CardHeader>
       <CardContent className="p-0">
         <Table>
@@ -56,7 +60,11 @@ export function ApiKeysTab() {
           </TableHeader>
           <TableBody>
             {(data?.items ?? []).map((key) => (
-              <ApiKeyRow key={key.id} apiKey={key} onRevoke={handleRevoke} />
+              <ApiKeyRow
+                key={key.id}
+                apiKey={key}
+                onRevoke={isAdmin ? handleRevoke : undefined}
+              />
             ))}
           </TableBody>
         </Table>

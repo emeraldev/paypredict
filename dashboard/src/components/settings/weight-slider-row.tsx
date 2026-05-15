@@ -7,9 +7,10 @@ interface WeightSliderRowProps {
   factorName: string;
   value: number; // 0-100 (percentage)
   onChange: (value: number) => void;
+  disabled?: boolean;
 }
 
-export function WeightSliderRow({ factorName, value, onChange }: WeightSliderRowProps) {
+export function WeightSliderRow({ factorName, value, onChange, disabled }: WeightSliderRowProps) {
   const label = FACTOR_LABELS[factorName] ?? factorName;
   const description = FACTOR_DESCRIPTIONS[factorName] ?? "";
 
@@ -27,6 +28,7 @@ export function WeightSliderRow({ factorName, value, onChange }: WeightSliderRow
         max={50}
         min={0}
         step={1}
+        disabled={disabled}
         onValueChange={(v) => {
           const next = Array.isArray(v) ? v[0] : v;
           onChange(next);

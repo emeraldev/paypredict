@@ -13,6 +13,7 @@ import { FailureFactorsChart } from "@/components/analytics/failure-factors-char
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { backtestApi } from "@/lib/api/backtest";
 import type { BacktestResponse } from "@/lib/api/types";
 import { formatCompactCurrency } from "@/lib/utils/format-currency";
@@ -26,6 +27,7 @@ interface CsvError {
 export default function BacktestPage() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [csvErrors, setCsvErrors] = useState<CsvError[]>([]);
+  const { canManage } = useAuth();
   const { data: pastBacktests, loading: loadingPast, refetch } = useApi(
     () => backtestApi.list(),
     [],
@@ -56,12 +58,21 @@ export default function BacktestPage() {
 
   return (
     <div className="space-y-6">
-      {/* Upload section */}
-      {!result && (
+      {/* Upload section — only Admins and Managers can start new backtests.
+          Viewers see past backtest results below but cannot run new ones. */}
+      {!result && canManage && (
         <CsvUploadZone
           onResult={handleResult}
           onError={(msg) => toast.error(msg)}
         />
+      )}
+      {!result && !canManage && (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Only Admins and Managers can run new backtests. Browse past
+            backtests below — click any row to view its results.
+          </CardContent>
+        </Card>
       )}
 
       {/* CSV validation errors */}
@@ -141,15 +152,17 @@ export default function BacktestPage() {
             </CardContent>
           </Card>
 
-          {/* Run another */}
-          <div className="flex justify-center">
-            <button
-              onClick={() => setResult(null)}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Run another backtest
-            </button>
-          </div>
+          {/* Run another — only managers/admins can start new backtests */}
+          {canManage && (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setResult(null)}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Run another backtest
+              </button>
+            </div>
+          )}
         </>
       )}
 

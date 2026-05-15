@@ -2,7 +2,7 @@
 also consumed by the dashboard. Accepts either an API key or a JWT.
 When the caller is a dashboard user (JWT), a notification is created with
 that user as the actor; API-key calls record the tenant name instead."""
-from fastapi import APIRouter, Depends, Security
+from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,9 +64,19 @@ async def update_weights(
 
     # Identify the acting user when the call came in via JWT so the
     # notification has a real actor; API-key callers record the tenant.
+    # API-key callers are implicitly trusted (the key belongs to the
+    # tenant); JWT callers must be ADMIN — a Manager/Viewer can read
+    # weights but cannot rewrite them.
     actor_user: User | None = None
     if credentials and not credentials.credentials.startswith("pk_"):
+        from app.models.user import UserRole
+
         actor_user = await get_current_user(credentials, db)
+        if actor_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin role required to update factor weights",
+            )
 
     for factor_name, weight in new_weights.items():
         if factor_name in existing:

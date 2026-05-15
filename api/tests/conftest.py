@@ -133,6 +133,44 @@ async def sa_admin_user(sa_tenant: Tenant, db_session: AsyncSession) -> User:
     return user
 
 
+# Distinct credentials per role so a test can log in as one without
+# colliding with the admin fixture inside the same transaction.
+TEST_MANAGER_EMAIL = "manager@paypredict.test"
+TEST_VIEWER_EMAIL = "viewer@paypredict.test"
+
+
+@pytest_asyncio.fixture
+async def sa_manager_user(sa_tenant: Tenant, db_session: AsyncSession) -> User:
+    """Create a MANAGER user for the SA test tenant."""
+    user = User(
+        tenant_id=sa_tenant.id,
+        email=TEST_MANAGER_EMAIL,
+        name="Test Manager",
+        password_hash=hash_password(TEST_USER_PASSWORD),
+        role=UserRole.MANAGER,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    user.tenant = sa_tenant
+    return user
+
+
+@pytest_asyncio.fixture
+async def sa_viewer_user(sa_tenant: Tenant, db_session: AsyncSession) -> User:
+    """Create a VIEWER user for the SA test tenant."""
+    user = User(
+        tenant_id=sa_tenant.id,
+        email=TEST_VIEWER_EMAIL,
+        name="Test Viewer",
+        password_hash=hash_password(TEST_USER_PASSWORD),
+        role=UserRole.VIEWER,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    user.tenant = sa_tenant
+    return user
+
+
 @pytest_asyncio.fixture
 async def zm_tenant(db_session: AsyncSession) -> Tenant:
     """Create a test ZM tenant."""
