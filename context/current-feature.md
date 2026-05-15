@@ -2,6 +2,9 @@
 
 All core phases complete. Next: deployment, Phase 4 features, or polish.
 
+See [launch-roadmap.md](./launch-roadmap.md) for the stage-by-stage
+prioritisation of remaining work (demo → pilot → live → growth → ML).
+
 ## Status
 
 Phase 3 complete. Phase 4 timing optimiser shipped. CI green on every PR. 236 tests passing.

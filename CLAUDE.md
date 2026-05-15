@@ -358,6 +358,7 @@ async def test_something(async_client, sa_admin_user):
 
 - @context/coding-standards.md
 - @context/ai-interaction.md
+- @context/launch-roadmap.md — stage-by-stage prioritisation of what's missing (demo → pilot → live → growth → ML). Consult before recommending what to work on next.
 
 
 Update @context/current-feature.md when after changes are made and approved
