@@ -36,16 +36,26 @@ export function AlertsTab() {
   if (error) return <p className="text-sm text-muted-foreground">Failed to load alert settings: {error}</p>;
   if (!data) return null;
 
-  const handleSave = async () => {
+  const handleSaveThreshold = async () => {
     try {
       await configApi.updateAlertSettings({
         high_risk_threshold: threshold / 100,
+      });
+      toast.success("Threshold saved");
+    } catch {
+      toast.error("Failed to save threshold");
+    }
+  };
+
+  const handleSaveWebhooks = async () => {
+    try {
+      await configApi.updateAlertSettings({
         webhook_url: webhookUrl || null,
         slack_webhook_url: slackWebhookUrl || null,
       });
-      toast.success("Alert settings saved");
+      toast.success("Webhook URLs saved");
     } catch {
-      toast.error("Failed to save alert settings");
+      toast.error("Failed to save webhook URLs");
     }
   };
 
@@ -96,6 +106,11 @@ export function AlertsTab() {
             max={50}
             step={1}
           />
+          <div className="flex justify-end pt-2">
+            <Button size="sm" onClick={handleSaveThreshold}>
+              Save threshold
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -128,8 +143,8 @@ export function AlertsTab() {
             />
           </div>
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleSave}>
-              Save alert settings
+            <Button size="sm" onClick={handleSaveWebhooks}>
+              Save webhook URLs
             </Button>
           </div>
         </CardContent>

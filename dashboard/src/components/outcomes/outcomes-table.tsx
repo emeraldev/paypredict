@@ -56,14 +56,14 @@ export function OutcomesTable({ outcomes, filter, onClearFilter }: OutcomesTable
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className={`${HEADER_CLS} w-[140px]`}>Collection ID</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[150px]`}>Predicted Risk</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[130px]`}>Actual Outcome</TableHead>
+            <TableHead className={HEADER_CLS}>Collection ID</TableHead>
+            <TableHead className={HEADER_CLS}>Predicted Risk</TableHead>
+            <TableHead className={HEADER_CLS}>Actual Outcome</TableHead>
             <TableHead className={HEADER_CLS}>Failure Reason</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[120px] text-right`}>Amount</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[140px]`}>Attempted</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[120px]`}>Reported</TableHead>
-            <TableHead className={`${HEADER_CLS} w-[60px] text-center`}>Match</TableHead>
+            <TableHead className={`${HEADER_CLS} text-right`}>Amount</TableHead>
+            <TableHead className={HEADER_CLS}>Attempted</TableHead>
+            <TableHead className={HEADER_CLS}>Reported</TableHead>
+            <TableHead className={`${HEADER_CLS} text-center`}>Match</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

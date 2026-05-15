@@ -56,7 +56,7 @@ export function Sidebar() {
           />
         ))}
         <a
-          href="/docs"
+          href={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001"}/docs`}
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
