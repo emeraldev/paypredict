@@ -24,6 +24,7 @@ class ScoreListItem(BaseModel):
     score: float
     risk_level: str
     recommended_action: str
+    recommended_collection_date: date | None = None
     model_version: str
     scored_at: datetime
 
@@ -77,6 +78,8 @@ class ScoreDetailResponse(BaseModel):
     risk_level: str
     recommended_action: str
     recommended_collection_date: date | None = None
+    recommended_score: float | None = None
+    score_improvement: float | None = None
     factors: list[FactorBreakdown]
     skipped_factors: list[str] = []
     model_version: str

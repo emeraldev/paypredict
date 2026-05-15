@@ -20,6 +20,7 @@ from app.models.score_result import RiskLevel, ScoreResult
 from app.models.tenant import Tenant
 from app.schemas.score import FactorBreakdown, ScoreResponse
 from app.scoring.engine import ScoringEngine
+from app.scoring.timing_optimiser import optimise_collection_date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.factor_weight import FactorWeight
@@ -75,17 +76,34 @@ def _score_one(
         from datetime import date as _date
         due_date = _date.fromisoformat(due_date)
 
+    collection_data = {
+        "collection_amount": float(item["collection_amount"]),
+        "collection_due_date": due_date,
+        "collection_method": item["collection_method"],
+        "collection_currency": item["collection_currency"],
+    }
     result = _engine.score(
         factor_set=tenant.factor_set.value,
         customer_data=customer_data,
-        collection_data={
-            "collection_amount": float(item["collection_amount"]),
-            "collection_due_date": due_date,
-            "collection_method": item["collection_method"],
-            "collection_currency": item["collection_currency"],
-        },
+        collection_data=collection_data,
         custom_weights=custom_weights or None,
         collection_method=collection_method,
+    )
+
+    # Run the timing optimiser for the same candidate. Same rules as the
+    # single-score path — `shift_date` action overrides the risk-level
+    # action when a meaningful improvement exists.
+    timing = optimise_collection_date(
+        _engine,
+        factor_set=tenant.factor_set.value,
+        customer_data=customer_data,
+        collection_data=collection_data,
+        collection_method=collection_method,
+        original_score=result.score,
+        custom_weights=custom_weights or None,
+    )
+    recommended_action = (
+        "shift_date" if timing.should_shift else result.recommended_action
     )
 
     return {
@@ -93,7 +111,10 @@ def _score_one(
         "external_collection_id": item["external_collection_id"],
         "score": result.score,
         "risk_level": result.risk_level,
-        "recommended_action": result.recommended_action,
+        "recommended_action": recommended_action,
+        "recommended_collection_date": timing.recommended_date,
+        "recommended_score": timing.recommended_score,
+        "score_improvement": timing.score_improvement if timing.should_shift else None,
         "model_version": result.model_version,
         "scoring_duration_ms": result.scoring_duration_ms,
         "factors": [
@@ -151,6 +172,9 @@ async def score_bulk_sync(
                 "skipped": scored["skipped_factors"],
             },
             recommended_action=scored["recommended_action"],
+            recommended_collection_date=scored.get("recommended_collection_date"),
+            recommended_score=scored.get("recommended_score"),
+            score_improvement=scored.get("score_improvement"),
             model_version=scored["model_version"],
             scoring_duration_ms=scored["scoring_duration_ms"],
         )

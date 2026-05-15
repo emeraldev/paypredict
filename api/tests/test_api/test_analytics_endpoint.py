@@ -1,4 +1,6 @@
 """Tests for GET /v1/analytics/* endpoints."""
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import select
 
@@ -37,11 +39,16 @@ async def _create_score_and_outcome(
     assert score.status_code == 200
     score_id = score.json()["score_id"]
 
+    # Use a recent timestamp so analytics period filters (e.g. 30d) always
+    # include this outcome regardless of when the test happens to run.
+    attempted_at = (datetime.now(timezone.utc) - timedelta(days=1)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     body: dict = {
         "score_id": score_id,
         "external_collection_id": f"col_{customer_id}",
         "outcome": outcome,
-        "attempted_at": "2026-04-15T08:00:00Z",
+        "attempted_at": attempted_at,
     }
     if failure_reason:
         body["failure_reason"] = failure_reason

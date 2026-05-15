@@ -33,6 +33,7 @@ from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.user import User, UserRole
 from app.scoring.engine import ScoringEngine
 from app.scoring.registry import get_default_weights
+from app.scoring.timing_optimiser import optimise_collection_date
 from app.services.auth_service import hash_password
 
 
@@ -259,6 +260,19 @@ async def seed() -> None:
                 collection_method=method,
             )
 
+            timing = optimise_collection_date(
+                engine,
+                factor_set="CARD_DEBIT",
+                customer_data=customer_data,
+                collection_data=collection_data,
+                collection_method=method,
+                original_score=scoring_result.score,
+                today=due_date,  # seed dates can be in the past — anchor floor to the due date itself
+            )
+            sa_recommended_action = (
+                "shift_date" if timing.should_shift else scoring_result.recommended_action
+            )
+
             scored_at = now - timedelta(hours=rng.randint(1, 720))
 
             # Build JSON-safe payload (dates → str, enums → str)
@@ -302,7 +316,12 @@ async def seed() -> None:
                     ],
                     "skipped": scoring_result.skipped_factors,
                 },
-                recommended_action=scoring_result.recommended_action,
+                recommended_action=sa_recommended_action,
+                recommended_collection_date=timing.recommended_date,
+                recommended_score=timing.recommended_score,
+                score_improvement=(
+                    timing.score_improvement if timing.should_shift else None
+                ),
                 model_version=scoring_result.model_version,
                 scoring_duration_ms=scoring_result.scoring_duration_ms,
                 created_at=scored_at,
@@ -331,6 +350,19 @@ async def seed() -> None:
                 customer_data=customer_data,
                 collection_data=collection_data,
                 collection_method=CollectionMethod.MOBILE_MONEY,
+            )
+
+            timing = optimise_collection_date(
+                engine,
+                factor_set="MOBILE_WALLET",
+                customer_data=customer_data,
+                collection_data=collection_data,
+                collection_method=CollectionMethod.MOBILE_MONEY,
+                original_score=scoring_result.score,
+                today=due_date,
+            )
+            zm_recommended_action = (
+                "shift_date" if timing.should_shift else scoring_result.recommended_action
             )
 
             scored_at = now - timedelta(hours=rng.randint(1, 720))
@@ -375,7 +407,12 @@ async def seed() -> None:
                     ],
                     "skipped": scoring_result.skipped_factors,
                 },
-                recommended_action=scoring_result.recommended_action,
+                recommended_action=zm_recommended_action,
+                recommended_collection_date=timing.recommended_date,
+                recommended_score=timing.recommended_score,
+                score_improvement=(
+                    timing.score_improvement if timing.should_shift else None
+                ),
                 model_version=scoring_result.model_version,
                 scoring_duration_ms=scoring_result.scoring_duration_ms,
                 created_at=scored_at,

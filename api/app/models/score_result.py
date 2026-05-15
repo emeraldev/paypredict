@@ -35,6 +35,12 @@ class ScoreResult(Base):
     factors: Mapped[dict] = mapped_column(JSONB, nullable=False)
     recommended_action: Mapped[str] = mapped_column(String(255), nullable=False)
     recommended_collection_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Timing optimiser fields — populated by app.scoring.timing_optimiser.
+    # Both are None when no shift is recommended (improvement < threshold
+    # or no better date exists). Stored so the dashboard can render the
+    # callout without re-running the engine on read.
+    recommended_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_improvement: Mapped[float | None] = mapped_column(Float, nullable=True)
     model_version: Mapped[str] = mapped_column(String(100), nullable=False)
     scoring_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

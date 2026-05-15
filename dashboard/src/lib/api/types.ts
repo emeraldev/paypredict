@@ -98,6 +98,9 @@ export interface ScoreResponse {
   risk_level: RiskLevel;
   recommended_action: string;
   recommended_collection_date: string | null;
+  // Populated by the timing optimiser when recommended_action is "shift_date".
+  recommended_score: number | null;
+  score_improvement: number | null;
   factors: FactorBreakdown[];
   skipped_factors: string[];
   model_version: string;
@@ -119,6 +122,7 @@ export interface ScoreListItem {
   score: number;
   risk_level: RiskLevel;
   recommended_action: string;
+  recommended_collection_date: string | null;
   model_version: string;
   scored_at: string;
 }
@@ -176,6 +180,8 @@ export interface ScoreDetailResponse {
   risk_level: RiskLevel;
   recommended_action: string;
   recommended_collection_date: string | null;
+  recommended_score: number | null;
+  score_improvement: number | null;
   factors: FactorBreakdown[];
   skipped_factors: string[];
   model_version: string;

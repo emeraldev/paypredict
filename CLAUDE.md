@@ -12,6 +12,8 @@ The product serves two markets simultaneously:
 
 The scoring engine uses a **weighted heuristic model** — 8 pluggable factor classes per factor set, each returning a score between 0.0 (safe) and 1.0 (risky). Scores are multiplied by configurable weights and summed into a final score mapped to risk levels: Low (0-30), Medium (31-60), High (61-100).
 
+After scoring, a **timing optimiser** (`app/scoring/timing_optimiser.py`) re-runs the same engine against each date in `[due_date − 14, due_date + 14]` (skipping past dates), picks the one with the lowest score, and — when the improvement is ≥ 0.10 — returns it as `recommended_collection_date` and overrides `recommended_action` to `"shift_date"`. The whole search adds ~30ms per request because date-independent factors return the same number for every candidate. Date-dependent factors today are `DayOfMonthVsPayday` (CARD/DEBIT_ORDER) and `SalaryCycleAlignment` (MOBILE_WALLET).
+
 This is NOT an ML product yet. Heuristics are the product for the first 6-12 months. The architecture is designed so ML models can replace heuristic factors later without changing the API contract. Every scored collection + its outcome builds the labelled dataset needed for future ML training.
 
 ## Tech stack
@@ -204,7 +206,7 @@ When adding a new endpoint, set `tags=[...]` to one of the canonical values in `
 
 ## Current development phase
 
-Phases 1–3 complete. 217 tests passing. Next: deployment, Phase 4 features, or polish.
+Phases 1–3 complete. Phase 4 timing optimiser shipped. 236 tests passing. Next: deployment or remaining Phase 4 features.
 
 ### Phase 1 (Weeks 1-4) — COMPLETE
 Scoring engine, 16 factors, POST /v1/score, POST /v1/outcomes, seed data, 117 tests.
@@ -226,8 +228,8 @@ JWT auth, all dashboard-facing API endpoints, dashboard wired to real API (zero 
 - Expanded seed: 230 scores, 177 outcomes, 3 alerts, 5 notifications, 1 backtest
 - 217 tests passing
 
-### Phase 4 (Months 4-6) — TODO
-- Timing optimiser — optimal collection date recommendation
+### Phase 4 (Months 4-6) — IN PROGRESS
+- ~~Timing optimiser — optimal collection date recommendation~~ ✅ shipped
 - Analytics depth — cohort analysis, factor trends, A/B weight testing
 - ML prep — labelled dataset export, feature engineering, model training
 
