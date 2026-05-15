@@ -104,7 +104,7 @@ export function CollectionsTable({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className={cn(HEADER_CLS, "w-[150px]")}>
+            <TableHead className={HEADER_CLS}>
               <SortableHeader
                 label="Risk"
                 field="score"
@@ -122,7 +122,7 @@ export function CollectionsTable({
                 onClick={() => onSortChange("customer")}
               />
             </TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[120px] text-right")}>
+            <TableHead className={cn(HEADER_CLS, "text-right")}>
               <SortableHeader
                 label="Amount"
                 field="amount"
@@ -132,7 +132,7 @@ export function CollectionsTable({
                 align="right"
               />
             </TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[160px]")}>
+            <TableHead className={HEADER_CLS}>
               <SortableHeader
                 label="Due Date"
                 field="due_date"
@@ -141,8 +141,8 @@ export function CollectionsTable({
                 onClick={() => onSortChange("due_date")}
               />
             </TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[120px]")}>Instalment</TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[140px]")}>
+            <TableHead className={HEADER_CLS}>Instalment</TableHead>
+            <TableHead className={HEADER_CLS}>
               <SortableHeader
                 label="Method"
                 field="method"
@@ -151,7 +151,6 @@ export function CollectionsTable({
                 onClick={() => onSortChange("method")}
               />
             </TableHead>
-            <TableHead className={cn(HEADER_CLS, "w-[80px] text-right")} />
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -85,11 +85,6 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
       <TableCell className="py-3">
         <MethodBadge method={collection.collection_method} />
       </TableCell>
-      <TableCell className="py-3 text-right">
-        <span className="text-sm text-muted-foreground transition-colors group-hover:text-foreground">
-          Details
-        </span>
-      </TableCell>
     </TableRow>
   );
 }
