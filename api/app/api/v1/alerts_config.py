@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import DASHBOARD_API_RESPONSES
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.schemas.config import AlertsConfigResponse, AlertsConfigUpdateRequest
 from app.services.config_service import (
@@ -31,7 +31,7 @@ async def get_config(
 @router.put("", response_model=AlertsConfigResponse)
 async def update_config(
     req: AlertsConfigUpdateRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AlertsConfigResponse:
     result = await update_alerts_config(db, user.tenant_id, req)
@@ -47,7 +47,7 @@ async def update_config(
 
 @router.post("/regenerate-secret", response_model=AlertsConfigResponse)
 async def regenerate_secret(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> AlertsConfigResponse:
     """Rotate the tenant's webhook signing secret. The previous secret is

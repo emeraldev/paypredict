@@ -7,7 +7,8 @@ import { formatDate, formatRelativeTime } from "@/lib/utils/format-date";
 
 interface ApiKeyRowProps {
   apiKey: ApiKeyListItem;
-  onRevoke: (id: string) => void;
+  /** Pass undefined to hide the Revoke button (e.g. for non-admin viewers). */
+  onRevoke?: (id: string) => void;
 }
 
 export function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
@@ -35,7 +36,7 @@ export function ApiKeyRow({ apiKey, onRevoke }: ApiKeyRowProps) {
         {formatDate(apiKey.created_at)}
       </TableCell>
       <TableCell className="text-right">
-        {apiKey.is_active && (
+        {apiKey.is_active && onRevoke && (
           <Button
             variant="ghost"
             size="sm"

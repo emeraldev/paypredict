@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import DASHBOARD_API_RESPONSES, NOT_FOUND_RESPONSES
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models.user import User, UserRole
+from app.dependencies import get_current_user, require_admin_or_manager
+from app.models.user import User
 from app.schemas.backtest import (
     BacktestListResponse,
     BacktestRequest,
@@ -35,22 +35,13 @@ CSV_TEMPLATE = (
 )
 
 
-def _require_manager_or_admin(user: User) -> User:
-    if user.role not in (UserRole.ADMIN, UserRole.MANAGER):
-        raise HTTPException(
-            status_code=403, detail="Admin or Manager role required for backtests"
-        )
-    return user
-
-
 @router.post("", response_model=BacktestResponse, status_code=status.HTTP_201_CREATED)
 async def create_backtest(
     body: BacktestRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin_or_manager),
     db: AsyncSession = Depends(get_db),
 ) -> BacktestResponse:
     """Run a backtest on a batch of historical collections (max 500, sync)."""
-    _require_manager_or_admin(user)
     result = await run_backtest(db, user.tenant, body.collections, name=body.name)
     await db.commit()
     return result
@@ -59,12 +50,10 @@ async def create_backtest(
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_csv(
     file: UploadFile,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin_or_manager),
     db: AsyncSession = Depends(get_db),
 ) -> BacktestResponse | CsvUploadResponse:
     """Upload a CSV of historical collections for backtesting."""
-    _require_manager_or_admin(user)
-
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400, detail="File must be a .csv file"

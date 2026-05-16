@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import DASHBOARD_API_RESPONSES, NOT_FOUND_RESPONSES
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.schemas.config import (
     ApiKeyCreateRequest,
@@ -40,7 +40,7 @@ async def list_keys(
 @router.post("", response_model=ApiKeyCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_key(
     req: ApiKeyCreateRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ApiKeyCreateResponse:
     result = await create_api_key(db, user.tenant_id, req)
@@ -58,7 +58,7 @@ async def create_key(
 async def update_key(
     key_id: UUID,
     req: ApiKeyToggleRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ApiKeyListItem:
     result = await toggle_api_key(db, user.tenant_id, key_id, req)
@@ -69,7 +69,7 @@ async def update_key(
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_key(
     key_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     # Get the key label before deleting for the notification

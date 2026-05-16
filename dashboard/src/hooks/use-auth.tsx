@@ -18,6 +18,11 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** True if the logged-in user has the ADMIN role. */
+  isAdmin: boolean;
+  /** True if the logged-in user has ADMIN or MANAGER role —
+   *  can run backtests but cannot mutate tenant configuration. */
+  canManage: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,8 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   }, [router]);
 
+  const isAdmin = user?.role === "ADMIN";
+  const canManage = user?.role === "ADMIN" || user?.role === "MANAGER";
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, isAdmin, canManage }}
+    >
       {children}
     </AuthContext.Provider>
   );

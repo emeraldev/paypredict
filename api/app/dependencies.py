@@ -193,11 +193,28 @@ async def enforce_rate_limit_or_jwt(
 def require_admin(user: User = Depends(get_current_user)) -> User:
     """Restrict an endpoint to ADMIN-role users.
 
-    Used by team management endpoints. Returns the user so the route handler
-    can still access it via Depends(require_admin) instead of stacking deps.
+    Used by team management endpoints and anything that mutates
+    tenant-wide configuration (API keys, weights, alert settings,
+    webhook secret rotation). Returns the user so the route handler
+    can still access it via Depends(require_admin) instead of stacking
+    deps.
     """
     from app.models.user import UserRole
 
     if user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin role required")
+    return user
+
+
+def require_admin_or_manager(user: User = Depends(get_current_user)) -> User:
+    """Restrict an endpoint to ADMIN- or MANAGER-role users.
+
+    Used by operational actions that aren't tenant-config but are still
+    write/mutate workloads — currently backtest creation. VIEWERs can
+    read backtest results but cannot start new ones.
+    """
+    from app.models.user import UserRole
+
+    if user.role not in (UserRole.ADMIN, UserRole.MANAGER):
+        raise HTTPException(status_code=403, detail="Admin or Manager role required")
     return user

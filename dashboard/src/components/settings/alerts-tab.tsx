@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { configApi } from "@/lib/api/config";
 
 export function AlertsTab() {
+  const { isAdmin } = useAuth();
   const { data, loading, error, refetch } = useApi(
     () => configApi.getAlertSettings(),
     [],
@@ -105,12 +107,15 @@ export function AlertsTab() {
             min={5}
             max={50}
             step={1}
+            disabled={!isAdmin}
           />
-          <div className="flex justify-end pt-2">
-            <Button size="sm" onClick={handleSaveThreshold}>
-              Save threshold
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end pt-2">
+              <Button size="sm" onClick={handleSaveThreshold}>
+                Save threshold
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -130,6 +135,7 @@ export function AlertsTab() {
               placeholder="https://api.yoursite.com/paypredict-webhook"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
+              disabled={!isAdmin}
             />
           </div>
           <div className="space-y-2">
@@ -140,13 +146,16 @@ export function AlertsTab() {
               placeholder="https://hooks.slack.com/services/..."
               value={slackWebhookUrl}
               onChange={(e) => setSlackWebhookUrl(e.target.value)}
+              disabled={!isAdmin}
             />
           </div>
-          <div className="flex justify-end">
-            <Button size="sm" onClick={handleSaveWebhooks}>
-              Save webhook URLs
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={handleSaveWebhooks}>
+                Save webhook URLs
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -189,7 +198,11 @@ export function AlertsTab() {
             </div>
           </div>
 
-          {!confirmingRotate ? (
+          {!isAdmin ? (
+            <p className="border-t border-border pt-4 text-xs text-muted-foreground">
+              Only Admins can rotate the webhook secret.
+            </p>
+          ) : !confirmingRotate ? (
             <div className="flex items-center justify-between border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
                 Rotating invalidates the current secret. In-flight webhooks signed

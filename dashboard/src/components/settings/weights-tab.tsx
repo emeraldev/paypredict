@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/use-api";
+import { useAuth } from "@/hooks/use-auth";
 import { configApi } from "@/lib/api/config";
 import { WeightSliderRow } from "./weight-slider-row";
 
@@ -17,6 +18,7 @@ function toPercentMap(weights: { factor_name: string; weight: number }[]): Recor
 
 export function WeightsTab() {
   const { data, loading, error } = useApi(() => configApi.getWeights(), []);
+  const { isAdmin } = useAuth();
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [initialWeights, setInitialWeights] = useState<Record<string, number>>({});
 
@@ -66,7 +68,9 @@ export function WeightsTab() {
       <CardHeader>
         <CardTitle className="text-base">Factor Weights</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Adjust how much each factor contributes to the final risk score. Total must equal 100%.
+          {isAdmin
+            ? "Adjust how much each factor contributes to the final risk score. Total must equal 100%."
+            : "How much each factor contributes to the final risk score. Read-only — only Admins can edit weights."}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -76,6 +80,7 @@ export function WeightsTab() {
             factorName={w.factor_name}
             value={weights[w.factor_name] ?? 0}
             onChange={(v) => handleChange(w.factor_name, v)}
+            disabled={!isAdmin}
           />
         ))}
 
@@ -91,14 +96,16 @@ export function WeightsTab() {
               {total}%
             </span>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              Reset to defaults
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={!isValid}>
-              Save weights
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                Discard changes
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={!isValid}>
+                Save weights
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
