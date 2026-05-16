@@ -37,6 +37,9 @@ class ScoresSummary(BaseModel):
     medium_risk: int
     low_risk: int
     total_value_at_risk: Decimal
+    # Number of collections whose `recommended_action == "shift_date"` —
+    # surfaces the timing optimiser's call to action on the dashboard.
+    shift_recommended: int = 0
 
 
 class ScoresListResponse(BaseModel):

@@ -88,6 +88,13 @@ export default function OutcomesPage() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        Every collection your lender attempts gets a result reported back
+        via <code className="rounded bg-muted px-1 text-xs">POST /v1/outcomes</code>.
+        This page shows those results next to the risk we predicted, so you
+        can see where the model called it right and where it missed.
+      </div>
+
       {loading && !data ? (
         <LoadingSkeleton variant="cards" count={4} />
       ) : data ? (

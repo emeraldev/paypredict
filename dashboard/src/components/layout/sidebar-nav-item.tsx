@@ -9,6 +9,7 @@ interface SidebarNavItemProps {
   href: string;
   icon: LucideIcon;
   label: string;
+  description?: string;
   collapsed?: boolean;
   onClick?: () => void;
 }
@@ -17,6 +18,7 @@ export function SidebarNavItem({
   href,
   icon: Icon,
   label,
+  description,
   collapsed = false,
   onClick,
 }: SidebarNavItemProps) {
@@ -34,7 +36,7 @@ export function SidebarNavItem({
           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
         collapsed && "justify-center px-2",
       )}
-      title={collapsed ? label : undefined}
+      title={collapsed ? label : description}
     >
       <Icon className="h-4 w-4 shrink-0" />
       {!collapsed && <span>{label}</span>}

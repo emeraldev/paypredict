@@ -132,6 +132,8 @@ export interface ScoresSummary {
   medium_risk: number;
   low_risk: number;
   total_value_at_risk: number;
+  /** Count of collections where `recommended_action === "shift_date"`. */
+  shift_recommended: number;
 }
 
 export interface CollectionsListParams {

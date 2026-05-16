@@ -68,9 +68,13 @@ export function WeightsTab() {
       <CardHeader>
         <CardTitle className="text-base">Factor Weights</CardTitle>
         <p className="text-sm text-muted-foreground">
+          The scoring engine combines 8 factors into a single 0–1 risk score.
+          The sliders below control how much each factor contributes.
+          Weights must sum to 100%. Larger weight = more influence on the
+          final score.
           {isAdmin
-            ? "Adjust how much each factor contributes to the final risk score. Total must equal 100%."
-            : "How much each factor contributes to the final risk score. Read-only — only Admins can edit weights."}
+            ? " Verify your changes with a backtest before saving — the Backtest tool re-scores past collections against the current weights."
+            : " Read-only — only Admins can edit weights."}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">

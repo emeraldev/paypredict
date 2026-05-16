@@ -5,7 +5,6 @@ import {
   ArrowUpDownIcon,
   ArrowUpIcon,
   FilterXIcon,
-  InboxIcon,
 } from "lucide-react";
 import {
   Table,
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { ScoreListItem } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { CollectionsOnboarding } from "./collections-onboarding";
 import { CollectionsTableRow } from "./collections-table-row";
 
 export type CollectionsSortField = "score" | "due_date" | "customer" | "amount" | "method";
@@ -91,11 +91,7 @@ export function CollectionsTable({
         }
       />
     ) : (
-      <EmptyState
-        icon={<InboxIcon className="h-6 w-6" />}
-        title="No upcoming collections"
-        description="Once your lender sends scoring requests via /v1/score, they'll appear here ranked by risk."
-      />
+      <CollectionsOnboarding />
     );
   }
 

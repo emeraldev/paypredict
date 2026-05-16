@@ -58,6 +58,14 @@ export default function BacktestPage() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        <strong className="text-foreground">What is a backtest?</strong>{" "}
+        Upload a CSV of past collections + outcomes; we re-score each row
+        against the current model so you can see how the predictions would
+        have performed. Useful for validating weight changes before saving
+        them, or for proving the model&apos;s accuracy to stakeholders.
+      </div>
+
       {/* Upload section — only Admins and Managers can start new backtests.
           Viewers see past backtest results below but cannot run new ones. */}
       {!result && canManage && (

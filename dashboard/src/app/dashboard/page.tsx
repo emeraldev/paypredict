@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { TrendingDownIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import {
@@ -155,6 +156,20 @@ export default function DashboardPage() {
           }}
         />
       ) : null}
+
+      {data && data.summary.shift_recommended > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm">
+          <TrendingDownIcon className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span className="text-foreground">
+            <strong className="font-semibold">
+              {data.summary.shift_recommended}
+            </strong>{" "}
+            {data.summary.shift_recommended === 1 ? "collection has" : "collections have"}{" "}
+            a recommended shift date — open the row to see how much risk
+            drops.
+          </span>
+        </div>
+      )}
 
       <CollectionsToolbar
         search={search}

@@ -112,6 +112,9 @@ async def _compute_summary(
             ),
             Decimal(0),
         ).label("value_at_risk"),
+        func.count(case((sub.c.recommended_action == "shift_date", 1))).label(
+            "shift_recommended"
+        ),
     )
 
     row = (await db.execute(summary_q)).one()
@@ -120,6 +123,7 @@ async def _compute_summary(
         medium_risk=row.medium,
         low_risk=row.low,
         total_value_at_risk=row.value_at_risk,
+        shift_recommended=row.shift_recommended,
     )
 
 

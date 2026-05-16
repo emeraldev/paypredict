@@ -81,6 +81,7 @@ curl -X POST http://localhost:8000/v1/score \
 | [docs/data-model.md](./docs/data-model.md) | Database schema, table definitions, relationships |
 | [docs/factors.md](./docs/factors.md) | All scoring factors with detailed logic for SA and Zambia |
 | [docs/api-reference.md](./docs/api-reference.md) | Complete API endpoint reference with request/response examples |
+| [docs/operational-guide.md](./docs/operational-guide.md) | How to turn a score + `recommended_action` into an actual collection-pipeline decision |
 | [docs/development-guide.md](./docs/development-guide.md) | Local setup, migrations, testing, code conventions, Phase 1 build order |
 
 ## Tech stack
