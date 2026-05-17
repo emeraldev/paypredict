@@ -166,20 +166,22 @@ async def test_dual_auth_api_key_path_is_rate_limited(
 ):
     """`/v1/analytics/*` and `/v1/config/weights` accept either an API key
     or a dashboard JWT. The API-key path must consume a ticket and
-    surface X-RateLimit-* headers; exhausting the bucket must 429."""
-    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 2)
+    surface X-RateLimit-* headers; exhausting the bucket must 429.
+
+    Limit is 1 so we only need two sequential HTTP calls — minimises
+    the chance of crossing the 60s window boundary mid-test and
+    spuriously refreshing the bucket. (Earlier 2-request flake in CI.)
+    """
+    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 1)
 
     r1 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
     r2 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
-    r3 = await async_client.get("/v1/analytics/summary?period=30d", headers=_auth())
 
     assert r1.status_code == 200
-    assert r1.headers["X-RateLimit-Limit"] == "2"
-    assert r1.headers["X-RateLimit-Remaining"] == "1"
-    assert r2.status_code == 200
-    assert r2.headers["X-RateLimit-Remaining"] == "0"
-    assert r3.status_code == 429
-    assert r3.headers["Retry-After"]
+    assert r1.headers["X-RateLimit-Limit"] == "1"
+    assert r1.headers["X-RateLimit-Remaining"] == "0"
+    assert r2.status_code == 429
+    assert r2.headers["Retry-After"]
 
 
 @pytest.mark.asyncio
