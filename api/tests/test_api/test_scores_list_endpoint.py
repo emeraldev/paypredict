@@ -246,3 +246,52 @@ async def test_summary_counts_reflect_filters(async_client, sa_admin_user):
     # Summary should also be zeroed
     s = r2.json()["summary"]
     assert s["high_risk"] + s["medium_risk"] + s["low_risk"] == 0
+
+
+@pytest.mark.asyncio
+async def test_summary_shift_recommended_count(async_client, sa_admin_user):
+    """The dashboard's 'N recommend shifting' callout reads
+    `summary.shift_recommended` — a count of scored rows where
+    `recommended_action == "shift_date"`. The timing optimiser sets
+    that action when a customer's known_salary_day + due_date combo
+    has a meaningfully better alternative within ±14 days. This test
+    creates one shiftable + one non-shiftable score and asserts the
+    count is exactly 1."""
+    token = await _login(async_client)
+
+    # Shiftable: salary day 25, due date one day BEFORE payday
+    # (days_after = 30 mod 31 → score 0.8). The optimiser will shift
+    # to day 25-28 where the factor returns 0.1, an improvement well
+    # above the 0.10 SHIFT_THRESHOLD.
+    await _create_score(async_client, customer_id="shift_cust")
+    shift_payload = {
+        "external_customer_id": "shift_cust_2",
+        "external_collection_id": "col_shift_cust_2",
+        "collection_amount": 1500.00,
+        "collection_currency": "ZAR",
+        "collection_due_date": "2027-04-24",
+        "collection_method": "CARD",
+        "customer_data": {
+            "total_payments": 10,
+            "successful_payments": 8,
+            "card_type": "debit",
+            "known_salary_day": 25,
+        },
+    }
+    r = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=shift_payload,
+    )
+    assert r.status_code == 200
+    assert r.json()["recommended_action"] == "shift_date", (
+        "Test setup precondition: this payload should trigger shift_date"
+    )
+
+    listing = await async_client.get(
+        "/v1/scores",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    data = listing.json()
+    # Two scores total; exactly one is shift_date.
+    assert data["summary"]["shift_recommended"] == 1, data["summary"]

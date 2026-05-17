@@ -122,9 +122,11 @@ useful integration is:
 2. Route `flag_for_review` to a human (or just don't attempt that day).
 3. Treat the other three the same for now — just collect on schedule.
 
-That alone typically lifts collection rates by 5–10% in the first
-month because you've stopped throwing good money after bad on the
-clearly-doomed attempts.
+Even at that minimum level of integration, the expected effect is to
+stop wasting attempts on the clearly-doomed collections — how much
+that lifts your collection rate depends on your existing failure
+distribution. Use the Backtest tool against your own historical data
+to see the projected lift before changing your live pipeline.
 
 ---
 
@@ -148,8 +150,9 @@ curl -X POST https://api.paypredict.com/v1/outcomes \
   }'
 ```
 
-Outcomes you don't report are outcomes we can't learn from. Aim for
-≥ 95% of collections to have a reported outcome within 7 days.
+Outcomes you don't report are outcomes the model can't learn from.
+Report every attempt, ideally within a few days — the labelled data
+is what improves accuracy over time.
 
 ---
 
@@ -170,14 +173,18 @@ Outcomes you don't report are outcomes we can't learn from. Aim for
 
 ---
 
-## When to escalate
+## Signals worth investigating
 
-Contact us if you see any of these patterns:
+Patterns in your own dashboard that are worth a closer look:
 
-- Collection rate drops > 5 points week-over-week with no operational
-  change on your side — could indicate model drift.
-- A specific factor consistently scores 0.0 in the response — could
-  indicate missing input data on your side.
-- `recommended_action` keeps returning `flag_for_review` for ≥ 50% of
-  collections — your weights may be too aggressive; consider a
-  weight-tuning session.
+- **Collection rate drops sharply** with no operational change on your
+  side — could indicate model drift. Run a backtest against the
+  affected period to compare against the live model.
+- **A specific factor consistently scores 0.0** in the response —
+  likely missing input data on your side; check that the optional
+  `customer_data` fields for that factor are being sent.
+- **`recommended_action` keeps returning `flag_for_review` for a
+  large share of collections** — your weights may be skewed toward
+  HIGH risk. Try tuning the weight on `historical_failure_rate` (the
+  highest-impact factor) and validate the change with the Backtest
+  tool before saving.
