@@ -56,6 +56,7 @@ def _apply_filters(
     *,
     risk_level: str | None,
     collection_method: str | None,
+    recommended_action: str | None = None,
     due_date_from: date | None,
     due_date_to: date | None,
     search: str | None,
@@ -64,6 +65,8 @@ def _apply_filters(
         query = query.where(ScoreResult.risk_level == RiskLevel(risk_level))
     if collection_method:
         query = query.where(ScoreRequest.collection_method == collection_method)
+    if recommended_action:
+        query = query.where(ScoreResult.recommended_action == recommended_action)
     if due_date_from:
         query = query.where(ScoreRequest.collection_due_date >= due_date_from)
     if due_date_to:
@@ -83,6 +86,7 @@ async def _compute_summary(
     *,
     risk_level: str | None,
     collection_method: str | None,
+    recommended_action: str | None = None,
     due_date_from: date | None,
     due_date_to: date | None,
     search: str | None,
@@ -93,6 +97,7 @@ async def _compute_summary(
         base,
         risk_level=risk_level,
         collection_method=collection_method,
+        recommended_action=recommended_action,
         due_date_from=due_date_from,
         due_date_to=due_date_to,
         search=search,
@@ -112,6 +117,9 @@ async def _compute_summary(
             ),
             Decimal(0),
         ).label("value_at_risk"),
+        func.count(case((sub.c.recommended_action == "shift_date", 1))).label(
+            "shift_recommended"
+        ),
     )
 
     row = (await db.execute(summary_q)).one()
@@ -120,6 +128,7 @@ async def _compute_summary(
         medium_risk=row.medium,
         low_risk=row.low,
         total_value_at_risk=row.value_at_risk,
+        shift_recommended=row.shift_recommended,
     )
 
 
@@ -131,6 +140,7 @@ async def list_scores(
     page_size: int = 25,
     risk_level: str | None = None,
     collection_method: str | None = None,
+    recommended_action: str | None = None,
     due_date_from: date | None = None,
     due_date_to: date | None = None,
     search: str | None = None,
@@ -142,6 +152,7 @@ async def list_scores(
         query,
         risk_level=risk_level,
         collection_method=collection_method,
+        recommended_action=recommended_action,
         due_date_from=due_date_from,
         due_date_to=due_date_to,
         search=search,
@@ -160,6 +171,7 @@ async def list_scores(
         tenant_id,
         risk_level=risk_level,
         collection_method=collection_method,
+        recommended_action=recommended_action,
         due_date_from=due_date_from,
         due_date_to=due_date_to,
         search=search,

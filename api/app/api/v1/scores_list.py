@@ -26,6 +26,10 @@ async def scores_list(
     collection_method: str | None = Query(
         None, pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY)$"
     ),
+    recommended_action: str | None = Query(
+        None,
+        pattern="^(collect_normally|pre_collection_sms|flag_for_review|shift_date)$",
+    ),
     due_date_from: date | None = None,
     due_date_to: date | None = None,
     search: str | None = None,
@@ -48,6 +52,7 @@ async def scores_list(
         page_size=page_size,
         risk_level=risk_level,
         collection_method=collection_method,
+        recommended_action=recommended_action,
         due_date_from=due_date_from,
         due_date_to=due_date_to,
         search=search,

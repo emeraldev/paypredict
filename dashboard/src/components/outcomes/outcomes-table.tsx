@@ -63,7 +63,12 @@ export function OutcomesTable({ outcomes, filter, onClearFilter }: OutcomesTable
             <TableHead className={`${HEADER_CLS} text-right`}>Amount</TableHead>
             <TableHead className={HEADER_CLS}>Attempted</TableHead>
             <TableHead className={HEADER_CLS}>Reported</TableHead>
-            <TableHead className={`${HEADER_CLS} text-center`}>Match</TableHead>
+            <TableHead
+              className={`${HEADER_CLS} text-center`}
+              title="Did the prediction match reality? ✓ = HIGH risk failed or LOW risk succeeded. ✗ = the model missed."
+            >
+              Match
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

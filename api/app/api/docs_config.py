@@ -64,6 +64,73 @@ Use `pk_test_` prefixed keys for sandbox / integration testing.
 2. Send a collection to `POST /v1/score` with customer + collection data.
 3. Use the returned risk score to prioritise your collections.
 4. Report outcomes via `POST /v1/outcomes` to improve accuracy over time.
+
+### What `customer_data` fields actually move the score
+
+Every field on `customer_data` is optional. The scoring engine falls
+back to moderate defaults when a field is missing — but accuracy
+improves sharply when you send the fields that match your collection
+method. Send at least these for the best results:
+
+**Always useful (any factor set):**
+
+| Field | Why it matters |
+|---|---|
+| `total_payments` | Denominator for the historical-failure-rate factor. Without it we can't tell a customer with one failed payment from one with twenty. |
+| `successful_payments` | Numerator for the same factor. |
+| `last_successful_payment_date` | Drives the "days since last payment" recency factor. |
+| `average_collection_amount` | Lets us detect when this collection is unusually large compared to the customer's pattern. |
+| `instalment_number` + `total_instalments` | Position in the instalment plan — early instalments fail more often than later ones. |
+
+**Card / debit order (`collection_method` = `CARD` or `DEBIT_ORDER`):**
+
+| Field | Why it matters |
+|---|---|
+| `known_salary_day` | Single biggest timing signal in this factor set. Drives the day-of-month-vs-payday factor and the timing optimiser. |
+| `card_expiry_date` | Lets us flag cards about to expire. |
+| `card_type` (`credit` / `debit`) | Debit cards fail more often than credit (no overdraft cushion). |
+| `last_decline_code` | Distinguishes hard from soft declines on recent attempts. |
+| `debit_order_returns` | Array of recent EFT return codes — predicts repeat failures. |
+
+**Mobile money (`collection_method` = `MOBILE_MONEY`):**
+
+| Field | Why it matters |
+|---|---|
+| `wallet_balance_current` | The single strongest signal — empty wallet = guaranteed failure. |
+| `wallet_balance_7d_avg` | Context for whether the current balance is unusually low. |
+| `hours_since_last_inflow` | When did money last arrive? |
+| `regular_inflow_day` | Drives the salary-cycle-alignment factor. |
+| `active_loan_count` | Customers with multiple active loans fail more. |
+| `transactions_last_7d` + `transactions_avg_7d` | Velocity change is a distress signal. |
+
+Fields not listed above are useful enrichment but rarely flip a
+decision. If you're integrating from scratch, send the must-haves
+first and add the rest as your data layer matures.
+
+### What to do with each `recommended_action`
+
+Every successful `POST /v1/score` response includes one of four values.
+Map them to your collection workflow as follows:
+
+| Action | What it means | Suggested response |
+|---|---|---|
+| `collect_normally` | Looks healthy — model has no concerns. | Attempt the collection on schedule through your standard pipeline. No special handling. |
+| `pre_collection_sms` | Borderline — a nudge will probably help. | Send a reminder 24-48h before the collection date (SMS / email / push), then attempt as scheduled. |
+| `flag_for_review` | High risk — don't attempt blindly. | Route to a manual queue. Check the `factors` array to see *why* it's risky and decide accordingly (card-expiry case vs. insufficient-funds vs. distress signals). |
+| `shift_date` | Original date is bad timing; we found a meaningfully better date in the ±14 day window. | Reschedule to `recommended_collection_date` — three extra fields populate (`recommended_collection_date`, `recommended_score`, `score_improvement`) when this action fires. |
+
+Two related signals on the same response — pick whichever fits your
+downstream system:
+
+- **`score`** (0.0–1.0 float) — for prioritising a queue numerically.
+- **`risk_level`** (`LOW` / `MEDIUM` / `HIGH`) — for routing to a workflow bucket. Thresholds: `LOW ≤ 0.30`, `MEDIUM ≤ 0.60`, else `HIGH`.
+
+### Report outcomes back
+
+After every collection attempt, call `POST /v1/outcomes` with the
+`score_id` you got from the original score. This builds the labelled
+dataset the model trains on — collections where you don't report an
+outcome are collections the model can't learn from.
 """
 
 INTERNAL_API_DESCRIPTION = """\

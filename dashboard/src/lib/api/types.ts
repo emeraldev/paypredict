@@ -132,6 +132,8 @@ export interface ScoresSummary {
   medium_risk: number;
   low_risk: number;
   total_value_at_risk: number;
+  /** Count of collections where `recommended_action === "shift_date"`. */
+  shift_recommended: number;
 }
 
 export interface CollectionsListParams {
@@ -139,6 +141,10 @@ export interface CollectionsListParams {
   page_size?: number;
   risk_level?: RiskLevel | null;
   collection_method?: CollectionMethod | null;
+  /** Filter to rows whose recommended_action matches this value.
+   *  Currently used by the dashboard's "N recommend shifting" banner
+   *  which sets it to "shift_date" when clicked. */
+  recommended_action?: string | null;
   search?: string;
   date_from?: string;
   date_to?: string;

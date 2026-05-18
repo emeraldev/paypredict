@@ -52,6 +52,7 @@ export function Sidebar() {
             href={item.href}
             icon={item.icon}
             label={item.label}
+            description={item.description}
             collapsed={collapsed}
           />
         ))}

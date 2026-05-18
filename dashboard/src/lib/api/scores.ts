@@ -13,6 +13,7 @@ function buildQuery(params: CollectionsListParams): string {
   if (params.page_size !== undefined) search.set("page_size", String(params.page_size));
   if (params.risk_level) search.set("risk_level", params.risk_level);
   if (params.collection_method) search.set("collection_method", params.collection_method);
+  if (params.recommended_action) search.set("recommended_action", params.recommended_action);
   if (params.search) search.set("search", params.search);
   if (params.date_from) search.set("due_date_from", params.date_from);
   if (params.date_to) search.set("due_date_to", params.date_to);
