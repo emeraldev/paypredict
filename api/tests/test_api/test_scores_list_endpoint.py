@@ -249,6 +249,74 @@ async def test_summary_counts_reflect_filters(async_client, sa_admin_user):
 
 
 @pytest.mark.asyncio
+async def test_filter_by_recommended_action_shift_date(async_client, sa_admin_user):
+    """The dashboard's shift-callout banner clicks through to a filtered
+    table view. The /v1/scores endpoint must accept
+    `?recommended_action=shift_date` and return only those rows
+    (plus a summary that reflects the filter)."""
+    token = await _login(async_client)
+
+    # One score that won't trigger shift_date (no known_salary_day,
+    # default SA timing factor gives moderate score → no shift recommended).
+    await _create_score(async_client, customer_id="no_shift")
+
+    # One score that WILL trigger shift_date (salary day 25 + due
+    # day before payday → big improvement available).
+    r = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={
+            "external_customer_id": "shifty",
+            "external_collection_id": "col_shifty",
+            "collection_amount": 1500.00,
+            "collection_currency": "ZAR",
+            "collection_due_date": "2027-04-24",
+            "collection_method": "CARD",
+            "customer_data": {
+                "total_payments": 10,
+                "successful_payments": 8,
+                "card_type": "debit",
+                "known_salary_day": 25,
+            },
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["recommended_action"] == "shift_date"
+
+    # Unfiltered: 2 rows total
+    unfiltered = await async_client.get(
+        "/v1/scores", headers={"Authorization": f"Bearer {token}"},
+    )
+    assert unfiltered.json()["pagination"]["total_items"] == 2
+
+    # Filtered to shift_date: 1 row
+    filtered = await async_client.get(
+        "/v1/scores?recommended_action=shift_date",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    data = filtered.json()
+    assert data["pagination"]["total_items"] == 1
+    assert data["items"][0]["recommended_action"] == "shift_date"
+    assert data["items"][0]["external_customer_id"] == "shifty"
+    # Summary respects the filter too — under the shift_date filter,
+    # shift_recommended must equal the page's row count.
+    assert data["summary"]["shift_recommended"] == 1
+
+
+@pytest.mark.asyncio
+async def test_filter_by_recommended_action_rejects_unknown_value(
+    async_client, sa_admin_user
+):
+    """Validator must reject anything outside the known action set."""
+    token = await _login(async_client)
+    r = await async_client.get(
+        "/v1/scores?recommended_action=delete_customer",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_summary_shift_recommended_count(async_client, sa_admin_user):
     """The dashboard's 'N recommend shifting' callout reads
     `summary.shift_recommended` — a count of scored rows where

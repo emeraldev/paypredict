@@ -21,6 +21,7 @@ import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
 import { scoresApi } from "@/lib/api/scores";
 import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 import { downloadCsv, fetchAllPages } from "@/lib/utils/csv-export";
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import type { RiskLevel } from "@/lib/utils/format-risk";
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const [riskFilter, setRiskFilter] = useState<RiskLevel | null>(null);
   const [methodFilter, setMethodFilter] = useState<CollectionMethod | "ALL">("ALL");
+  const [actionFilter, setActionFilter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRangeFilter>("30d");
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [page, setPage] = useState(1);
@@ -69,6 +71,7 @@ export default function DashboardPage() {
     page_size: PAGE_SIZE,
     risk_level: riskFilter,
     collection_method: methodFilter === "ALL" ? null : methodFilter,
+    recommended_action: actionFilter,
     search: search.trim() || undefined,
     sort_by: SORT_MAP[sortField],
     sort_order: sortDirection,
@@ -78,7 +81,16 @@ export default function DashboardPage() {
 
   const { data, loading, error } = useApi(
     () => scoresApi.list(params),
-    [page, riskFilter, methodFilter, dateRange, search, sortField, sortDirection],
+    [
+      page,
+      riskFilter,
+      methodFilter,
+      actionFilter,
+      dateRange,
+      search,
+      sortField,
+      sortDirection,
+    ],
   );
 
   // Fetch detail for drawer
@@ -158,17 +170,33 @@ export default function DashboardPage() {
       ) : null}
 
       {data && data.summary.shift_recommended > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-sm">
+        <button
+          type="button"
+          onClick={() => {
+            setActionFilter(actionFilter === "shift_date" ? null : "shift_date");
+            setPage(1);
+          }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg border px-4 py-2.5 text-left text-sm transition-colors",
+            actionFilter === "shift_date"
+              ? "border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/40"
+              : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+          )}
+        >
           <TrendingDownIcon className="h-4 w-4 shrink-0 text-emerald-400" />
-          <span className="text-foreground">
+          <span className="flex-1 text-foreground">
             <strong className="font-semibold">
               {data.summary.shift_recommended}
             </strong>{" "}
-            {data.summary.shift_recommended === 1 ? "collection has" : "collections have"}{" "}
-            a recommended shift date — open the row to see how much risk
-            drops.
+            {data.summary.shift_recommended === 1
+              ? "collection has"
+              : "collections have"}{" "}
+            a recommended shift date —{" "}
+            {actionFilter === "shift_date"
+              ? "showing only these. Click to clear filter."
+              : "click to filter the table to just these rows."}
           </span>
-        </div>
+        </button>
       )}
 
       <CollectionsToolbar
@@ -204,12 +232,14 @@ export default function DashboardPage() {
               hasActiveFilters={
                 riskFilter !== null ||
                 methodFilter !== "ALL" ||
+                actionFilter !== null ||
                 dateRange !== "30d" ||
                 search.trim().length > 0
               }
               onClearFilters={() => {
                 setRiskFilter(null);
                 setMethodFilter("ALL");
+                setActionFilter(null);
                 setDateRange("30d");
                 setSearch("");
                 setPage(1);
