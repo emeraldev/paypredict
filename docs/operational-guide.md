@@ -1,5 +1,12 @@
 # Operational Guide
 
+> **Internal document.** Lenders cannot see this file (the repo is
+> private). The lender-facing version of the most actionable content
+> — the `recommended_action` mapping + the `customer_data` minimum
+> useful fields — is inlined in the public OpenAPI description served
+> at `/docs` (see `app/api/docs_config.py:PUBLIC_API_DESCRIPTION`).
+> Keep the two in sync when this guide changes.
+
 How to turn PayPredict's risk score and `recommended_action` into real
 collection workflow decisions. This is the missing manual between
 "we got a score back" and "what does my ops team do with it."

@@ -153,16 +153,19 @@ export function CollectionsOnboarding() {
           {SAMPLE_CURL}
         </pre>
         <p className="text-xs text-muted-foreground">
-          Need a hand mapping the response to your queue? See the{" "}
+          Need a hand mapping the response to your queue? The Swagger
+          quick-start at{" "}
           <a
-            href="https://github.com/emeraldev/paypredict/blob/main/docs/operational-guide.md"
+            href={`${API_URL}/docs`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground"
           >
-            Operational Guide
-          </a>
-          .
+            {API_URL}/docs
+          </a>{" "}
+          covers what each <code className="rounded bg-muted px-1 text-[10px]">recommended_action</code>{" "}
+          value means and which <code className="rounded bg-muted px-1 text-[10px]">customer_data</code>{" "}
+          fields move the score the most.
         </p>
       </div>
     </div>

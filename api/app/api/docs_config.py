@@ -107,8 +107,30 @@ Fields not listed above are useful enrichment but rarely flip a
 decision. If you're integrating from scratch, send the must-haves
 first and add the rest as your data layer matures.
 
-For the action vocabulary and what to do with each response, see the
-[Operational Guide](https://github.com/emeraldev/paypredict/blob/main/docs/operational-guide.md).
+### What to do with each `recommended_action`
+
+Every successful `POST /v1/score` response includes one of four values.
+Map them to your collection workflow as follows:
+
+| Action | What it means | Suggested response |
+|---|---|---|
+| `collect_normally` | Looks healthy — model has no concerns. | Attempt the collection on schedule through your standard pipeline. No special handling. |
+| `pre_collection_sms` | Borderline — a nudge will probably help. | Send a reminder 24-48h before the collection date (SMS / email / push), then attempt as scheduled. |
+| `flag_for_review` | High risk — don't attempt blindly. | Route to a manual queue. Check the `factors` array to see *why* it's risky and decide accordingly (card-expiry case vs. insufficient-funds vs. distress signals). |
+| `shift_date` | Original date is bad timing; we found a meaningfully better date in the ±14 day window. | Reschedule to `recommended_collection_date` — three extra fields populate (`recommended_collection_date`, `recommended_score`, `score_improvement`) when this action fires. |
+
+Two related signals on the same response — pick whichever fits your
+downstream system:
+
+- **`score`** (0.0–1.0 float) — for prioritising a queue numerically.
+- **`risk_level`** (`LOW` / `MEDIUM` / `HIGH`) — for routing to a workflow bucket. Thresholds: `LOW ≤ 0.30`, `MEDIUM ≤ 0.60`, else `HIGH`.
+
+### Report outcomes back
+
+After every collection attempt, call `POST /v1/outcomes` with the
+`score_id` you got from the original score. This builds the labelled
+dataset the model trains on — collections where you don't report an
+outcome are collections the model can't learn from.
 """
 
 INTERNAL_API_DESCRIPTION = """\
