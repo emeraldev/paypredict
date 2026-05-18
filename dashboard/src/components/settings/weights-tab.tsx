@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HelpPopover } from "@/components/shared/help-popover";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/use-api";
@@ -99,6 +100,19 @@ export function WeightsTab() {
             <span className={cn("font-mono tabular-nums font-medium", !isValid && "text-amber-400")}>
               {total}%
             </span>
+            <HelpPopover title="Why must weights sum to 100%?">
+              <p>
+                Each factor contributes a fraction of the final risk score. The
+                weights are normalised, so the sum has to be exactly 100% for
+                the maths to work out.
+              </p>
+              <p>
+                If a factor doesn&apos;t apply to a given collection (e.g. card
+                health on a wallet payment), the engine skips it and
+                re-normalises the remaining weights for that score — but the
+                base configuration here must still sum to 100%.
+              </p>
+            </HelpPopover>
           </div>
           {isAdmin && (
             <div className="flex gap-2">

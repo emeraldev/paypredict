@@ -10,6 +10,7 @@ import { ConfusionMatrix } from "@/components/backtest/confusion-matrix";
 import { CsvUploadZone } from "@/components/backtest/csv-upload-zone";
 import { PastBacktestsList } from "@/components/backtest/past-backtests-list";
 import { FailureFactorsChart } from "@/components/analytics/failure-factors-chart";
+import { HelpPopover } from "@/components/shared/help-popover";
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { useApi } from "@/hooks/use-api";
@@ -124,10 +125,37 @@ export default function BacktestPage() {
             <StatCard
               title="Predicted Accuracy"
               value={`${Math.round(result.summary.overall_accuracy * 100)}%`}
+              titleHelp={
+                <HelpPopover title="Predicted Accuracy">
+                  <p>
+                    Of the collections that actually failed in this dataset, the
+                    share that we flagged as High risk in advance.
+                  </p>
+                  <p>
+                    Higher is better. This is the same metric the production
+                    model would have hit if you&apos;d been running it during
+                    the period covered by the CSV.
+                  </p>
+                </HelpPopover>
+              }
             />
             <StatCard
               title="Est. Annual Recovery"
               value={formatCompactCurrency(result.summary.estimated_annual_recovery, "ZAR")}
+              titleHelp={
+                <HelpPopover title="Est. Annual Recovery">
+                  <p>
+                    A projection of the value you could recover per year by
+                    acting on High-risk predictions — extrapolated from the
+                    flagged-in-advance value in this backtest.
+                  </p>
+                  <p>
+                    Treat this as an upper bound. Real recovery depends on how
+                    aggressively you intervene (SMS, date shifts, manual
+                    review) and how customers respond.
+                  </p>
+                </HelpPopover>
+              }
             />
           </div>
 

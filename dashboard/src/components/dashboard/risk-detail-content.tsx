@@ -1,5 +1,6 @@
 import { CalendarIcon, TrendingDownIcon, ZapIcon } from "lucide-react";
 import { FactorBreakdown } from "@/components/shared/factor-breakdown";
+import { HelpPopover } from "@/components/shared/help-popover";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
 import { Separator } from "@/components/ui/separator";
@@ -59,6 +60,30 @@ export function RiskDetailContent({ detail }: RiskDetailContentProps) {
           <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
             Recommended Action
           </span>
+          <HelpPopover title="How to act on this">
+            <p>
+              Each score maps to one of four operational responses. Treat them as
+              guidance for your collections workflow — none are enforced by the API.
+            </p>
+            <ul className="space-y-1.5">
+              <li>
+                <span className="font-medium text-foreground">Collect normally</span>
+                {" "}— attempt as planned.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Send pre-collection SMS</span>
+                {" "}— nudge the customer before charging.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Flag for manual review</span>
+                {" "}— pause and have a human decide.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Shift collection date</span>
+                {" "}— retry on the suggested date for better odds.
+              </li>
+            </ul>
+          </HelpPopover>
         </div>
         <p className="mt-2 text-sm font-medium text-foreground">
           {ACTION_LABELS[detail.recommended_action] ?? detail.recommended_action}
