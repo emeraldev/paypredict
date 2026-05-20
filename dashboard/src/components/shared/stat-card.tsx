@@ -13,6 +13,8 @@ interface StatCardProps {
   accentColor?: string; // Tailwind border color class, e.g. "border-l-red-500"
   icon?: React.ReactNode;
   className?: string;
+  /** Optional element rendered inline next to the title (e.g. a HelpPopover). */
+  titleHelp?: React.ReactNode;
 }
 
 export function StatCard({
@@ -23,6 +25,7 @@ export function StatCard({
   accentColor,
   icon,
   className,
+  titleHelp,
 }: StatCardProps) {
   const trendUp = trend && trend.value >= 0;
   const TrendIcon = trendUp ? ArrowUpIcon : ArrowDownIcon;
@@ -32,7 +35,10 @@ export function StatCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">{title}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-muted-foreground">{title}</p>
+              {titleHelp}
+            </div>
             <p className="text-3xl font-semibold tracking-tight">{value}</p>
             {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           </div>
