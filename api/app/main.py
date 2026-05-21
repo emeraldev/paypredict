@@ -26,9 +26,7 @@ from app.api.v1 import (
     health,
     notifications,
     outcomes,
-    outcomes_list,
     scores,
-    scores_list,
     team,
     weights,
 )
@@ -71,8 +69,6 @@ app.include_router(outcomes.router, prefix="/v1")
 app.include_router(analytics.router, prefix="/v1")
 app.include_router(weights.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1")
-app.include_router(scores_list.router, prefix="/v1")
-app.include_router(outcomes_list.router, prefix="/v1")
 app.include_router(notifications.router, prefix="/v1")
 app.include_router(backtest.router, prefix="/v1")
 app.include_router(alerts.router, prefix="/v1")
