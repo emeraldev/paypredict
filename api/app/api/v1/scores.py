@@ -1,17 +1,40 @@
-from fastapi import APIRouter, Depends
+"""Score endpoints — single-score (lender, API key) + list/detail (dashboard, JWT).
+
+Split by tag for OpenAPI grouping; the docs filter at the schema level keeps
+the dashboard endpoints out of the public Swagger UI.
+"""
+from datetime import date
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.docs_config import (
+    DASHBOARD_API_RESPONSES,
+    LENDER_API_RESPONSES,
+    NOT_FOUND_RESPONSES,
+)
 from app.database import get_db
-from app.api.docs_config import LENDER_API_RESPONSES
-from app.dependencies import enforce_rate_limit
+from app.dependencies import enforce_rate_limit, get_current_user
 from app.models.tenant import Tenant
+from app.models.user import User
 from app.schemas.score import ScoreRequest, ScoreResponse
+from app.schemas.scores_list import ScoreDetailResponse, ScoresListResponse
+from app.services.scores_service import get_score_detail, list_scores
 from app.services.scoring_service import score_collection
 
-router = APIRouter(tags=["Scoring"], responses=LENDER_API_RESPONSES)
+router = APIRouter()
 
 
-@router.post("/score", response_model=ScoreResponse)
+# ---- Lender-facing (API key auth) -------------------------------------------
+
+
+@router.post(
+    "/score",
+    response_model=ScoreResponse,
+    tags=["Scoring"],
+    responses=LENDER_API_RESPONSES,
+)
 async def score_single_collection(
     request: ScoreRequest,
     tenant: Tenant = Depends(enforce_rate_limit),
@@ -19,3 +42,73 @@ async def score_single_collection(
 ) -> ScoreResponse:
     """Score a single upcoming collection. Returns risk score, level, and factor breakdown."""
     return await score_collection(request, tenant, db)
+
+
+# ---- Dashboard-facing (JWT session auth) ------------------------------------
+
+
+@router.get(
+    "/scores",
+    response_model=ScoresListResponse,
+    tags=["Dashboard Scores"],
+    responses=DASHBOARD_API_RESPONSES,
+)
+async def scores_list(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    risk_level: str | None = Query(None, pattern="^(HIGH|MEDIUM|LOW)$"),
+    collection_method: str | None = Query(
+        None, pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY)$"
+    ),
+    recommended_action: str | None = Query(
+        None,
+        pattern="^(collect_normally|pre_collection_sms|flag_for_review|shift_date)$",
+    ),
+    due_date_from: date | None = None,
+    due_date_to: date | None = None,
+    search: str | None = None,
+    sort_by: str = Query(
+        "score",
+        pattern="^(score|collection_amount|collection_due_date|created_at|external_customer_id|collection_method)$",
+    ),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ScoresListResponse:
+    """List scored collections for the dashboard table.
+
+    Returns paginated items + summary counts over the full filtered dataset.
+    """
+    return await list_scores(
+        db,
+        user.tenant_id,
+        page=page,
+        page_size=page_size,
+        risk_level=risk_level,
+        collection_method=collection_method,
+        recommended_action=recommended_action,
+        due_date_from=due_date_from,
+        due_date_to=due_date_to,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@router.get(
+    "/scores/{score_id}",
+    response_model=ScoreDetailResponse,
+    tags=["Dashboard Scores"],
+    responses={**DASHBOARD_API_RESPONSES, **NOT_FOUND_RESPONSES},
+)
+async def score_detail(
+    score_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ScoreDetailResponse:
+    """Load a single score with factor breakdown, customer context, and
+    linked outcome for the risk-detail drawer."""
+    result = await get_score_detail(db, user.tenant_id, score_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Score not found")
+    return result
