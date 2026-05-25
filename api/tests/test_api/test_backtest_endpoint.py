@@ -21,8 +21,8 @@ def _sample_collections(count: int = 5) -> list[dict]:
     items = []
     for i in range(count):
         items.append({
-            "external_customer_id": f"cust_{i:03d}",
-            "external_collection_id": f"col_{i:03d}",
+            "customer_id": f"cust_{i:03d}",
+            "collection_id": f"col_{i:03d}",
             "collection_amount": 1000 + i * 100,
             "collection_currency": "ZAR",
             "collection_date": "2025-11-15",
@@ -116,7 +116,7 @@ async def test_backtest_csv_upload(async_client, sa_admin_user):
     """Upload a CSV file for backtesting."""
     token = await _login(async_client)
     csv_content = (
-        "external_customer_id,external_collection_id,collection_amount,"
+        "customer_id,collection_id,collection_amount,"
         "collection_currency,collection_date,collection_method,"
         "instalment_number,total_instalments,total_payments,"
         "successful_payments,card_type,card_expiry,actual_outcome,failure_reason\n"
@@ -140,7 +140,7 @@ async def test_backtest_csv_validation_errors(async_client, sa_admin_user):
     """CSV with invalid rows returns validation errors."""
     token = await _login(async_client)
     csv_content = (
-        "external_customer_id,external_collection_id,collection_amount,"
+        "customer_id,collection_id,collection_amount,"
         "collection_currency,collection_date,collection_method,"
         "actual_outcome,failure_reason\n"
         "cust_001,,bad_amount,INVALID,not-a-date,CARD,FAILED,\n"
@@ -164,7 +164,7 @@ async def test_backtest_template_download(async_client, sa_admin_user):
     r = await async_client.get("/v1/backtest/template", headers=_auth(token))
     assert r.status_code == 200
     assert "text/csv" in r.headers["content-type"]
-    assert "external_customer_id" in r.text
+    assert "customer_id" in r.text
 
 
 @pytest.mark.asyncio

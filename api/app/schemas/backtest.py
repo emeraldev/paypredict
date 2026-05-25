@@ -34,8 +34,8 @@ class BacktestCustomerData(BaseModel):
 
 
 class BacktestCollectionInput(BaseModel):
-    external_customer_id: str
-    external_collection_id: str
+    customer_id: str
+    collection_id: str
     collection_amount: Decimal = Field(gt=0)
     collection_currency: str = Field(pattern="^(ZAR|ZMW)$")
     collection_date: date
@@ -83,8 +83,8 @@ class BacktestConfusionMatrix(BaseModel):
 
 
 class BacktestResultItem(BaseModel):
-    external_customer_id: str
-    external_collection_id: str
+    customer_id: str
+    collection_id: str
     collection_amount: float
     collection_method: str
     predicted_score: float

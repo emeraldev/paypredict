@@ -13,8 +13,8 @@ from tests.conftest import TEST_API_KEY
 
 
 _SCORE_PAYLOAD = {
-    "external_customer_id": "rl_cust_001",
-    "external_collection_id": "rl_inst_001",
+    "customer_id": "rl_cust_001",
+    "collection_id": "rl_inst_001",
     "collection_amount": 1500.00,
     "collection_currency": "ZAR",
     "collection_due_date": "2026-04-15",
@@ -112,7 +112,7 @@ async def test_bulk_endpoint_counts_as_one_ticket(
     monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 3)
 
     bulk_items = [
-        {**_SCORE_PAYLOAD, "external_customer_id": f"bk_{i}", "external_collection_id": f"bk_inst_{i}"}
+        {**_SCORE_PAYLOAD, "customer_id": f"bk_{i}", "collection_id": f"bk_inst_{i}"}
         for i in range(10)
     ]
     r = await async_client.post(

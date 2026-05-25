@@ -247,7 +247,7 @@ def _row_to_item(row) -> OutcomeListItem:
 
     return OutcomeListItem(
         outcome_id=outcome.id,
-        external_collection_id=outcome.external_collection_id,
+        collection_id=outcome.external_collection_id,
         score=predicted_score,
         risk_level=risk_str,
         outcome=outcome_str,

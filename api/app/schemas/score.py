@@ -39,8 +39,8 @@ class CustomerData(BaseModel):
 class ScoreRequest(BaseModel):
     """Request body for POST /v1/score."""
 
-    external_customer_id: str
-    external_collection_id: str
+    customer_id: str
+    collection_id: str
     collection_amount: Decimal = Field(gt=0)
     collection_currency: str = Field(pattern="^(ZAR|ZMW)$")
     collection_due_date: date

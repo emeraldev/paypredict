@@ -11,8 +11,8 @@ from tests.conftest import TEST_API_KEY
 def _sample_items(count: int = 5) -> list[dict]:
     return [
         {
-            "external_customer_id": f"cust_{i:03d}",
-            "external_collection_id": f"col_{i:03d}",
+            "customer_id": f"cust_{i:03d}",
+            "collection_id": f"col_{i:03d}",
             "collection_amount": 1000 + i * 100,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -139,8 +139,8 @@ async def test_bulk_score_validation_error(async_client, sa_tenant):
         json={
             "collections": [
                 {
-                    "external_customer_id": "c1",
-                    "external_collection_id": "col1",
+                    "customer_id": "c1",
+                    "collection_id": "col1",
                     "collection_amount": -100,  # invalid
                     "collection_currency": "INVALID",
                     "collection_due_date": "2026-04-15",

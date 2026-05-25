@@ -61,12 +61,13 @@ async def score_collection(
         "shift_date" if timing.should_shift else result.recommended_action
     )
 
-    # Persist ScoreRequest
+    # Persist ScoreRequest — DB columns keep the `external_` prefix (lender's
+    # IDs, distinct from our internal UUIDs); API uses clean names.
     score_request = ScoreRequest(
         id=uuid.uuid4(),
         tenant_id=tenant.id,
-        external_customer_id=request.external_customer_id,
-        external_collection_id=request.external_collection_id,
+        external_customer_id=request.customer_id,
+        external_collection_id=request.collection_id,
         collection_amount=request.collection_amount,
         collection_currency=CollectionCurrency(request.collection_currency),
         collection_due_date=request.collection_due_date,

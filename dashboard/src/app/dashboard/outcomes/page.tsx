@@ -58,7 +58,7 @@ export default function OutcomesPage() {
       }
       const rows = items.map((o) => ({
         outcome_id: o.outcome_id,
-        collection_id: o.external_collection_id,
+        collection_id: o.collection_id,
         outcome: o.outcome,
         failure_reason: o.failure_reason ?? "",
         amount: o.collection_amount ?? "",

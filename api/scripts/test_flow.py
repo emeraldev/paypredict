@@ -92,8 +92,8 @@ def main():
     api_auth = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
 
     score_payload = {
-        "external_customer_id": "e2e_cust_001",
-        "external_collection_id": "e2e_col_001",
+        "customer_id": "e2e_cust_001",
+        "collection_id": "e2e_col_001",
         "collection_amount": 1500.00,
         "collection_currency": "ZAR",
         "collection_due_date": "2026-05-15",
@@ -122,8 +122,8 @@ def main():
     bulk_items = []
     for i in range(5):
         item = score_payload.copy()
-        item["external_customer_id"] = f"e2e_bulk_{i:03d}"
-        item["external_collection_id"] = f"e2e_bcol_{i:03d}"
+        item["customer_id"] = f"e2e_bulk_{i:03d}"
+        item["collection_id"] = f"e2e_bcol_{i:03d}"
         item["collection_amount"] = 1000 + i * 200
         bulk_items.append(item)
 
@@ -140,7 +140,7 @@ def main():
     if score_id:
         r = client.post("/v1/outcomes", headers=api_auth, json={
             "score_id": score_id,
-            "external_collection_id": "e2e_col_001",
+            "collection_id": "e2e_col_001",
             "outcome": "FAILED",
             "failure_reason": "insufficient_funds",
             "attempted_at": "2026-05-15T08:00:00Z",
@@ -162,7 +162,7 @@ def main():
     # ---- Step 6: Backtest CSV upload ----
     step("6. Backtest CSV upload")
     csv_content = (
-        "external_customer_id,external_collection_id,collection_amount,"
+        "customer_id,collection_id,collection_amount,"
         "collection_currency,collection_date,collection_method,"
         "instalment_number,total_instalments,total_payments,"
         "successful_payments,card_type,card_expiry,actual_outcome,failure_reason\n"

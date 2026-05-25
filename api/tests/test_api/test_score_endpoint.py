@@ -11,8 +11,8 @@ async def test_score_success(async_client, sa_tenant):
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "cust_001",
-            "external_collection_id": "col_001",
+            "customer_id": "cust_001",
+            "collection_id": "col_001",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -40,8 +40,8 @@ async def test_score_no_auth(async_client):
     response = await async_client.post(
         "/v1/score",
         json={
-            "external_customer_id": "cust_001",
-            "external_collection_id": "col_001",
+            "customer_id": "cust_001",
+            "collection_id": "col_001",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -57,8 +57,8 @@ async def test_score_invalid_key(async_client, sa_tenant):
         "/v1/score",
         headers={"Authorization": "Bearer pk_test_totally_invalid_key_here!!"},
         json={
-            "external_customer_id": "cust_001",
-            "external_collection_id": "col_001",
+            "customer_id": "cust_001",
+            "collection_id": "col_001",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -74,7 +74,7 @@ async def test_score_validation_error(async_client, sa_tenant):
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "cust_001",
+            "customer_id": "cust_001",
             # Missing required fields
         },
     )
@@ -88,8 +88,8 @@ async def test_score_minimal_customer_data(async_client, sa_tenant):
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "cust_002",
-            "external_collection_id": "col_002",
+            "customer_id": "cust_002",
+            "collection_id": "col_002",
             "collection_amount": 500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-10",
@@ -110,8 +110,8 @@ async def test_score_response_includes_timing_optimiser_fields(async_client, sa_
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "cust_no_shift",
-            "external_collection_id": "col_no_shift",
+            "customer_id": "cust_no_shift",
+            "collection_id": "col_no_shift",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             # No known_salary_day; due date in the lowest-risk window per
@@ -146,8 +146,8 @@ async def test_score_recommends_shift_when_timing_is_bad(async_client, sa_tenant
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "cust_shift",
-            "external_collection_id": "col_shift",
+            "customer_id": "cust_shift",
+            "collection_id": "col_shift",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             # Salary day 25, due date 24 → days_after = 30 → worst window.

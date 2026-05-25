@@ -97,8 +97,8 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
           <div className="mt-2 max-w-md text-left text-[11px] text-muted-foreground/70">
             <p className="font-medium text-muted-foreground mb-1">Required columns:</p>
             <p>
-              <span className="font-mono">external_customer_id</span>,{" "}
-              <span className="font-mono">external_collection_id</span>,{" "}
+              <span className="font-mono">customer_id</span>,{" "}
+              <span className="font-mono">collection_id</span>,{" "}
               <span className="font-mono">collection_amount</span>,{" "}
               <span className="font-mono">collection_currency</span> (ZAR/ZMW),{" "}
               <span className="font-mono">collection_date</span> (YYYY-MM-DD),{" "}

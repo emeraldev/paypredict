@@ -39,7 +39,7 @@ export function OutcomesTableRow({ outcome }: OutcomesTableRowProps) {
   return (
     <TableRow className="border-b border-border/50 transition-colors hover:bg-accent/40">
       <TableCell className="py-3 font-mono text-sm text-muted-foreground">
-        {outcome.external_collection_id}
+        {outcome.collection_id}
       </TableCell>
       <TableCell className="py-3">
         {outcome.score !== null && outcome.risk_level ? (

@@ -19,8 +19,8 @@ async def _create_score(client, *, customer_id: str = "cust_001", amount: float 
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": customer_id,
-            "external_collection_id": f"col_{customer_id}",
+            "customer_id": customer_id,
+            "collection_id": f"col_{customer_id}",
             "collection_amount": amount,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -121,7 +121,7 @@ async def test_list_scores_search(async_client, sa_admin_user):
     )
     data = r.json()
     assert len(data["items"]) == 1
-    assert data["items"][0]["external_customer_id"] == "alice_123"
+    assert data["items"][0]["customer_id"] == "alice_123"
 
 
 @pytest.mark.asyncio
@@ -142,18 +142,18 @@ async def test_list_scores_sort(async_client, sa_admin_user):
 
 @pytest.mark.asyncio
 async def test_list_scores_sort_by_customer(async_client, sa_admin_user):
-    """Sort by external_customer_id ascending."""
+    """Sort by customer_id ascending."""
     token = await _login(async_client)
     await _create_score(async_client, customer_id="charlie")
     await _create_score(async_client, customer_id="alpha")
     await _create_score(async_client, customer_id="bravo")
 
     r = await async_client.get(
-        "/v1/scores?sort_by=external_customer_id&sort_order=asc",
+        "/v1/scores?sort_by=customer_id&sort_order=asc",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 200
-    customers = [i["external_customer_id"] for i in r.json()["items"]]
+    customers = [i["customer_id"] for i in r.json()["items"]]
     assert customers == ["alpha", "bravo", "charlie"]
 
 
@@ -266,8 +266,8 @@ async def test_filter_by_recommended_action_shift_date(async_client, sa_admin_us
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "shifty",
-            "external_collection_id": "col_shifty",
+            "customer_id": "shifty",
+            "collection_id": "col_shifty",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2027-04-24",
@@ -297,7 +297,7 @@ async def test_filter_by_recommended_action_shift_date(async_client, sa_admin_us
     data = filtered.json()
     assert data["pagination"]["total_items"] == 1
     assert data["items"][0]["recommended_action"] == "shift_date"
-    assert data["items"][0]["external_customer_id"] == "shifty"
+    assert data["items"][0]["customer_id"] == "shifty"
     # Summary respects the filter too — under the shift_date filter,
     # shift_recommended must equal the page's row count.
     assert data["summary"]["shift_recommended"] == 1
@@ -333,8 +333,8 @@ async def test_summary_shift_recommended_count(async_client, sa_admin_user):
     # above the 0.10 SHIFT_THRESHOLD.
     await _create_score(async_client, customer_id="shift_cust")
     shift_payload = {
-        "external_customer_id": "shift_cust_2",
-        "external_collection_id": "col_shift_cust_2",
+        "customer_id": "shift_cust_2",
+        "collection_id": "col_shift_cust_2",
         "collection_amount": 1500.00,
         "collection_currency": "ZAR",
         "collection_due_date": "2027-04-24",

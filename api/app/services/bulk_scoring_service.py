@@ -107,8 +107,8 @@ def _score_one(
     )
 
     return {
-        "external_customer_id": item["external_customer_id"],
-        "external_collection_id": item["external_collection_id"],
+        "customer_id": item["customer_id"],
+        "collection_id": item["collection_id"],
         "score": result.score,
         "risk_level": result.risk_level,
         "recommended_action": recommended_action,
@@ -151,8 +151,8 @@ async def score_bulk_sync(
         req = ScoreRequest(
             id=uuid.uuid4(),
             tenant_id=tenant.id,
-            external_customer_id=item["external_customer_id"],
-            external_collection_id=item["external_collection_id"],
+            external_customer_id=item["customer_id"],
+            external_collection_id=item["collection_id"],
             collection_amount=Decimal(str(item["collection_amount"])),
             collection_currency=CollectionCurrency(item["collection_currency"]),
             collection_due_date=item["collection_due_date"],

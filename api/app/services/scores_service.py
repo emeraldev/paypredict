@@ -46,7 +46,7 @@ _SORT_COLUMNS = {
     "collection_amount": ScoreRequest.collection_amount,
     "collection_due_date": ScoreRequest.collection_due_date,
     "created_at": ScoreResult.created_at,
-    "external_customer_id": ScoreRequest.external_customer_id,
+    "customer_id": ScoreRequest.external_customer_id,
     "collection_method": ScoreRequest.collection_method,
 }
 
@@ -185,8 +185,8 @@ def _row_to_list_item(req: ScoreRequest, res: ScoreResult) -> ScoreListItem:
     customer = payload.get("customer_data", {})
     return ScoreListItem(
         score_id=res.id,
-        external_customer_id=req.external_customer_id,
-        external_collection_id=req.external_collection_id,
+        customer_id=req.external_customer_id,
+        collection_id=req.external_collection_id,
         collection_amount=req.collection_amount,
         collection_currency=req.collection_currency.value,
         collection_due_date=req.collection_due_date,
@@ -291,8 +291,8 @@ def _build_detail(
 
     return ScoreDetailResponse(
         score_id=res.id,
-        external_customer_id=req.external_customer_id,
-        external_collection_id=req.external_collection_id,
+        customer_id=req.external_customer_id,
+        collection_id=req.external_collection_id,
         collection_amount=req.collection_amount,
         collection_currency=req.collection_currency.value,
         collection_due_date=req.collection_due_date,

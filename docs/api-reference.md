@@ -30,8 +30,8 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
 
 ```json
 {
-  "external_customer_id": "string, required",
-  "external_collection_id": "string, required",
+  "customer_id": "string, required",
+  "collection_id": "string, required",
   "collection_amount": "decimal, required",
   "collection_currency": "enum: ZAR | ZMW, required",
   "collection_due_date": "date (YYYY-MM-DD), required",
@@ -127,8 +127,8 @@ Score multiple collections. Returns a job_id immediately. Results delivered via 
 {
   "collections": [
     {
-      "external_customer_id": "cust_001",
-      "external_collection_id": "inst_001",
+      "customer_id": "cust_001",
+      "collection_id": "inst_001",
       "collection_amount": 500.00,
       "collection_currency": "ZAR",
       "collection_due_date": "2026-04-15",
@@ -178,7 +178,7 @@ GET /v1/score/bulk/{job_id}
   "results": [
     {
       "score_id": "sr_uuid",
-      "external_collection_id": "inst_001",
+      "collection_id": "inst_001",
       "score": 0.72,
       "risk_level": "HIGH",
       "recommended_action": "flag_for_review"
@@ -204,7 +204,7 @@ Report the result of a collection attempt. This is critical — it builds the la
 ```json
 {
   "score_id": "sr_uuid (optional — links to our score if we scored it)",
-  "external_collection_id": "string, required",
+  "collection_id": "string, required",
   "outcome": "enum: SUCCESS | FAILED, required",
   "failure_reason": "string, optional (e.g. insufficient_funds, card_expired, wallet_empty)",
   "amount_collected": "decimal, optional (for partial collections)",
@@ -237,7 +237,7 @@ POST /v1/outcomes/bulk
   "outcomes": [
     {
       "score_id": "sr_uuid",
-      "external_collection_id": "inst_001",
+      "collection_id": "inst_001",
       "outcome": "SUCCESS",
       "attempted_at": "2026-04-15T08:00:00Z"
     },
