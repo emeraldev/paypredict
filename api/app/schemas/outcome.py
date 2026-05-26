@@ -9,7 +9,7 @@ class OutcomeRequest(BaseModel):
     """Request body for POST /v1/outcomes."""
 
     score_id: UUID | None = None
-    external_collection_id: str
+    collection_id: str
     outcome: str = Field(pattern="^(SUCCESS|FAILED)$")
     failure_reason: str | None = None
     amount_collected: Decimal | None = None

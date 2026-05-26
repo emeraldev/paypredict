@@ -56,7 +56,7 @@ async def record_outcome(
         id=uuid.uuid4(),
         score_result_id=linked_score_id,
         tenant_id=tenant.id,
-        external_collection_id=request.external_collection_id,
+        external_collection_id=request.collection_id,
         outcome=OutcomeStatus(request.outcome),
         failure_reason=request.failure_reason,
         failure_category=failure_category,

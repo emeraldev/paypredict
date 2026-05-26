@@ -56,8 +56,8 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
           for (const s of scoresRes.items.slice(0, MAX_PER_GROUP)) {
             items.push({
               id: `score-${s.score_id}`,
-              label: s.external_customer_id,
-              hint: `${s.external_collection_id} · ${s.risk_level} (${(s.score * 100).toFixed(0)})`,
+              label: s.customer_id,
+              hint: `${s.collection_id} · ${s.risk_level} (${(s.score * 100).toFixed(0)})`,
               icon: CreditCardIcon,
               group: "Collections",
               href: `/dashboard?search=${encodeURIComponent(trimmed)}`,
@@ -69,7 +69,7 @@ export function useCommandSearch(query: string): UseCommandSearchResult {
           for (const o of outcomesRes.items.slice(0, MAX_PER_GROUP)) {
             items.push({
               id: `outcome-${o.outcome_id}`,
-              label: o.external_collection_id,
+              label: o.collection_id,
               hint: `${o.outcome}${o.failure_reason ? ` · ${o.failure_reason}` : ""}`,
               icon: CheckCircle2Icon,
               group: "Outcomes",

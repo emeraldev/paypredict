@@ -56,8 +56,8 @@ curl -X POST http://localhost:8000/v1/score \
   -H "Authorization: Bearer <key_from_seed_output>" \
   -H "Content-Type: application/json" \
   -d '{
-    "external_customer_id": "test_cust_1",
-    "external_collection_id": "test_inst_1",
+    "customer_id": "test_cust_1",
+    "collection_id": "test_inst_1",
     "collection_amount": 500.00,
     "collection_currency": "ZAR",
     "collection_due_date": "2026-04-15",

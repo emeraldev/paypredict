@@ -13,8 +13,8 @@ from app.services.query_utils import PaginationMeta
 
 class ScoreListItem(BaseModel):
     score_id: UUID
-    external_customer_id: str
-    external_collection_id: str
+    customer_id: str
+    collection_id: str
     collection_amount: Decimal
     collection_currency: str
     collection_due_date: date
@@ -69,8 +69,8 @@ class OutcomeSummary(BaseModel):
 
 class ScoreDetailResponse(BaseModel):
     score_id: UUID
-    external_customer_id: str
-    external_collection_id: str
+    customer_id: str
+    collection_id: str
     collection_amount: Decimal
     collection_currency: str
     collection_due_date: date

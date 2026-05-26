@@ -25,7 +25,7 @@ router = APIRouter(
 )
 
 CSV_TEMPLATE = (
-    "external_customer_id,external_collection_id,collection_amount,"
+    "customer_id,collection_id,collection_amount,"
     "collection_currency,collection_date,collection_method,"
     "instalment_number,total_instalments,total_payments,"
     "successful_payments,card_type,card_expiry,actual_outcome,failure_reason\n"

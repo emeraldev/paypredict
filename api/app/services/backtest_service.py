@@ -96,8 +96,8 @@ async def run_backtest(
         item = BacktestItem(
             id=uuid.uuid4(),
             backtest_run_id=run.id,
-            external_customer_id=coll.external_customer_id,
-            external_collection_id=coll.external_collection_id,
+            external_customer_id=coll.customer_id,
+            external_collection_id=coll.collection_id,
             collection_amount=coll.collection_amount,
             collection_method=coll.collection_method,
             predicted_score=score_result.score,

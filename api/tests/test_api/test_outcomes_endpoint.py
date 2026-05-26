@@ -11,7 +11,7 @@ async def test_outcome_success(async_client, sa_tenant):
         "/v1/outcomes",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_collection_id": "col_001",
+            "collection_id": "col_001",
             "outcome": "SUCCESS",
             "attempted_at": "2026-04-15T08:00:00Z",
         },
@@ -29,7 +29,7 @@ async def test_outcome_failed_with_reason(async_client, sa_tenant):
         "/v1/outcomes",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_collection_id": "col_002",
+            "collection_id": "col_002",
             "outcome": "FAILED",
             "failure_reason": "insufficient_funds",
             "attempted_at": "2026-04-15T08:00:00Z",
@@ -43,7 +43,7 @@ async def test_outcome_no_auth(async_client):
     response = await async_client.post(
         "/v1/outcomes",
         json={
-            "external_collection_id": "col_001",
+            "collection_id": "col_001",
             "outcome": "SUCCESS",
             "attempted_at": "2026-04-15T08:00:00Z",
         },
@@ -57,7 +57,7 @@ async def test_outcome_validation_error(async_client, sa_tenant):
         "/v1/outcomes",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_collection_id": "col_001",
+            "collection_id": "col_001",
             "outcome": "INVALID_STATUS",
             "attempted_at": "2026-04-15T08:00:00Z",
         },

@@ -150,7 +150,7 @@ curl -X POST https://api.paypredict.com/v1/outcomes \
   -H "Content-Type: application/json" \
   -d '{
     "score_id": "sr_abc123...",
-    "external_collection_id": "your_collection_id",
+    "collection_id": "your_collection_id",
     "outcome": "FAILED",
     "failure_reason": "insufficient_funds",
     "attempted_at": "2026-04-15T08:00:00Z"

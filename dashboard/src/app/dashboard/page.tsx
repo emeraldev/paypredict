@@ -41,7 +41,7 @@ const DATE_RANGE_DAYS: Record<DateRangeFilter, number> = {
 const SORT_MAP: Record<CollectionsSortField, string> = {
   score: "score",
   due_date: "collection_due_date",
-  customer: "external_customer_id",
+  customer: "customer_id",
   amount: "collection_amount",
   method: "collection_method",
 };
@@ -124,8 +124,8 @@ export default function DashboardPage() {
       }
       const rows = items.map((s) => ({
         score_id: s.score_id,
-        customer_id: s.external_customer_id,
-        collection_id: s.external_collection_id,
+        customer_id: s.customer_id,
+        collection_id: s.collection_id,
         amount: s.collection_amount,
         currency: s.collection_currency,
         due_date: s.collection_due_date,

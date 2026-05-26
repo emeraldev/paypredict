@@ -18,8 +18,8 @@ from app.schemas.backtest import (
 )
 
 REQUIRED_COLUMNS = {
-    "external_customer_id",
-    "external_collection_id",
+    "customer_id",
+    "collection_id",
     "collection_amount",
     "collection_currency",
     "collection_date",
@@ -184,8 +184,8 @@ def _row_to_input(row: dict[str, str]) -> BacktestCollectionInput:
     )
 
     return BacktestCollectionInput(
-        external_customer_id=row["external_customer_id"],
-        external_collection_id=row["external_collection_id"],
+        customer_id=row["customer_id"],
+        collection_id=row["collection_id"],
         collection_amount=Decimal(row["collection_amount"]),
         collection_currency=row["collection_currency"].upper(),
         collection_date=date.fromisoformat(row["collection_date"]),

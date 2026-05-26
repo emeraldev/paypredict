@@ -75,8 +75,8 @@ export interface CustomerData {
 }
 
 export interface ScoreRequestPayload {
-  external_customer_id: string;
-  external_collection_id: string;
+  customer_id: string;
+  collection_id: string;
   collection_amount: number;
   collection_currency: Currency;
   collection_due_date: string;
@@ -111,8 +111,8 @@ export interface ScoreResponse {
 // Score list item (table row — lighter than full detail)
 export interface ScoreListItem {
   score_id: string;
-  external_customer_id: string;
-  external_collection_id: string;
+  customer_id: string;
+  collection_id: string;
   collection_amount: number;
   collection_currency: Currency;
   collection_due_date: string;
@@ -174,8 +174,8 @@ export interface OutcomeSummaryInDetail {
 
 export interface ScoreDetailResponse {
   score_id: string;
-  external_customer_id: string;
-  external_collection_id: string;
+  customer_id: string;
+  collection_id: string;
   collection_amount: number;
   collection_currency: Currency;
   collection_due_date: string;
@@ -204,7 +204,7 @@ export type FailureCategory = "SOFT_DECLINE" | "HARD_DECLINE" | "TECHNICAL";
 
 export interface OutcomeListItem {
   outcome_id: string;
-  external_collection_id: string;
+  collection_id: string;
   score: number | null;
   risk_level: RiskLevel | null;
   outcome: OutcomeStatus;
@@ -447,8 +447,8 @@ export interface BacktestListResponse {
 export interface BacktestRequest {
   name?: string;
   collections: Array<{
-    external_customer_id: string;
-    external_collection_id: string;
+    customer_id: string;
+    collection_id: string;
     collection_amount: number;
     collection_currency: string;
     collection_date: string;

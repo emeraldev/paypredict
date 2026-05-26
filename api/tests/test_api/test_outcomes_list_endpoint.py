@@ -18,8 +18,8 @@ async def _create_score(client, *, customer_id: str = "cust_001") -> dict:
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": customer_id,
-            "external_collection_id": f"col_{customer_id}",
+            "customer_id": customer_id,
+            "collection_id": f"col_{customer_id}",
             "collection_amount": 1500.00,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -41,7 +41,7 @@ async def _report_outcome(
 ) -> dict:
     """Report an outcome via POST /v1/outcomes."""
     body: dict = {
-        "external_collection_id": collection_id,
+        "collection_id": collection_id,
         "outcome": outcome,
         "attempted_at": "2026-04-15T08:00:00Z",
     }

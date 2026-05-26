@@ -10,7 +10,7 @@ from app.services.query_utils import PaginationMeta
 
 class OutcomeListItem(BaseModel):
     outcome_id: UUID
-    external_collection_id: str
+    collection_id: str
     score: float | None = None
     risk_level: str | None = None
     outcome: str

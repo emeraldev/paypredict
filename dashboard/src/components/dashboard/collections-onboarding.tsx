@@ -25,8 +25,8 @@ const SAMPLE_CURL = `curl -X POST ${API_URL}/v1/score \\
   -H "Authorization: Bearer pk_live_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "external_customer_id": "cust_001",
-    "external_collection_id": "inst_001",
+    "customer_id": "cust_001",
+    "collection_id": "inst_001",
     "collection_amount": 1500.00,
     "collection_currency": "ZAR",
     "collection_due_date": "2026-06-15",

@@ -39,7 +39,7 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
       </TableCell>
       <TableCell className="py-3">
         <span className="block text-sm font-medium text-foreground">
-          {collection.external_customer_id}
+          {collection.customer_id}
         </span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
           {marketLabel(collection.collection_currency)}

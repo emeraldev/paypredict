@@ -41,8 +41,8 @@ async def _persist_batch(
                 req = ScoreRequest(
                     id=uuid.uuid4(),
                     tenant_id=tenant_id,
-                    external_customer_id=item["external_customer_id"],
-                    external_collection_id=item["external_collection_id"],
+                    external_customer_id=item["customer_id"],
+                    external_collection_id=item["collection_id"],
                     collection_amount=Decimal(str(item["collection_amount"])),
                     collection_currency=CollectionCurrency(item["collection_currency"]),
                     collection_due_date=due_date,

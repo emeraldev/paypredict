@@ -42,8 +42,8 @@ async def _seed_score(client) -> dict:
         "/v1/score",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
         json={
-            "external_customer_id": "role_cust",
-            "external_collection_id": "role_col",
+            "customer_id": "role_cust",
+            "collection_id": "role_col",
             "collection_amount": 1000,
             "collection_currency": "ZAR",
             "collection_due_date": "2026-04-15",
@@ -158,8 +158,8 @@ async def test_run_backtest_requires_admin_or_manager(
     async_client, sa_admin_user, sa_manager_user, sa_viewer_user
 ):
     body = {"name": "test-bt", "collections": [{
-        "external_customer_id": "bt_c1",
-        "external_collection_id": "bt_col1",
+        "customer_id": "bt_c1",
+        "collection_id": "bt_col1",
         "collection_amount": 500,
         "collection_currency": "ZAR",
         "collection_date": "2026-04-15",  # NB: backtest schema uses collection_date

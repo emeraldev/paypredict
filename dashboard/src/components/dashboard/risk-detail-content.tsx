@@ -130,10 +130,10 @@ export function RiskDetailContent({ detail }: RiskDetailContentProps) {
         <h3 className={SECTION_LABEL}>Collection</h3>
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <span className="text-muted-foreground">Customer</span>
-          <span className="font-medium text-foreground">{detail.external_customer_id}</span>
+          <span className="font-medium text-foreground">{detail.customer_id}</span>
           <span className="text-muted-foreground">Collection ID</span>
           <span className="font-mono text-xs text-foreground">
-            {detail.external_collection_id}
+            {detail.collection_id}
           </span>
           <span className="text-muted-foreground">Amount</span>
           <span className="font-mono font-semibold tabular-nums text-foreground">
