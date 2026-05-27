@@ -7,9 +7,9 @@ import { BacktestHeadline } from "@/components/backtest/backtest-headline";
 import { BacktestResultsTable } from "@/components/backtest/backtest-results-table";
 import { CollectionRateComparison } from "@/components/backtest/collection-rate-comparison";
 import { ConfusionMatrix } from "@/components/backtest/confusion-matrix";
-import { CsvUploadZone } from "@/components/backtest/csv-upload-zone";
 import { PastBacktestsList } from "@/components/backtest/past-backtests-list";
 import { FailureFactorsChart } from "@/components/analytics/failure-factors-chart";
+import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -71,8 +71,29 @@ export default function BacktestPage() {
           Viewers see past backtest results below but cannot run new ones. */}
       {!result && canManage && (
         <CsvUploadZone
+          onUpload={backtestApi.uploadCsv}
           onResult={handleResult}
           onError={(msg) => toast.error(msg)}
+          templateUrl={backtestApi.templateUrl()}
+          requiredColumns={[
+            "customer_id",
+            "collection_id",
+            "collection_amount",
+            "collection_currency",
+            "collection_date",
+            "collection_method",
+            "actual_outcome",
+          ]}
+          optionalColumns={[
+            "total_payments",
+            "successful_payments",
+            "instalment_number",
+            "total_instalments",
+            "card_type",
+            "card_expiry",
+            "failure_reason",
+          ]}
+          sizeHint="Max 500 rows, 10MB."
         />
       )}
       {!result && !canManage && (

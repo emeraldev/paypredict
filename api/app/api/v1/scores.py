@@ -6,7 +6,8 @@ the dashboard endpoints out of the public Swagger UI.
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import (
@@ -20,10 +21,28 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.score import ScoreRequest, ScoreResponse
 from app.schemas.scores_list import ScoreDetailResponse, ScoresListResponse
+from app.services.bulk_scoring_service import score_bulk_sync
+from app.services.csv_parser import parse_scoring_csv
 from app.services.scores_service import get_score_detail, list_scores
 from app.services.scoring_service import score_collection
 
 router = APIRouter()
+
+# Upload caps. 500 matches the backtest sync cap — these run through the
+# bulk-score-sync path so they block the request, but at ~1ms per row a 500-row
+# upload finishes in a couple of seconds. Larger files should use the async
+# bulk endpoint (POST /v1/score/bulk).
+MAX_UPLOAD_ROWS = 500
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+
+SCORING_CSV_TEMPLATE = (
+    "customer_id,collection_id,collection_amount,collection_currency,"
+    "collection_due_date,collection_method,instalment_number,total_instalments,"
+    "total_payments,successful_payments,card_type,card_expiry\n"
+    "cust_001,inst_441,833.33,ZAR,2026-06-15,CARD,3,6,8,5,debit,2026-09\n"
+    "cust_002,inst_442,500.00,ZAR,2026-06-15,DEBIT_ORDER,1,3,0,0,,\n"
+    "cust_003,inst_443,250.00,ZMW,2026-06-20,MOBILE_MONEY,2,4,3,2,,\n"
+)
 
 
 # ---- Lender-facing (API key auth) -------------------------------------------
@@ -92,6 +111,78 @@ async def scores_list(
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
+    )
+
+
+# CSV upload routes declared BEFORE /scores/{score_id} so FastAPI doesn't try to
+# parse "upload" as a UUID (which would 422 instead of falling through).
+
+
+@router.post(
+    "/scores/upload",
+    status_code=status.HTTP_201_CREATED,
+    tags=["Dashboard Scores"],
+    responses=DASHBOARD_API_RESPONSES,
+)
+async def upload_and_score(
+    file: UploadFile,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Upload a CSV of upcoming collections and score each row.
+
+    Validation errors are returned in the response body (200-shape `errors`
+    list with row numbers). When all rows are valid the rows are scored,
+    persisted to the score tables, and the bulk-score response shape is
+    returned — the rows then appear on the main dashboard.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a .csv file")
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+        )
+
+    items, errors = parse_scoring_csv(content)
+
+    if errors:
+        # Same shape as the backtest upload error response so the frontend
+        # error-rendering component can be reused.
+        return {"errors": [e.model_dump() for e in errors]}
+
+    if not items:
+        raise HTTPException(status_code=400, detail="CSV contains no valid rows")
+
+    if len(items) > MAX_UPLOAD_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"CSV contains {len(items)} rows (max {MAX_UPLOAD_ROWS}).",
+        )
+
+    collections = [item.model_dump(mode="python") for item in items]
+    result = await score_bulk_sync(db, user.tenant, collections)
+    await db.commit()
+    return result
+
+
+@router.get(
+    "/scores/upload/template",
+    tags=["Dashboard Scores"],
+    response_class=StreamingResponse,
+)
+async def download_scoring_template() -> StreamingResponse:
+    """Download a CSV template for the scoring upload endpoint."""
+    return StreamingResponse(
+        iter([SCORING_CSV_TEMPLATE]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="paypredict_scoring_template.csv"'
+            )
+        },
     )
 
 
