@@ -122,21 +122,24 @@ export const FACTOR_DESCRIPTIONS: Record<string, string> = {
   loan_cycling_behaviour: "Borrowing to repay pattern",
 };
 
-// Friendly factor display names
+// Friendly factor display names. Used in the factor breakdown (drawer,
+// single-score result, backtest) AND as YAxis labels in the failure-factors
+// chart, so keep them under ~28 chars. Preserve semantic direction (e.g.
+// "failure rate" not "success rate" — the factor measures the failure side).
 export const FACTOR_LABELS: Record<string, string> = {
-  historical_failure_rate: "Historical Failure Rate",
-  day_of_month_vs_payday: "Day of Month vs Payday",
-  days_since_last_payment: "Days Since Last Payment",
-  instalment_position: "Instalment Position",
-  order_value_vs_average: "Order Value vs Average",
-  card_health: "Card Health",
-  card_type: "Card Type",
-  debit_order_return_history: "Debit Order Return History",
-  wallet_balance_trend: "Wallet Balance Trend",
-  time_since_last_inflow: "Time Since Last Inflow",
-  salary_cycle_alignment: "Salary Cycle Alignment",
-  concurrent_loan_count: "Concurrent Loan Count",
-  transaction_velocity: "Transaction Velocity",
-  airtime_purchase_pattern: "Airtime Purchase Pattern",
-  loan_cycling_behaviour: "Loan Cycling Behaviour",
+  historical_failure_rate: "Past failure rate",
+  day_of_month_vs_payday: "Date vs payday",
+  days_since_last_payment: "Days since last payment",
+  instalment_position: "Where in the instalment plan",
+  order_value_vs_average: "Amount vs customer typical",
+  card_health: "Card health (expiry & declines)",
+  card_type: "Card type (debit/credit)",
+  debit_order_return_history: "Past debit order returns",
+  wallet_balance_trend: "Wallet balance trend",
+  time_since_last_inflow: "Time since last wallet inflow",
+  salary_cycle_alignment: "Aligned with income timing",
+  concurrent_loan_count: "Active loans count",
+  transaction_velocity: "Wallet activity change",
+  airtime_purchase_pattern: "Airtime buying regularity",
+  loan_cycling_behaviour: "Loan stacking pattern",
 };
