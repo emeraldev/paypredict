@@ -6,10 +6,15 @@ class LoanCyclingBehaviour(BaseFactor):
 
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         cycling = customer_data.get("new_loan_within_repayment_period")
-        loans_90d = customer_data.get("loans_taken_last_90d", 0)
+        loans_90d = customer_data.get("loans_taken_last_90d")
 
         if cycling:
             return 0.8
+
+        # Pydantic serialises optional fields as explicit None when omitted,
+        # so .get() with a default doesn't shield us — handle None first.
+        if loans_90d is None:
+            return 0.1
 
         if loans_90d >= 3:
             return 0.6

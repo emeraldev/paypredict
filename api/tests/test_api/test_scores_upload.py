@@ -152,7 +152,8 @@ async def test_template_download_has_expected_headers(async_client, sa_admin_use
 
 @pytest.mark.asyncio
 async def test_template_round_trips_through_upload(async_client, sa_admin_user):
-    """The template itself must parse cleanly — caught a YYYY-MM card_expiry bug."""
+    """The template itself must parse cleanly — caught a YYYY-MM card_expiry bug
+    and a None-handling crash in LoanCyclingBehaviour."""
     token = await _login(async_client)
     tpl = await async_client.get(
         "/v1/scores/upload/template",
@@ -169,3 +170,8 @@ async def test_template_round_trips_through_upload(async_client, sa_admin_user):
     data = r.json()
     assert "errors" not in data, f"template produced errors: {data.get('errors')}"
     assert data["total_items"] == 3
+    # Every row must have produced a score (no factor crashes).
+    assert len(data["results"]) == 3
+    assert all(0.0 <= row["score"] <= 1.0 for row in data["results"])
+
+
