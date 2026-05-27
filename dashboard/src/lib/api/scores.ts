@@ -38,9 +38,6 @@ export interface ScoredUploadRow {
   risk_level: string;
   recommended_action: string;
   recommended_collection_date: string | null;
-  recommended_score: number | null;
-  score_improvement: number | null;
-  model_version: string;
 }
 
 export interface ScoresUploadResponse {

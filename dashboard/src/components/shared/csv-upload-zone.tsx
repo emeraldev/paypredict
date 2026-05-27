@@ -147,26 +147,11 @@ export function CsvUploadZone({
  * Renders a list of CSV column names with their plain-English label in front
  * and the snake_case column name in parens — so a non-technical clerk sees
  * "Customer reference (customer_id)" instead of just "customer_id".
- * If a column already includes a format hint like "collection_due_date (YYYY-MM-DD)"
- * we render it as-is.
  */
 function ColumnList({ columns }: { columns: string[] }) {
   return (
     <ul className="mt-1 list-disc space-y-0.5 pl-4">
       {columns.map((col) => {
-        // Already-formatted entries (e.g. "collection_due_date (YYYY-MM-DD)") pass through.
-        if (col.includes("(")) {
-          const [name, ...rest] = col.split(" ");
-          const labelEntry = FIELD_LABELS[name];
-          return (
-            <li key={col}>
-              {labelEntry ? labelEntry.label : name}{" "}
-              <span className="font-mono text-muted-foreground/80">
-                ({name} {rest.join(" ").replace(/[()]/g, "")})
-              </span>
-            </li>
-          );
-        }
         const labelEntry = FIELD_LABELS[col];
         return (
           <li key={col}>

@@ -31,7 +31,6 @@ _redis = redis.from_url(settings.redis_url, decode_responses=True)
 
 def _to_json_safe(obj: dict) -> dict:
     """Convert a dict with Decimal/date values to JSON-serializable types."""
-    import json
     from datetime import date as _date
 
     def _default(o: object) -> object:

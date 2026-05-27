@@ -102,7 +102,7 @@ export default function ScoreUploadPage() {
                 "collection_id",
                 "collection_amount",
                 "collection_currency",
-                "collection_due_date (YYYY-MM-DD)",
+                "collection_due_date",
                 "collection_method",
               ]}
               optionalColumns={[

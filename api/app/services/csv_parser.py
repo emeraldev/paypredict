@@ -408,9 +408,9 @@ def _scoring_date(row: dict[str, str], key: str) -> date | None:
 
 def _scoring_bool(row: dict[str, str], key: str) -> bool | None:
     val = row.get(key, "").strip().lower()
-    if val in {"true", "yes", "1"}:
+    if val == "true":
         return True
-    if val in {"false", "no", "0"}:
+    if val == "false":
         return False
     return None
 

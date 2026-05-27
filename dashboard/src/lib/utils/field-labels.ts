@@ -75,9 +75,6 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
     label: "Card expiry date",
     help: "Used to flag cards that will be expired by the due date.",
   },
-  card_expiry_date: {
-    label: "Card expiry date",
-  },
   last_decline_code: {
     label: "Last decline reason",
     help: "What the bank/PSP said last time the collection failed (e.g. insufficient_funds).",

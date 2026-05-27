@@ -318,7 +318,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                               </SelectContent>
                             </Select>
                           </Field>
-                          <Field name="card_expiry_date">
+                          <Field name="card_expiry">
                             <Input
                               type="date"
                               value={cardExpiryDate}
