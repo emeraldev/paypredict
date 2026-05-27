@@ -62,7 +62,7 @@ export default function ScoreUploadPage() {
             "collection_id",
             "collection_amount",
             "collection_currency",
-            "collection_due_date",
+            "collection_due_date (YYYY-MM-DD)",
             "collection_method",
           ]}
           optionalColumns={[
@@ -71,7 +71,7 @@ export default function ScoreUploadPage() {
             "instalment_number",
             "total_instalments",
             "card_type",
-            "card_expiry",
+            "card_expiry (YYYY-MM-DD)",
           ]}
           sizeHint="Max 500 rows, 5MB."
         />

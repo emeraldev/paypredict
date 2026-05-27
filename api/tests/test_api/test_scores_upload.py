@@ -148,3 +148,24 @@ async def test_template_download_has_expected_headers(async_client, sa_admin_use
     ]
     for col in required:
         assert col in first_line, f"template missing column: {col}"
+
+
+@pytest.mark.asyncio
+async def test_template_round_trips_through_upload(async_client, sa_admin_user):
+    """The template itself must parse cleanly — caught a YYYY-MM card_expiry bug."""
+    token = await _login(async_client)
+    tpl = await async_client.get(
+        "/v1/scores/upload/template",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert tpl.status_code == 200
+
+    r = await async_client.post(
+        "/v1/scores/upload",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("template.csv", tpl.content, "text/csv")},
+    )
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert "errors" not in data, f"template produced errors: {data.get('errors')}"
+    assert data["total_items"] == 3

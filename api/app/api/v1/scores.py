@@ -39,7 +39,7 @@ SCORING_CSV_TEMPLATE = (
     "customer_id,collection_id,collection_amount,collection_currency,"
     "collection_due_date,collection_method,instalment_number,total_instalments,"
     "total_payments,successful_payments,card_type,card_expiry\n"
-    "cust_001,inst_441,833.33,ZAR,2026-06-15,CARD,3,6,8,5,debit,2026-09\n"
+    "cust_001,inst_441,833.33,ZAR,2026-06-15,CARD,3,6,8,5,debit,2026-09-01\n"
     "cust_002,inst_442,500.00,ZAR,2026-06-15,DEBIT_ORDER,1,3,0,0,,\n"
     "cust_003,inst_443,250.00,ZMW,2026-06-20,MOBILE_MONEY,2,4,3,2,,\n"
 )
