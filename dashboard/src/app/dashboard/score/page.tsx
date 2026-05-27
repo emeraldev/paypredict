@@ -6,8 +6,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExampleDataCard } from "@/components/score/example-data-card";
 import { ScoredRowsTable } from "@/components/score/scored-rows-table";
+import { SingleCollectionForm } from "@/components/score/single-collection-form";
+import { SingleScoreResult } from "@/components/score/single-score-result";
 import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,6 +19,7 @@ import {
   type ScoredUploadRow,
   type ScoresUploadResponse,
 } from "@/lib/api/scores";
+import type { ScoreResponse } from "@/lib/api/types";
 import { formatCompactCurrency } from "@/lib/utils/format-currency";
 
 interface CsvError {
@@ -26,178 +30,201 @@ interface CsvError {
 
 export default function ScoreUploadPage() {
   const { canManage } = useAuth();
-  const [result, setResult] = useState<ScoresUploadResponse | null>(null);
+  const [singleResult, setSingleResult] = useState<ScoreResponse | null>(null);
+  const [bulkResult, setBulkResult] = useState<ScoresUploadResponse | null>(null);
   const [csvErrors, setCsvErrors] = useState<CsvError[]>([]);
 
-  const handleResult = (data: unknown) => {
+  const handleBulkResult = (data: unknown) => {
     const res = data as ScoresUploadResponse;
     if (res.errors && res.errors.length > 0) {
       setCsvErrors(res.errors);
-      setResult(null);
+      setBulkResult(null);
       toast.error(`CSV has ${res.errors.length} validation error(s)`);
       return;
     }
     setCsvErrors([]);
-    setResult(res);
+    setBulkResult(res);
     toast.success(`Scored ${res.total_items ?? 0} collections`);
   };
 
-  const reset = () => {
-    setResult(null);
+  const resetBulk = () => {
+    setBulkResult(null);
     setCsvErrors([]);
   };
+
+  if (!canManage) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-sm text-muted-foreground">
+          Only Admins and Managers can score collections. Ask an admin to grant
+          you Manager access if you need to score on behalf of the team.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">Score Collections.</strong>{" "}
-        Upload a CSV of your upcoming collections — we score every row through
-        the same engine the API uses. Only six columns are required; leave any
-        optional cell blank if you don&apos;t have the data — we use sensible
-        defaults. The more optional columns you fill, the sharper each score
-        becomes (see the Example data card for what realistic values look like).
+        Check whether an upcoming collection is likely to succeed. Score one
+        at a time using the form, or upload a CSV to score a batch.
       </div>
 
-      {!result && canManage && (
-        <CsvUploadZone
-          onUpload={scoresApi.uploadCsv}
-          onResult={handleResult}
-          onError={(msg) => toast.error(msg)}
-          templateUrl={scoresApi.templateUrl()}
-          requiredColumns={[
-            "customer_id",
-            "collection_id",
-            "collection_amount",
-            "collection_currency",
-            "collection_due_date (YYYY-MM-DD)",
-            "collection_method",
-          ]}
-          optionalColumns={[
-            "total_payments",
-            "successful_payments",
-            "last_successful_payment_date",
-            "average_collection_amount",
-            "instalment_number",
-            "total_instalments",
-            "card_type",
-            "card_expiry",
-            "last_decline_code",
-            "debit_order_returns",
-            "known_salary_day",
-            "wallet_balance_7d_avg",
-            "wallet_balance_current",
-            "hours_since_last_inflow",
-            "regular_inflow_day",
-            "active_loan_count",
-            "transactions_last_7d",
-            "transactions_avg_7d",
-            "last_airtime_purchase_days_ago",
-            "new_loan_within_repayment_period",
-            "loans_taken_last_90d",
-          ]}
-          sizeHint="Max 500 rows, 5MB."
-        />
-      )}
+      <Tabs defaultValue="one">
+        <TabsList>
+          <TabsTrigger value="one">Score one</TabsTrigger>
+          <TabsTrigger value="csv">Score from CSV</TabsTrigger>
+        </TabsList>
 
-      {!result && canManage && <ExampleDataCard />}
-
-      {!result && !canManage && (
-        <Card>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            Only Admins and Managers can upload collections for scoring.
-          </CardContent>
-        </Card>
-      )}
-
-      {csvErrors.length > 0 && (
-        <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20">
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">
-              {csvErrors.length} validation error
-              {csvErrors.length > 1 ? "s" : ""} found:
-            </p>
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {csvErrors.map((err, i) => (
-                <p
-                  key={i}
-                  className="text-xs text-red-600 dark:text-red-400/80 font-mono"
-                >
-                  Row {err.row}
-                  {err.field ? `, ${err.field}` : ""}: {err.message}
-                </p>
-              ))}
-            </div>
-            <button
-              onClick={reset}
-              className="mt-3 text-xs text-muted-foreground hover:text-foreground"
-            >
-              Dismiss
-            </button>
-          </CardContent>
-        </Card>
-      )}
-
-      {result && result.summary && (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              title="Scored"
-              value={(result.total_items ?? 0).toLocaleString()}
+        {/* Single collection */}
+        <TabsContent value="one" className="space-y-4">
+          {singleResult ? (
+            <SingleScoreResult
+              result={singleResult}
+              onReset={() => setSingleResult(null)}
             />
-            <StatCard
-              title="High risk"
-              value={result.summary.high_risk}
-              accentColor="border-l-red-500"
-              subtitle={formatCompactCurrency(
-                result.summary.total_value_at_risk,
-                "ZAR",
-              )}
-            />
-            <StatCard
-              title="Medium risk"
-              value={result.summary.medium_risk}
-              accentColor="border-l-amber-500"
-            />
-            <StatCard
-              title="Low risk"
-              value={result.summary.low_risk}
-              accentColor="border-l-emerald-500"
-            />
-          </div>
+          ) : (
+            <SingleCollectionForm onScored={setSingleResult} />
+          )}
+        </TabsContent>
 
-          {result.results && result.results.length > 0 && (
-            <>
-              <LimitedDataBanner rows={result.results} />
-              <ScoredRowsTable rows={result.results} />
-            </>
+        {/* Bulk CSV */}
+        <TabsContent value="csv" className="space-y-4">
+          {!bulkResult && (
+            <CsvUploadZone
+              onUpload={scoresApi.uploadCsv}
+              onResult={handleBulkResult}
+              onError={(msg) => toast.error(msg)}
+              templateUrl={scoresApi.templateUrl()}
+              requiredColumns={[
+                "customer_id",
+                "collection_id",
+                "collection_amount",
+                "collection_currency",
+                "collection_due_date (YYYY-MM-DD)",
+                "collection_method",
+              ]}
+              optionalColumns={[
+                "total_payments",
+                "successful_payments",
+                "last_successful_payment_date",
+                "average_collection_amount",
+                "instalment_number",
+                "total_instalments",
+                "card_type",
+                "card_expiry",
+                "last_decline_code",
+                "debit_order_returns",
+                "known_salary_day",
+                "wallet_balance_7d_avg",
+                "wallet_balance_current",
+                "hours_since_last_inflow",
+                "regular_inflow_day",
+                "active_loan_count",
+                "transactions_last_7d",
+                "transactions_avg_7d",
+                "last_airtime_purchase_days_ago",
+                "new_loan_within_repayment_period",
+                "loans_taken_last_90d",
+              ]}
+              sizeHint="Max 500 rows, 5MB."
+            />
           )}
 
-          <Card>
-            <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Need more detail? Open these rows on the main dashboard.
+          {!bulkResult && <ExampleDataCard />}
+
+          {csvErrors.length > 0 && (
+            <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20">
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">
+                  {csvErrors.length} validation error
+                  {csvErrors.length > 1 ? "s" : ""} found:
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Filter by risk level, sort by score, and open a row for the
-                  factor breakdown.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={reset}>
-                  Upload another
-                </Button>
-                <Link
-                  href="/dashboard"
-                  className={buttonVariants({ size: "sm" })}
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {csvErrors.map((err, i) => (
+                    <p
+                      key={i}
+                      className="text-xs text-red-600 dark:text-red-400/80 font-mono"
+                    >
+                      Row {err.row}
+                      {err.field ? `, ${err.field}` : ""}: {err.message}
+                    </p>
+                  ))}
+                </div>
+                <button
+                  onClick={resetBulk}
+                  className="mt-3 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  View on dashboard
-                </Link>
+                  Dismiss
+                </button>
+              </CardContent>
+            </Card>
+          )}
+
+          {bulkResult && bulkResult.summary && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  title="Scored"
+                  value={(bulkResult.total_items ?? 0).toLocaleString()}
+                />
+                <StatCard
+                  title="High risk"
+                  value={bulkResult.summary.high_risk}
+                  accentColor="border-l-red-500"
+                  subtitle={formatCompactCurrency(
+                    bulkResult.summary.total_value_at_risk,
+                    "ZAR",
+                  )}
+                />
+                <StatCard
+                  title="Medium risk"
+                  value={bulkResult.summary.medium_risk}
+                  accentColor="border-l-amber-500"
+                />
+                <StatCard
+                  title="Low risk"
+                  value={bulkResult.summary.low_risk}
+                  accentColor="border-l-emerald-500"
+                />
               </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+
+              {bulkResult.results && bulkResult.results.length > 0 && (
+                <>
+                  <LimitedDataBanner rows={bulkResult.results} />
+                  <ScoredRowsTable rows={bulkResult.results} />
+                </>
+              )}
+
+              <Card>
+                <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Need more detail? Open these rows on the main dashboard.
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Filter by risk level, sort by score, and open a row for
+                      the factor breakdown.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={resetBulk}>
+                      Upload another
+                    </Button>
+                    <Link
+                      href="/dashboard"
+                      className={buttonVariants({ size: "sm" })}
+                    >
+                      View on dashboard
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

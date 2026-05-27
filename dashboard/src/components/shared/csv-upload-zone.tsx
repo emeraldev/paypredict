@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { FIELD_LABELS } from "@/lib/utils/field-labels";
 
 interface CsvUploadZoneProps {
   /** Function that POSTs the file to the backend and returns the parsed response. */
@@ -113,26 +114,17 @@ export function CsvUploadZone({
               Download template
             </a>
           </div>
-          <div className="mt-2 max-w-md text-left text-[11px] text-muted-foreground/70">
+          <div className="mt-2 max-w-lg text-left text-[11px] text-muted-foreground/70">
             <p className="font-medium text-muted-foreground mb-1">Required columns:</p>
-            <p>
-              {requiredColumns.map((col, i) => (
-                <span key={col}>
-                  <span className="font-mono">{col}</span>
-                  {i < requiredColumns.length - 1 ? ", " : ""}
-                </span>
-              ))}
-            </p>
+            <ColumnList columns={requiredColumns} />
             {optionalColumns && optionalColumns.length > 0 && (
-              <p className="mt-1">
-                Optional (leave blank if you don&apos;t have the data):{" "}
-                {optionalColumns.map((col, i) => (
-                  <span key={col}>
-                    <span className="font-mono">{col}</span>
-                    {i < optionalColumns.length - 1 ? ", " : ""}
-                  </span>
-                ))}
+              <p className="mt-2">
+                <span className="font-medium text-muted-foreground">Optional</span>{" "}
+                — leave blank if you don&apos;t have the data:
               </p>
+            )}
+            {optionalColumns && optionalColumns.length > 0 && (
+              <ColumnList columns={optionalColumns} />
             )}
           </div>
           <input
@@ -148,5 +140,41 @@ export function CsvUploadZone({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Renders a list of CSV column names with their plain-English label in front
+ * and the snake_case column name in parens — so a non-technical clerk sees
+ * "Customer reference (customer_id)" instead of just "customer_id".
+ * If a column already includes a format hint like "collection_due_date (YYYY-MM-DD)"
+ * we render it as-is.
+ */
+function ColumnList({ columns }: { columns: string[] }) {
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+      {columns.map((col) => {
+        // Already-formatted entries (e.g. "collection_due_date (YYYY-MM-DD)") pass through.
+        if (col.includes("(")) {
+          const [name, ...rest] = col.split(" ");
+          const labelEntry = FIELD_LABELS[name];
+          return (
+            <li key={col}>
+              {labelEntry ? labelEntry.label : name}{" "}
+              <span className="font-mono text-muted-foreground/80">
+                ({name} {rest.join(" ").replace(/[()]/g, "")})
+              </span>
+            </li>
+          );
+        }
+        const labelEntry = FIELD_LABELS[col];
+        return (
+          <li key={col}>
+            {labelEntry ? labelEntry.label : col}{" "}
+            <span className="font-mono text-muted-foreground/80">({col})</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

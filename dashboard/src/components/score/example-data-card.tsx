@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { getFieldLabel } from "@/lib/utils/field-labels";
 
 interface ExampleRow {
   title: string;
@@ -237,7 +238,12 @@ export function ExampleDataCard() {
 function FieldRow({ name, value }: { name: string; value: string }) {
   return (
     <>
-      <dt className="font-mono text-muted-foreground">{name}</dt>
+      <dt className="text-muted-foreground">
+        {getFieldLabel(name)}
+        <span className="ml-1 font-mono text-[10px] text-muted-foreground/60">
+          ({name})
+        </span>
+      </dt>
       <dd className="font-mono text-foreground">{value}</dd>
     </>
   );
