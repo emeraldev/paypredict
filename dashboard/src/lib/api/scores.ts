@@ -31,6 +31,9 @@ export interface ScoredUploadRow {
   collection_currency: string;
   collection_due_date: string;
   collection_method: string;
+  /** Count of optional customer_data fields the lender populated.
+   *  0 means the score relied entirely on factor defaults. */
+  populated_optional_fields: number;
   score: number;
   risk_level: string;
   recommended_action: string;

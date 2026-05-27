@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +11,11 @@ import { ScoredRowsTable } from "@/components/score/scored-rows-table";
 import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/hooks/use-auth";
-import { scoresApi, type ScoresUploadResponse } from "@/lib/api/scores";
+import {
+  scoresApi,
+  type ScoredUploadRow,
+  type ScoresUploadResponse,
+} from "@/lib/api/scores";
 import { formatCompactCurrency } from "@/lib/utils/format-currency";
 
 interface CsvError {
@@ -47,10 +52,10 @@ export default function ScoreUploadPage() {
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">Score Collections.</strong>{" "}
         Upload a CSV of your upcoming collections — we score every row through
-        the same engine the API uses, persist the results, and the scored
-        rows appear on the main dashboard for triage. Useful for batch
-        scoring before a debit run or when piloting without an API
-        integration.
+        the same engine the API uses. Only six columns are required; leave any
+        optional cell blank if you don&apos;t have the data — we use sensible
+        defaults. The more optional columns you fill, the sharper each score
+        becomes (see the Example data card for what realistic values look like).
       </div>
 
       {!result && canManage && (
@@ -161,7 +166,10 @@ export default function ScoreUploadPage() {
           </div>
 
           {result.results && result.results.length > 0 && (
-            <ScoredRowsTable rows={result.results} />
+            <>
+              <LimitedDataBanner rows={result.results} />
+              <ScoredRowsTable rows={result.results} />
+            </>
           )}
 
           <Card>
@@ -191,5 +199,41 @@ export default function ScoreUploadPage() {
         </>
       )}
     </div>
+  );
+}
+
+// Heuristic: a row is "thin" if the lender populated < 3 optional customer_data
+// fields. When most of the upload is thin, scores are mostly factor defaults —
+// the lender should know that before acting on a "MEDIUM" risk label.
+const THIN_ROW_THRESHOLD = 3;
+const THIN_UPLOAD_RATIO = 0.5;
+
+function LimitedDataBanner({ rows }: { rows: ScoredUploadRow[] }) {
+  const thin = rows.filter(
+    (r) => r.populated_optional_fields < THIN_ROW_THRESHOLD,
+  );
+  if (thin.length / rows.length < THIN_UPLOAD_RATIO) return null;
+
+  return (
+    <Card className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/20">
+      <CardContent className="flex gap-3 p-4">
+        <AlertCircleIcon className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+            {thin.length} of {rows.length} rows scored with limited customer data.
+          </p>
+          <p className="text-xs text-amber-700/90 dark:text-amber-200/80">
+            These rows fall back to moderate defaults for most factors, so the
+            score reflects {"“"}unknown{"“"} more than risk. Add fields like{" "}
+            <span className="font-mono">total_payments</span>,{" "}
+            <span className="font-mono">successful_payments</span>,{" "}
+            <span className="font-mono">card_expiry</span>, and{" "}
+            <span className="font-mono">known_salary_day</span> to your CSV to
+            sharpen the prediction — see the Example data card for realistic
+            values.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -125,7 +125,7 @@ export function CsvUploadZone({
             </p>
             {optionalColumns && optionalColumns.length > 0 && (
               <p className="mt-1">
-                Optional:{" "}
+                Optional (leave blank if you don&apos;t have the data):{" "}
                 {optionalColumns.map((col, i) => (
                   <span key={col}>
                     <span className="font-mono">{col}</span>

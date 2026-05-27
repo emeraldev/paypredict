@@ -209,6 +209,32 @@ async def test_upload_accepts_excel_friendly_formats(async_client, sa_admin_user
 
 
 @pytest.mark.asyncio
+async def test_upload_surfaces_populated_field_count(async_client, sa_admin_user):
+    """Two rows: one with just the required columns, one with several optional
+    fields. The dashboard uses this count to flag low-data rows."""
+    token = await _login(async_client)
+    body = (
+        "customer_id,collection_id,collection_amount,collection_currency,"
+        "collection_due_date,collection_method,"
+        "total_payments,successful_payments,card_type,card_expiry,known_salary_day\n"
+        # Row 1: bare required columns only — no optional signal
+        "cust_thin,inst_thin,500,ZAR,2026-07-15,CARD,,,,,\n"
+        # Row 2: 5 optional fields populated
+        "cust_rich,inst_rich,500,ZAR,2026-07-15,CARD,8,7,debit,2028-09-01,25\n"
+    ).encode("utf-8")
+
+    r = await async_client.post(
+        "/v1/scores/upload",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("mixed.csv", body, "text/csv")},
+    )
+    assert r.status_code == 201, r.text
+    by_customer = {row["customer_id"]: row for row in r.json()["results"]}
+    assert by_customer["cust_thin"]["populated_optional_fields"] == 0
+    assert by_customer["cust_rich"]["populated_optional_fields"] == 5
+
+
+@pytest.mark.asyncio
 async def test_upload_full_customer_data_exercises_all_factors(
     async_client, sa_admin_user
 ):
