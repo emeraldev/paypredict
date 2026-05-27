@@ -23,6 +23,23 @@ function buildQuery(params: CollectionsListParams): string {
   return qs ? `?${qs}` : "";
 }
 
+export interface ScoredUploadRow {
+  score_id: string;
+  customer_id: string;
+  collection_id: string;
+  collection_amount: number;
+  collection_currency: string;
+  collection_due_date: string;
+  collection_method: string;
+  score: number;
+  risk_level: string;
+  recommended_action: string;
+  recommended_collection_date: string | null;
+  recommended_score: number | null;
+  score_improvement: number | null;
+  model_version: string;
+}
+
 export interface ScoresUploadResponse {
   // Validation-error response shape
   errors?: { row: number; field: string; message: string }[];
@@ -36,7 +53,7 @@ export interface ScoresUploadResponse {
     low_risk: number;
     total_value_at_risk: number;
   };
-  results?: Array<{ score_id: string; customer_id: string; collection_id: string; score: number; risk_level: string }>;
+  results?: ScoredUploadRow[];
 }
 
 export const scoresApi = {

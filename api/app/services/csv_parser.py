@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from app.schemas.backtest import (
@@ -23,6 +23,65 @@ from app.schemas.backtest import (
 )
 from app.schemas.bulk_score import BulkScoreItem
 from app.schemas.score import CustomerData
+
+
+# Accept ISO first, then SA-convention dd/mm/yyyy. Deliberately NOT mm/dd/yyyy
+# — same string can be either, and silently mis-parsing dates is worse than
+# rejecting an Excel export so we can hint at the right format.
+_LENIENT_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d")
+
+
+def parse_lenient_date(value: str) -> date:
+    """Parse a date string from common Excel/CSV formats. Raise ValueError if none match."""
+    value = value.strip()
+    for fmt in _LENIENT_DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Invalid date: {value}. Use YYYY-MM-DD (or DD/MM/YYYY)."
+    )
+
+
+def normalise_method(value: str) -> str:
+    """Coerce loose method strings to the canonical uppercase form.
+
+    'Card' / 'card' / 'CARD' -> 'CARD'
+    'Debit Order' / 'debit-order' / 'DEBIT_ORDER' -> 'DEBIT_ORDER'
+    'mobile money' / 'Mobile Money' -> 'MOBILE_MONEY'
+    """
+    return value.strip().upper().replace(" ", "_").replace("-", "_")
+
+
+# Date columns that arrive in non-ISO formats from Excel exports.
+_LENIENT_DATE_COLUMNS = (
+    "collection_due_date",
+    "collection_date",  # backtest
+    "last_successful_payment_date",
+    "card_expiry",
+)
+
+
+def _normalise_loose_inputs(row: dict[str, str]) -> None:
+    """Mutate `row` in place: normalise method, currency, and date formats so
+    downstream validation + Pydantic construction see canonical strings.
+
+    Built for non-technical lenders exporting from Excel — they'll send
+    'Debit Order' not 'DEBIT_ORDER', '15/07/2026' not '2026-07-15'.
+    """
+    if row.get("collection_method"):
+        row["collection_method"] = normalise_method(row["collection_method"])
+    if row.get("collection_currency"):
+        row["collection_currency"] = row["collection_currency"].strip().upper()
+    for col in _LENIENT_DATE_COLUMNS:
+        if row.get(col):
+            try:
+                row[col] = parse_lenient_date(row[col]).isoformat()
+            except ValueError:
+                # Leave the raw value alone — _validate_*_row will surface
+                # a nicely-worded error pointing at this column.
+                pass
 
 REQUIRED_COLUMNS = {
     "customer_id",
@@ -87,6 +146,8 @@ def parse_backtest_csv(
         # Skip fully empty rows
         if all(not v for v in row.values()):
             continue
+
+        _normalise_loose_inputs(row)
 
         row_errors = _validate_row(row_num, row)
         if row_errors:
@@ -250,6 +311,8 @@ def parse_scoring_csv(
         row = {k.strip().lower(): (v.strip() if v else "") for k, v in raw_row.items()}
         if all(not v for v in row.values()):
             continue
+
+        _normalise_loose_inputs(row)
 
         row_errors = _validate_scoring_row(row_num, row)
         if row_errors:

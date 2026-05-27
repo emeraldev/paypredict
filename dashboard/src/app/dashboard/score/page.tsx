@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExampleDataCard } from "@/components/score/example-data-card";
+import { ScoredRowsTable } from "@/components/score/scored-rows-table";
 import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/hooks/use-auth";
@@ -159,11 +160,15 @@ export default function ScoreUploadPage() {
             />
           </div>
 
+          {result.results && result.results.length > 0 && (
+            <ScoredRowsTable rows={result.results} />
+          )}
+
           <Card>
             <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Scored rows are now on the main dashboard.
+                  Need more detail? Open these rows on the main dashboard.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Filter by risk level, sort by score, and open a row for the

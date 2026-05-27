@@ -109,6 +109,16 @@ def _score_one(
     return {
         "customer_id": item["customer_id"],
         "collection_id": item["collection_id"],
+        # Collection metadata echoed back so the dashboard can render and
+        # export the scored rows without a round-trip to /v1/scores.
+        "collection_amount": float(item["collection_amount"]),
+        "collection_currency": item["collection_currency"],
+        "collection_due_date": (
+            item["collection_due_date"].isoformat()
+            if hasattr(item["collection_due_date"], "isoformat")
+            else item["collection_due_date"]
+        ),
+        "collection_method": item["collection_method"],
         "score": result.score,
         "risk_level": result.risk_level,
         "recommended_action": recommended_action,

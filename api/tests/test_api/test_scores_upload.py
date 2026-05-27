@@ -174,6 +174,41 @@ async def test_template_is_header_only(async_client, sa_admin_user):
 
 
 @pytest.mark.asyncio
+async def test_upload_accepts_excel_friendly_formats(async_client, sa_admin_user):
+    """Lenders export from Excel — date is DD/MM/YYYY, method is 'Debit Order'.
+    The parser must normalise these instead of rejecting them.
+    """
+    token = await _login(async_client)
+    body = (
+        "customer_id,collection_id,collection_amount,collection_currency,"
+        "collection_due_date,collection_method\n"
+        "cust_ex_a,inst_ex_a,1500,zar,15/07/2026,Card\n"
+        "cust_ex_b,inst_ex_b,800,ZAR,15-07-2026,debit order\n"
+        "cust_ex_c,inst_ex_c,250,ZMW,2026/07/20,Mobile Money\n"
+    ).encode("utf-8")
+
+    r = await async_client.post(
+        "/v1/scores/upload",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("excel.csv", body, "text/csv")},
+    )
+    assert r.status_code == 201, r.text
+    data = r.json()
+    assert "errors" not in data, data.get("errors")
+    assert data["total_items"] == 3
+    # Each row's metadata should be echoed in the response (used by dashboard
+    # for the inline results table + CSV download).
+    rows_by_customer = {row["customer_id"]: row for row in data["results"]}
+    assert rows_by_customer["cust_ex_a"]["collection_method"] == "CARD"
+    assert rows_by_customer["cust_ex_a"]["collection_currency"] == "ZAR"
+    assert rows_by_customer["cust_ex_a"]["collection_due_date"] == "2026-07-15"
+    assert rows_by_customer["cust_ex_b"]["collection_method"] == "DEBIT_ORDER"
+    assert rows_by_customer["cust_ex_b"]["collection_due_date"] == "2026-07-15"
+    assert rows_by_customer["cust_ex_c"]["collection_method"] == "MOBILE_MONEY"
+    assert rows_by_customer["cust_ex_c"]["collection_due_date"] == "2026-07-20"
+
+
+@pytest.mark.asyncio
 async def test_upload_full_customer_data_exercises_all_factors(
     async_client, sa_admin_user
 ):
