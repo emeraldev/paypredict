@@ -328,23 +328,69 @@ def _validate_scoring_row(row_num: int, row: dict[str, str]) -> list[CsvValidati
     return errs
 
 
+def _scoring_int(row: dict[str, str], key: str) -> int | None:
+    val = row.get(key, "").strip()
+    return int(val) if val else None
+
+
+def _scoring_decimal(row: dict[str, str], key: str) -> Decimal | None:
+    val = row.get(key, "").strip()
+    return Decimal(val) if val else None
+
+
+def _scoring_date(row: dict[str, str], key: str) -> date | None:
+    val = row.get(key, "").strip()
+    return date.fromisoformat(val) if val else None
+
+
+def _scoring_bool(row: dict[str, str], key: str) -> bool | None:
+    val = row.get(key, "").strip().lower()
+    if val in {"true", "yes", "1"}:
+        return True
+    if val in {"false", "no", "0"}:
+        return False
+    return None
+
+
+def _scoring_list(row: dict[str, str], key: str) -> list[str]:
+    val = row.get(key, "").strip()
+    if not val:
+        return []
+    return [s.strip() for s in val.split("|") if s.strip()]
+
+
 def _row_to_scoring_input(row: dict[str, str]) -> BulkScoreItem:
-    """Convert a validated scoring CSV row to a BulkScoreItem."""
+    """Convert a validated scoring CSV row to a BulkScoreItem.
 
-    def _int_or_none(val: str) -> int | None:
-        return int(val) if val else None
-
+    Reads every customer_data field on the schema so the upload exercises
+    every factor. Missing/blank optional cells fall through to None and
+    factors handle that explicitly.
+    """
     customer_data = CustomerData(
+        # Common (apply to all factor sets)
         total_payments=int(row.get("total_payments", "0") or "0"),
         successful_payments=int(row.get("successful_payments", "0") or "0"),
-        instalment_number=_int_or_none(row.get("instalment_number", "")),
-        total_instalments=_int_or_none(row.get("total_instalments", "")),
+        last_successful_payment_date=_scoring_date(row, "last_successful_payment_date"),
+        average_collection_amount=_scoring_decimal(row, "average_collection_amount"),
+        instalment_number=_scoring_int(row, "instalment_number"),
+        total_instalments=_scoring_int(row, "total_instalments"),
+        # CARD_DEBIT factor set
         card_type=row.get("card_type") or None,
-        card_expiry_date=(
-            date.fromisoformat(row["card_expiry"])
-            if row.get("card_expiry")
-            else None
-        ),
+        card_expiry_date=_scoring_date(row, "card_expiry"),
+        last_decline_code=row.get("last_decline_code") or None,
+        debit_order_returns=_scoring_list(row, "debit_order_returns"),
+        known_salary_day=_scoring_int(row, "known_salary_day"),
+        # MOBILE_WALLET factor set
+        wallet_balance_7d_avg=_scoring_decimal(row, "wallet_balance_7d_avg"),
+        wallet_balance_current=_scoring_decimal(row, "wallet_balance_current"),
+        hours_since_last_inflow=_scoring_int(row, "hours_since_last_inflow"),
+        regular_inflow_day=row.get("regular_inflow_day") or None,
+        active_loan_count=_scoring_int(row, "active_loan_count"),
+        transactions_last_7d=_scoring_int(row, "transactions_last_7d"),
+        transactions_avg_7d=_scoring_int(row, "transactions_avg_7d"),
+        last_airtime_purchase_days_ago=_scoring_int(row, "last_airtime_purchase_days_ago"),
+        new_loan_within_repayment_period=_scoring_bool(row, "new_loan_within_repayment_period"),
+        loans_taken_last_90d=_scoring_int(row, "loans_taken_last_90d"),
     )
 
     return BulkScoreItem(

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ExampleDataCard } from "@/components/score/example-data-card";
 import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/hooks/use-auth";
@@ -68,14 +69,31 @@ export default function ScoreUploadPage() {
           optionalColumns={[
             "total_payments",
             "successful_payments",
+            "last_successful_payment_date",
+            "average_collection_amount",
             "instalment_number",
             "total_instalments",
             "card_type",
-            "card_expiry (YYYY-MM-DD)",
+            "card_expiry",
+            "last_decline_code",
+            "debit_order_returns",
+            "known_salary_day",
+            "wallet_balance_7d_avg",
+            "wallet_balance_current",
+            "hours_since_last_inflow",
+            "regular_inflow_day",
+            "active_loan_count",
+            "transactions_last_7d",
+            "transactions_avg_7d",
+            "last_airtime_purchase_days_ago",
+            "new_loan_within_repayment_period",
+            "loans_taken_last_90d",
           ]}
           sizeHint="Max 500 rows, 5MB."
         />
       )}
+
+      {!result && canManage && <ExampleDataCard />}
 
       {!result && !canManage && (
         <Card>

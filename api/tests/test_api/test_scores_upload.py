@@ -151,27 +151,58 @@ async def test_template_download_has_expected_headers(async_client, sa_admin_use
 
 
 @pytest.mark.asyncio
-async def test_template_round_trips_through_upload(async_client, sa_admin_user):
-    """The template itself must parse cleanly — caught a YYYY-MM card_expiry bug
-    and a None-handling crash in LoanCyclingBehaviour."""
+async def test_template_is_header_only(async_client, sa_admin_user):
+    """Template ships no example rows — uploading it as-is should return a
+    friendly error, not persist anything. Reference values live in the
+    dashboard's Example Data card instead."""
     token = await _login(async_client)
     tpl = await async_client.get(
         "/v1/scores/upload/template",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert tpl.status_code == 200
+    # Single line: just the header, no data rows.
+    assert tpl.text.count("\n") == 1, "template should be header-only"
 
     r = await async_client.post(
         "/v1/scores/upload",
         headers={"Authorization": f"Bearer {token}"},
         files={"file": ("template.csv", tpl.content, "text/csv")},
     )
+    assert r.status_code == 400
+    assert "no data rows" in r.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_upload_full_customer_data_exercises_all_factors(
+    async_client, sa_admin_user
+):
+    """A row populating every optional CARD_DEBIT field must parse + score
+    without errors. Regression for missing field-extraction in the parser."""
+    token = await _login(async_client)
+    header = (
+        "customer_id,collection_id,collection_amount,collection_currency,"
+        "collection_due_date,collection_method,"
+        "total_payments,successful_payments,last_successful_payment_date,"
+        "average_collection_amount,instalment_number,total_instalments,"
+        "card_type,card_expiry,last_decline_code,debit_order_returns,known_salary_day"
+    )
+    row = (
+        "cust_full,inst_full,833.33,ZAR,2026-07-25,CARD,"
+        "8,7,2026-06-25,800.00,3,6,"
+        "debit,2028-09-01,insufficient_funds,RD|account_closed,25"
+    )
+    body = (header + "\n" + row + "\n").encode("utf-8")
+
+    r = await async_client.post(
+        "/v1/scores/upload",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("full.csv", body, "text/csv")},
+    )
     assert r.status_code == 201, r.text
     data = r.json()
-    assert "errors" not in data, f"template produced errors: {data.get('errors')}"
-    assert data["total_items"] == 3
-    # Every row must have produced a score (no factor crashes).
-    assert len(data["results"]) == 3
-    assert all(0.0 <= row["score"] <= 1.0 for row in data["results"])
+    assert "errors" not in data
+    assert data["total_items"] == 1
+    assert 0.0 <= data["results"][0]["score"] <= 1.0
 
 

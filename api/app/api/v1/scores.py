@@ -35,13 +35,23 @@ router = APIRouter()
 MAX_UPLOAD_ROWS = 500
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
+# Header-only template. We deliberately do NOT ship example data rows —
+# uploading an unmodified template would otherwise persist fake collections
+# to the dashboard. Lenders see realistic example values in the "Example
+# data" card on /dashboard/score for reference.
 SCORING_CSV_TEMPLATE = (
+    # Required columns
     "customer_id,collection_id,collection_amount,collection_currency,"
-    "collection_due_date,collection_method,instalment_number,total_instalments,"
-    "total_payments,successful_payments,card_type,card_expiry\n"
-    "cust_001,inst_441,833.33,ZAR,2026-06-15,CARD,3,6,8,5,debit,2026-09-01\n"
-    "cust_002,inst_442,500.00,ZAR,2026-06-15,DEBIT_ORDER,1,3,0,0,,\n"
-    "cust_003,inst_443,250.00,ZMW,2026-06-20,MOBILE_MONEY,2,4,3,2,,\n"
+    "collection_due_date,collection_method,"
+    # Common optional (apply to both factor sets)
+    "total_payments,successful_payments,last_successful_payment_date,"
+    "average_collection_amount,instalment_number,total_instalments,"
+    # CARD_DEBIT optional
+    "card_type,card_expiry,last_decline_code,debit_order_returns,known_salary_day,"
+    # MOBILE_WALLET optional
+    "wallet_balance_7d_avg,wallet_balance_current,hours_since_last_inflow,"
+    "regular_inflow_day,active_loan_count,transactions_last_7d,transactions_avg_7d,"
+    "last_airtime_purchase_days_ago,new_loan_within_repayment_period,loans_taken_last_90d\n"
 )
 
 
@@ -154,7 +164,13 @@ async def upload_and_score(
         return {"errors": [e.model_dump() for e in errors]}
 
     if not items:
-        raise HTTPException(status_code=400, detail="CSV contains no valid rows")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "CSV contains no data rows. Add at least one row of "
+                "collection data under the header."
+            ),
+        )
 
     if len(items) > MAX_UPLOAD_ROWS:
         raise HTTPException(
