@@ -1,14 +1,19 @@
-"""CSV parser for backtest uploads.
+"""CSV parsers for lender-uploaded collections.
 
-Parses lender-exported CSVs into BacktestCollectionInput objects.
-Handles BOM characters (Excel exports), empty rows, and provides
+Two modes:
+- `parse_backtest_csv` — historical rows with `collection_date` + `actual_outcome`,
+  used to evaluate model accuracy against past collections.
+- `parse_scoring_csv` — upcoming rows with `collection_due_date`, scored and
+  persisted so they appear on the main dashboard.
+
+Both handle BOM characters (Excel exports), empty rows, and produce
 row-level validation errors.
 """
 from __future__ import annotations
 
 import csv
 import io
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from app.schemas.backtest import (
@@ -16,6 +21,67 @@ from app.schemas.backtest import (
     BacktestCustomerData,
     CsvValidationError,
 )
+from app.schemas.bulk_score import BulkScoreItem
+from app.schemas.score import CustomerData
+
+
+# Accept ISO first, then SA-convention dd/mm/yyyy. Deliberately NOT mm/dd/yyyy
+# — same string can be either, and silently mis-parsing dates is worse than
+# rejecting an Excel export so we can hint at the right format.
+_LENIENT_DATE_FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d")
+
+
+def parse_lenient_date(value: str) -> date:
+    """Parse a date string from common Excel/CSV formats. Raise ValueError if none match."""
+    value = value.strip()
+    for fmt in _LENIENT_DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Invalid date: {value}. Use YYYY-MM-DD (or DD/MM/YYYY)."
+    )
+
+
+def normalise_method(value: str) -> str:
+    """Coerce loose method strings to the canonical uppercase form.
+
+    'Card' / 'card' / 'CARD' -> 'CARD'
+    'Debit Order' / 'debit-order' / 'DEBIT_ORDER' -> 'DEBIT_ORDER'
+    'mobile money' / 'Mobile Money' -> 'MOBILE_MONEY'
+    """
+    return value.strip().upper().replace(" ", "_").replace("-", "_")
+
+
+# Date columns that arrive in non-ISO formats from Excel exports.
+_LENIENT_DATE_COLUMNS = (
+    "collection_due_date",
+    "collection_date",  # backtest
+    "last_successful_payment_date",
+    "card_expiry",
+)
+
+
+def _normalise_loose_inputs(row: dict[str, str]) -> None:
+    """Mutate `row` in place: normalise method, currency, and date formats so
+    downstream validation + Pydantic construction see canonical strings.
+
+    Built for non-technical lenders exporting from Excel — they'll send
+    'Debit Order' not 'DEBIT_ORDER', '15/07/2026' not '2026-07-15'.
+    """
+    if row.get("collection_method"):
+        row["collection_method"] = normalise_method(row["collection_method"])
+    if row.get("collection_currency"):
+        row["collection_currency"] = row["collection_currency"].strip().upper()
+    for col in _LENIENT_DATE_COLUMNS:
+        if row.get(col):
+            try:
+                row[col] = parse_lenient_date(row[col]).isoformat()
+            except ValueError:
+                # Leave the raw value alone — _validate_*_row will surface
+                # a nicely-worded error pointing at this column.
+                pass
 
 REQUIRED_COLUMNS = {
     "customer_id",
@@ -25,6 +91,15 @@ REQUIRED_COLUMNS = {
     "collection_date",
     "collection_method",
     "actual_outcome",
+}
+
+SCORING_REQUIRED_COLUMNS = {
+    "customer_id",
+    "collection_id",
+    "collection_amount",
+    "collection_currency",
+    "collection_due_date",
+    "collection_method",
 }
 
 VALID_CURRENCIES = {"ZAR", "ZMW"}
@@ -71,6 +146,8 @@ def parse_backtest_csv(
         # Skip fully empty rows
         if all(not v for v in row.values()):
             continue
+
+        _normalise_loose_inputs(row)
 
         row_errors = _validate_row(row_num, row)
         if row_errors:
@@ -193,4 +270,198 @@ def _row_to_input(row: dict[str, str]) -> BacktestCollectionInput:
         customer_data=customer_data,
         actual_outcome=row["actual_outcome"].upper(),
         failure_reason=row.get("failure_reason") or None,
+    )
+
+
+# ---- Scoring upload (upcoming collections, no outcomes) ----
+
+
+def parse_scoring_csv(
+    file_content: bytes,
+) -> tuple[list[BulkScoreItem], list[CsvValidationError]]:
+    """Parse CSV bytes of upcoming collections into validated BulkScoreItems.
+
+    Same structure as parse_backtest_csv but for forward-looking scoring —
+    requires `collection_due_date` instead of `collection_date`, no outcome
+    columns. The returned BulkScoreItems can be fed directly to the bulk
+    scoring service.
+    """
+    text = file_content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+
+    if reader.fieldnames is None:
+        return [], [CsvValidationError(row=0, field="", message="Empty CSV file")]
+
+    headers = {h.strip().lower() for h in reader.fieldnames}
+    missing = SCORING_REQUIRED_COLUMNS - headers
+    if missing:
+        return [], [
+            CsvValidationError(
+                row=0,
+                field=col,
+                message=f"Missing required column: {col}",
+            )
+            for col in sorted(missing)
+        ]
+
+    items: list[BulkScoreItem] = []
+    errors: list[CsvValidationError] = []
+
+    for row_num, raw_row in enumerate(reader, start=2):
+        row = {k.strip().lower(): (v.strip() if v else "") for k, v in raw_row.items()}
+        if all(not v for v in row.values()):
+            continue
+
+        _normalise_loose_inputs(row)
+
+        row_errors = _validate_scoring_row(row_num, row)
+        if row_errors:
+            errors.extend(row_errors)
+            continue
+
+        try:
+            items.append(_row_to_scoring_input(row))
+        except Exception as exc:
+            errors.append(
+                CsvValidationError(row=row_num, field="", message=str(exc))
+            )
+
+    return items, errors
+
+
+def _validate_scoring_row(row_num: int, row: dict[str, str]) -> list[CsvValidationError]:
+    errs: list[CsvValidationError] = []
+
+    for col in SCORING_REQUIRED_COLUMNS:
+        if not row.get(col):
+            errs.append(CsvValidationError(row=row_num, field=col, message=f"Missing {col}"))
+
+    if row.get("collection_currency", "").upper() not in VALID_CURRENCIES and not any(
+        e.field == "collection_currency" for e in errs
+    ):
+        errs.append(
+            CsvValidationError(
+                row=row_num,
+                field="collection_currency",
+                message=f"Invalid currency: {row['collection_currency']}. Must be ZAR or ZMW",
+            )
+        )
+
+    if row.get("collection_method", "").upper() not in VALID_METHODS and not any(
+        e.field == "collection_method" for e in errs
+    ):
+        errs.append(
+            CsvValidationError(
+                row=row_num,
+                field="collection_method",
+                message=f"Invalid method: {row['collection_method']}. Must be CARD, DEBIT_ORDER, or MOBILE_MONEY",
+            )
+        )
+
+    amt = row.get("collection_amount", "")
+    if amt:
+        try:
+            val = Decimal(amt)
+            if val <= 0:
+                errs.append(
+                    CsvValidationError(
+                        row=row_num, field="collection_amount", message="Amount must be > 0"
+                    )
+                )
+        except InvalidOperation:
+            errs.append(
+                CsvValidationError(
+                    row=row_num, field="collection_amount", message=f"Invalid number: {amt}"
+                )
+            )
+
+    dt = row.get("collection_due_date", "")
+    if dt:
+        try:
+            date.fromisoformat(dt)
+        except ValueError:
+            errs.append(
+                CsvValidationError(
+                    row=row_num,
+                    field="collection_due_date",
+                    message=f"Invalid date: {dt}. Use YYYY-MM-DD format",
+                )
+            )
+
+    return errs
+
+
+def _scoring_int(row: dict[str, str], key: str) -> int | None:
+    val = row.get(key, "").strip()
+    return int(val) if val else None
+
+
+def _scoring_decimal(row: dict[str, str], key: str) -> Decimal | None:
+    val = row.get(key, "").strip()
+    return Decimal(val) if val else None
+
+
+def _scoring_date(row: dict[str, str], key: str) -> date | None:
+    val = row.get(key, "").strip()
+    return date.fromisoformat(val) if val else None
+
+
+def _scoring_bool(row: dict[str, str], key: str) -> bool | None:
+    val = row.get(key, "").strip().lower()
+    if val == "true":
+        return True
+    if val == "false":
+        return False
+    return None
+
+
+def _scoring_list(row: dict[str, str], key: str) -> list[str]:
+    val = row.get(key, "").strip()
+    if not val:
+        return []
+    return [s.strip() for s in val.split("|") if s.strip()]
+
+
+def _row_to_scoring_input(row: dict[str, str]) -> BulkScoreItem:
+    """Convert a validated scoring CSV row to a BulkScoreItem.
+
+    Reads every customer_data field on the schema so the upload exercises
+    every factor. Missing/blank optional cells fall through to None and
+    factors handle that explicitly.
+    """
+    customer_data = CustomerData(
+        # Common (apply to all factor sets)
+        total_payments=int(row.get("total_payments", "0") or "0"),
+        successful_payments=int(row.get("successful_payments", "0") or "0"),
+        last_successful_payment_date=_scoring_date(row, "last_successful_payment_date"),
+        average_collection_amount=_scoring_decimal(row, "average_collection_amount"),
+        instalment_number=_scoring_int(row, "instalment_number"),
+        total_instalments=_scoring_int(row, "total_instalments"),
+        # CARD_DEBIT factor set
+        card_type=row.get("card_type") or None,
+        card_expiry_date=_scoring_date(row, "card_expiry"),
+        last_decline_code=row.get("last_decline_code") or None,
+        debit_order_returns=_scoring_list(row, "debit_order_returns"),
+        known_salary_day=_scoring_int(row, "known_salary_day"),
+        # MOBILE_WALLET factor set
+        wallet_balance_7d_avg=_scoring_decimal(row, "wallet_balance_7d_avg"),
+        wallet_balance_current=_scoring_decimal(row, "wallet_balance_current"),
+        hours_since_last_inflow=_scoring_int(row, "hours_since_last_inflow"),
+        regular_inflow_day=row.get("regular_inflow_day") or None,
+        active_loan_count=_scoring_int(row, "active_loan_count"),
+        transactions_last_7d=_scoring_int(row, "transactions_last_7d"),
+        transactions_avg_7d=_scoring_int(row, "transactions_avg_7d"),
+        last_airtime_purchase_days_ago=_scoring_int(row, "last_airtime_purchase_days_ago"),
+        new_loan_within_repayment_period=_scoring_bool(row, "new_loan_within_repayment_period"),
+        loans_taken_last_90d=_scoring_int(row, "loans_taken_last_90d"),
+    )
+
+    return BulkScoreItem(
+        customer_id=row["customer_id"],
+        collection_id=row["collection_id"],
+        collection_amount=Decimal(row["collection_amount"]),
+        collection_currency=row["collection_currency"].upper(),
+        collection_due_date=date.fromisoformat(row["collection_due_date"]),
+        collection_method=row["collection_method"].upper(),
+        customer_data=customer_data,
     )

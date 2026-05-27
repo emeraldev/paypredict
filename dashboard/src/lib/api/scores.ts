@@ -23,6 +23,39 @@ function buildQuery(params: CollectionsListParams): string {
   return qs ? `?${qs}` : "";
 }
 
+export interface ScoredUploadRow {
+  score_id: string;
+  customer_id: string;
+  collection_id: string;
+  collection_amount: number;
+  collection_currency: string;
+  collection_due_date: string;
+  collection_method: string;
+  /** Count of optional customer_data fields the lender populated.
+   *  0 means the score relied entirely on factor defaults. */
+  populated_optional_fields: number;
+  score: number;
+  risk_level: string;
+  recommended_action: string;
+  recommended_collection_date: string | null;
+}
+
+export interface ScoresUploadResponse {
+  // Validation-error response shape
+  errors?: { row: number; field: string; message: string }[];
+  // Successful upload response shape (mirrors bulk-scoring response)
+  status?: string;
+  total_items?: number;
+  completed_items?: number;
+  summary?: {
+    high_risk: number;
+    medium_risk: number;
+    low_risk: number;
+    total_value_at_risk: number;
+  };
+  results?: ScoredUploadRow[];
+}
+
 export const scoresApi = {
   list: (params: CollectionsListParams = {}) =>
     api.get<CollectionsListResponse>(`/v1/scores${buildQuery(params)}`),
@@ -32,4 +65,38 @@ export const scoresApi = {
 
   create: (payload: ScoreRequestPayload) =>
     api.post<ScoreResponse>("/v1/score", payload),
+
+  /**
+   * Upload a CSV of upcoming collections. Multipart form-data, so this
+   * bypasses the shared `api` client (which assumes JSON). Same FormData
+   * pattern as backtestApi.uploadCsv.
+   */
+  uploadCsv: async (file: File): Promise<ScoresUploadResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("paypredict_token")
+      : null;
+
+    const res = await fetch(`${API_URL}/v1/scores/upload`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (body.errors) return body;
+      throw new Error(body.detail || "Upload failed");
+    }
+
+    return res.json();
+  },
+
+  templateUrl: () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+    return `${API_URL}/v1/scores/upload/template`;
+  },
 };

@@ -79,6 +79,7 @@ even if they don't damage revenue yet.
 - Custom domain + branded `api.paypredict.com` — 1 hour
 - Status page (statuspage.io or similar, free tier) — 1 hour
 - Dashboard "Welcome, you're connected" banner that confirms the first webhook arrived — 2 hours
+- **Score Collections — pre-fill "score another for the same customer"** — on `/dashboard/score`, after a single score, offer a "Score another for this customer" action that keeps `customer_id` + `customer_data` and clears only `collection_id` / `amount` / `due_date`. Trigger: a clerk says "I keep retyping the same customer ID," or we see drop-off after one score. ~30 lines.
 
 ### Deferred to later stages
 

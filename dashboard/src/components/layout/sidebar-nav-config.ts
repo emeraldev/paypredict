@@ -4,6 +4,7 @@ import {
   FlaskConicalIcon,
   LayoutDashboardIcon,
   SettingsIcon,
+  UploadIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,6 +20,12 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboardIcon, label: "Dashboard" },
+  {
+    href: "/dashboard/score",
+    icon: UploadIcon,
+    label: "Score Collections",
+    description: "Upload a CSV of upcoming collections to score them by risk",
+  },
   { href: "/dashboard/analytics", icon: BarChart3Icon, label: "Analytics" },
   {
     href: "/dashboard/outcomes",

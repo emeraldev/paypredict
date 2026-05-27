@@ -102,3 +102,18 @@ class TestLoanCyclingBehaviour:
             {"new_loan_within_repayment_period": False, "loans_taken_last_90d": 1}, {}
         )
         assert score == 0.1
+
+    def test_none_fields_default_to_low_risk(self):
+        # Pydantic emits explicit None for omitted optional fields — the factor
+        # must handle this without TypeError. Regression for the MOBILE_MONEY
+        # CSV-upload path that crashed when these fields were absent.
+        score = self.factor.calculate(
+            {"new_loan_within_repayment_period": None, "loans_taken_last_90d": None},
+            {},
+        )
+        assert score == 0.1
+
+    def test_missing_keys_default_to_low_risk(self):
+        # Empty dict (no keys present at all) — same expected behaviour.
+        score = self.factor.calculate({}, {})
+        assert score == 0.1

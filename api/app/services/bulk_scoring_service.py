@@ -31,7 +31,6 @@ _redis = redis.from_url(settings.redis_url, decode_responses=True)
 
 def _to_json_safe(obj: dict) -> dict:
     """Convert a dict with Decimal/date values to JSON-serializable types."""
-    import json
     from datetime import date as _date
 
     def _default(o: object) -> object:
@@ -59,6 +58,34 @@ def _factor_to_db_shape(f: dict) -> dict:
         "weighted_score": f["weighted_score"],
         "explanation": f["explanation"],
     }
+
+
+# customer_data fields whose schema default carries no signal. A populated
+# count below ~3 means scoring relied almost entirely on factor defaults —
+# the dashboard surfaces a "limited data" hint in that case.
+_SCHEMA_DEFAULTS_BY_FIELD = {
+    "total_payments": 0,
+    "successful_payments": 0,
+    "debit_order_returns": [],
+}
+
+
+def _count_populated_optional_fields(customer_data: dict) -> int:
+    """Count customer_data fields that carry real signal (not schema default).
+
+    Used to flag scores produced with thin data so non-technical lenders know
+    when to add more columns vs. trust the prediction. Excludes the 6 required
+    collection-level columns (which aren't in customer_data).
+    """
+    count = 0
+    for key, value in customer_data.items():
+        if value is None or value == "":
+            continue
+        default = _SCHEMA_DEFAULTS_BY_FIELD.get(key)
+        if default is not None and value == default:
+            continue
+        count += 1
+    return count
 
 
 def _score_one(
@@ -109,6 +136,20 @@ def _score_one(
     return {
         "customer_id": item["customer_id"],
         "collection_id": item["collection_id"],
+        # Collection metadata echoed back so the dashboard can render and
+        # export the scored rows without a round-trip to /v1/scores.
+        "collection_amount": float(item["collection_amount"]),
+        "collection_currency": item["collection_currency"],
+        "collection_due_date": (
+            item["collection_due_date"].isoformat()
+            if hasattr(item["collection_due_date"], "isoformat")
+            else item["collection_due_date"]
+        ),
+        "collection_method": item["collection_method"],
+        # How many optional customer_data fields the lender actually filled —
+        # surfaced in the dashboard so low-data rows don't look as confident as
+        # full-data rows scoring the same number.
+        "populated_optional_fields": _count_populated_optional_fields(customer_data),
         "score": result.score,
         "risk_level": result.risk_level,
         "recommended_action": recommended_action,

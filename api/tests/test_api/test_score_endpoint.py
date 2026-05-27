@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.conftest import TEST_API_KEY
+from tests.conftest import TEST_API_KEY, TEST_USER_EMAIL, TEST_USER_PASSWORD
 
 
 @pytest.mark.asyncio
@@ -173,3 +173,34 @@ async def test_score_recommends_shift_when_timing_is_bad(async_client, sa_tenant
     )
     # Recommended score is strictly less than the original.
     assert data["recommended_score"] < data["score"]
+
+
+@pytest.mark.asyncio
+async def test_score_via_dashboard_jwt(async_client, sa_admin_user):
+    """The single-collection form on /dashboard/score posts to /v1/score with
+    a JWT (no API key). Same scoring behaviour, no rate-limit headers."""
+    r = await async_client.post(
+        "/v1/auth/login",
+        json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD},
+    )
+    token = r.json()["token"]
+
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "customer_id": "cust_jwt",
+            "collection_id": "col_jwt",
+            "collection_amount": 1500.00,
+            "collection_currency": "ZAR",
+            "collection_due_date": "2026-08-15",
+            "collection_method": "CARD",
+            "customer_data": {"total_payments": 10, "successful_payments": 7},
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert "score_id" in data
+    assert 0.0 <= data["score"] <= 1.0
+    # JWT callers must not be rate-limited (no headers consumed).
+    assert "x-ratelimit-limit" not in {k.lower() for k in response.headers}

@@ -5,14 +5,34 @@ import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { backtestApi } from "@/lib/api/backtest";
+import { FIELD_LABELS } from "@/lib/utils/field-labels";
 
 interface CsvUploadZoneProps {
+  /** Function that POSTs the file to the backend and returns the parsed response. */
+  onUpload: (file: File) => Promise<unknown>;
+  /** Called with the response from a successful upload. */
   onResult: (result: unknown) => void;
+  /** Called with a human-readable error message on failure. */
   onError: (error: string) => void;
+  /** URL the "Download template" button links to. */
+  templateUrl: string;
+  /** Required CSV column names shown to the user. */
+  requiredColumns: string[];
+  /** Optional columns shown after the required list. */
+  optionalColumns?: string[];
+  /** Short helper note shown after the file-size hint (e.g. "Max 500 rows, 5MB"). */
+  sizeHint?: string;
 }
 
-export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
+export function CsvUploadZone({
+  onUpload,
+  onResult,
+  onError,
+  templateUrl,
+  requiredColumns,
+  optionalColumns,
+  sizeHint = "Max 500 rows, 5MB.",
+}: CsvUploadZoneProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -27,7 +47,7 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
       setFileName(file.name);
       setUploading(true);
       try {
-        const result = await backtestApi.uploadCsv(file);
+        const result = await onUpload(file);
         onResult(result);
       } catch (err) {
         onError(err instanceof Error ? err.message : "Upload failed");
@@ -35,7 +55,7 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
         setUploading(false);
       }
     },
-    [onResult, onError],
+    [onUpload, onResult, onError],
   );
 
   const handleDrop = useCallback(
@@ -73,7 +93,7 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
                 : "Drag & drop a CSV file here"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              or click to browse. Max 500 rows, 10MB.
+              or click to browse. {sizeHint}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -86,7 +106,7 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
               {uploading ? "Uploading..." : "Choose file"}
             </Button>
             <a
-              href={backtestApi.templateUrl()}
+              href={templateUrl}
               download
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
@@ -94,26 +114,18 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
               Download template
             </a>
           </div>
-          <div className="mt-2 max-w-md text-left text-[11px] text-muted-foreground/70">
+          <div className="mt-2 max-w-lg text-left text-[11px] text-muted-foreground/70">
             <p className="font-medium text-muted-foreground mb-1">Required columns:</p>
-            <p>
-              <span className="font-mono">customer_id</span>,{" "}
-              <span className="font-mono">collection_id</span>,{" "}
-              <span className="font-mono">collection_amount</span>,{" "}
-              <span className="font-mono">collection_currency</span> (ZAR/ZMW),{" "}
-              <span className="font-mono">collection_date</span> (YYYY-MM-DD),{" "}
-              <span className="font-mono">collection_method</span> (CARD/DEBIT_ORDER/MOBILE_MONEY),{" "}
-              <span className="font-mono">actual_outcome</span> (SUCCESS/FAILED)
-            </p>
-            <p className="mt-1">
-              Optional: <span className="font-mono">total_payments</span>,{" "}
-              <span className="font-mono">successful_payments</span>,{" "}
-              <span className="font-mono">instalment_number</span>,{" "}
-              <span className="font-mono">total_instalments</span>,{" "}
-              <span className="font-mono">card_type</span>,{" "}
-              <span className="font-mono">card_expiry</span>,{" "}
-              <span className="font-mono">failure_reason</span>
-            </p>
+            <ColumnList columns={requiredColumns} />
+            {optionalColumns && optionalColumns.length > 0 && (
+              <p className="mt-2">
+                <span className="font-medium text-muted-foreground">Optional</span>{" "}
+                — leave blank if you don&apos;t have the data:
+              </p>
+            )}
+            {optionalColumns && optionalColumns.length > 0 && (
+              <ColumnList columns={optionalColumns} />
+            )}
           </div>
           <input
             ref={inputRef}
@@ -128,5 +140,26 @@ export function CsvUploadZone({ onResult, onError }: CsvUploadZoneProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Renders a list of CSV column names with their plain-English label in front
+ * and the snake_case column name in parens — so a non-technical clerk sees
+ * "Customer reference (customer_id)" instead of just "customer_id".
+ */
+function ColumnList({ columns }: { columns: string[] }) {
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+      {columns.map((col) => {
+        const labelEntry = FIELD_LABELS[col];
+        return (
+          <li key={col}>
+            {labelEntry ? labelEntry.label : col}{" "}
+            <span className="font-mono text-muted-foreground/80">({col})</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
