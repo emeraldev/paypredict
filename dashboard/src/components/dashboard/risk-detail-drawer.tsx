@@ -8,9 +8,15 @@ interface RiskDetailDrawerProps {
   detail: ScoreDetailResponse | null;
   open: boolean;
   onClose: () => void;
+  onOutcomeReported?: () => void;
 }
 
-export function RiskDetailDrawer({ detail, open, onClose }: RiskDetailDrawerProps) {
+export function RiskDetailDrawer({
+  detail,
+  open,
+  onClose,
+  onOutcomeReported,
+}: RiskDetailDrawerProps) {
   if (!open) return null;
 
   return (
@@ -22,7 +28,12 @@ export function RiskDetailDrawer({ detail, open, onClose }: RiskDetailDrawerProp
         <SheetHeader className="sr-only">
           <SheetTitle>Collection detail</SheetTitle>
         </SheetHeader>
-        {detail && <RiskDetailContent detail={detail} />}
+        {detail && (
+          <RiskDetailContent
+            detail={detail}
+            onOutcomeReported={onOutcomeReported}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );

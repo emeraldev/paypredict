@@ -79,7 +79,7 @@ export default function DashboardPage() {
     date_to: format(addDays(new Date(), DATE_RANGE_DAYS[dateRange]), "yyyy-MM-dd"),
   };
 
-  const { data, loading, error } = useApi(
+  const { data, loading, error, refetch: refetchList } = useApi(
     () => scoresApi.list(params),
     [
       page,
@@ -94,7 +94,7 @@ export default function DashboardPage() {
   );
 
   // Fetch detail for drawer
-  const { data: detail } = useApi(
+  const { data: detail, refetch: refetchDetail } = useApi(
     () => (selectedId ? scoresApi.getDetail(selectedId) : Promise.resolve(null)),
     [selectedId],
   );
@@ -264,6 +264,10 @@ export default function DashboardPage() {
         detail={detail as ScoreDetailResponse | null}
         open={selectedId !== null}
         onClose={() => setSelectedId(null)}
+        onOutcomeReported={() => {
+          refetchDetail();
+          refetchList();
+        }}
       />
     </div>
   );
