@@ -10,6 +10,7 @@ Creates:
 Usage: python -m app.seed
 """
 
+import argparse
 import asyncio
 import random
 import secrets
@@ -18,7 +19,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import bcrypt
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.database import async_session
 from app.models.api_key import ApiKey
@@ -128,7 +129,20 @@ FAILURE_REASONS = [
 ]
 
 
-async def seed() -> None:
+async def _wipe(db) -> None:
+    """Truncate all seed-owned tables. CASCADE follows the tenant FK chain
+    through scores, outcomes, alerts, backtests, notifications, etc."""
+    await db.execute(text(
+        "TRUNCATE "
+        "outcomes, score_results, score_requests, "
+        "factor_weights, api_keys, notifications, alerts, "
+        "backtest_items, backtest_runs, users, tenants "
+        "RESTART IDENTITY CASCADE"
+    ))
+    await db.commit()
+
+
+async def seed(reseed: bool = False) -> None:
     engine = ScoringEngine()
     rng = random.Random(42)  # Deterministic for reproducible demos
 
@@ -136,8 +150,12 @@ async def seed() -> None:
         # Check if already seeded
         result = await db.execute(select(Tenant).limit(1))
         if result.scalar_one_or_none():
-            print("Database already seeded. Skipping.")
-            return
+            if reseed:
+                print("Wiping existing seed data...")
+                await _wipe(db)
+            else:
+                print("Database already seeded. Pass --reseed to refresh.")
+                return
 
         now = datetime.now(timezone.utc)
 
@@ -714,4 +732,11 @@ async def seed() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    parser = argparse.ArgumentParser(description="Seed local demo data.")
+    parser.add_argument(
+        "--reseed",
+        action="store_true",
+        help="Wipe existing seed data and re-seed. Use this when dates have gone stale.",
+    )
+    args = parser.parse_args()
+    asyncio.run(seed(reseed=args.reseed))
