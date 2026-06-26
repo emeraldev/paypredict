@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { DownloadIcon } from "lucide-react";
+import { DownloadIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ReportOutcomeForm } from "@/components/dashboard/report-outcome-form";
 import { OutcomesFilterTabs } from "@/components/outcomes/outcomes-filter-tabs";
 import { OutcomesStats } from "@/components/outcomes/outcomes-stats";
 import { OutcomesTable } from "@/components/outcomes/outcomes-table";
@@ -33,6 +41,7 @@ function filterToParams(filter: OutcomeFilter): Pick<OutcomesListParams, "outcom
 export default function OutcomesPage() {
   const [filter, setFilter] = useState<OutcomeFilter>("ALL");
   const [page, setPage] = useState(1);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const params: OutcomesListParams = {
     page,
@@ -42,7 +51,7 @@ export default function OutcomesPage() {
     ...filterToParams(filter),
   };
 
-  const { data, loading, error } = useApi(
+  const { data, loading, error, refetch } = useApi(
     () => outcomesApi.list(params),
     [page, filter],
   );
@@ -89,10 +98,11 @@ export default function OutcomesPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        Every collection your lender attempts gets a result reported back
-        via <code className="rounded bg-muted px-1 text-xs">POST /v1/outcomes</code>.
-        This page shows those results next to the risk we predicted, so you
-        can see where the model called it right and where it missed.
+        After you attempt a collection, record what happened — succeeded or
+        failed — so we can compare it against what we predicted. Report
+        outcomes here, from the score detail drawer on the main dashboard,
+        or via{" "}
+        <code className="rounded bg-muted px-1 text-xs">POST /v1/outcomes</code>.
       </div>
 
       {loading && !data ? (
@@ -109,11 +119,39 @@ export default function OutcomesPage() {
             setPage(1);
           }}
         />
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
-          <DownloadIcon className="h-4 w-4" />
-          Export
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setReportOpen(true)}
+          >
+            <PlusIcon className="h-4 w-4" />
+            Report outcome
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
+            <DownloadIcon className="h-4 w-4" />
+            Export
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report outcome</DialogTitle>
+            <DialogDescription>
+              Record what happened when you attempted a collection.
+            </DialogDescription>
+          </DialogHeader>
+          <ReportOutcomeForm
+            variant="standalone"
+            onReported={() => {
+              setReportOpen(false);
+              refetch();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden p-0">
         {loading && !data ? (
