@@ -10,9 +10,13 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
 import { formatDate } from "@/lib/utils/format-date";
 import { displayScore, getRiskConfig } from "@/lib/utils/format-risk";
+import { ReportOutcomeForm } from "./report-outcome-form";
 
 interface RiskDetailContentProps {
   detail: ScoreDetailResponse;
+  /** Called after the clerk records an outcome — parent should refetch the
+   *  detail so the drawer flips from the form to the recorded outcome view. */
+  onOutcomeReported?: () => void;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -24,7 +28,10 @@ const ACTION_LABELS: Record<string, string> = {
 
 const SECTION_LABEL = "text-xs font-semibold uppercase tracking-wider text-muted-foreground";
 
-export function RiskDetailContent({ detail }: RiskDetailContentProps) {
+export function RiskDetailContent({
+  detail,
+  onOutcomeReported,
+}: RiskDetailContentProps) {
   const riskConfig = getRiskConfig(detail.risk_level);
   const ctx = detail.customer_context;
 
@@ -194,6 +201,45 @@ export function RiskDetailContent({ detail }: RiskDetailContentProps) {
           skippedFactors={detail.skipped_factors}
         />
       </div>
+
+      <Separator />
+
+      {/* Outcome — either the recorded result, or a form to capture it. */}
+      {detail.outcome ? (
+        <div className="space-y-2">
+          <h3 className={SECTION_LABEL}>Outcome</h3>
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span
+                className={cn(
+                  "font-semibold",
+                  detail.outcome.outcome === "SUCCESS"
+                    ? "text-emerald-400"
+                    : "text-red-400",
+                )}
+              >
+                {detail.outcome.outcome}
+              </span>
+              {detail.outcome.attempted_at && (
+                <span className="text-xs text-muted-foreground">
+                  Attempted {formatDate(detail.outcome.attempted_at)}
+                </span>
+              )}
+            </div>
+            {detail.outcome.failure_reason && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Reason: {detail.outcome.failure_reason}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <ReportOutcomeForm
+          scoreId={detail.score_id}
+          collectionId={detail.collection_id}
+          onReported={() => onOutcomeReported?.()}
+        />
+      )}
     </div>
   );
 }

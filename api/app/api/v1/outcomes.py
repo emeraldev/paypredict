@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import DASHBOARD_API_RESPONSES, LENDER_API_RESPONSES
 from app.database import get_db
-from app.dependencies import enforce_rate_limit, get_current_user
+from app.dependencies import enforce_rate_limit_or_jwt, get_current_user
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
@@ -33,7 +33,10 @@ router = APIRouter()
 )
 async def report_outcome(
     request: OutcomeRequest,
-    tenant: Tenant = Depends(enforce_rate_limit),
+    # Dual-auth: API key (rate-limited, same as before) OR dashboard JWT
+    # (rate-limit-bypassed, used by the "Report outcome" form in the
+    # risk-detail drawer). Same pattern as POST /v1/score.
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
 ) -> OutcomeResponse:
     """Report the result of a collection attempt."""
