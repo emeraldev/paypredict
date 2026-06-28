@@ -10,8 +10,17 @@ import { outcomesApi } from "@/lib/api/outcomes";
 import { cn } from "@/lib/utils";
 
 interface ReportOutcomeFormProps {
-  scoreId: string;
-  collectionId: string;
+  /** Pre-filled when the form is opened from a known score (e.g. the
+   *  risk-detail drawer). When omitted, the backend auto-links the outcome
+   *  by collection_id. */
+  scoreId?: string;
+  /** Pre-filled when known. When omitted, the form renders an input so the
+   *  clerk can type the collection reference themselves. */
+  collectionId?: string;
+  /** Render mode. "section" renders bare for embedding in the drawer.
+   *  "standalone" hides the "Report outcome" header (the dialog title
+   *  carries that), and shows the collection_id input when needed. */
+  variant?: "section" | "standalone";
   onReported: () => void;
 }
 
@@ -26,23 +35,29 @@ function nowForInput(): string {
 
 export function ReportOutcomeForm({
   scoreId,
-  collectionId,
+  collectionId: collectionIdProp,
+  variant = "section",
   onReported,
 }: ReportOutcomeFormProps) {
+  const [collectionIdInput, setCollectionIdInput] = useState("");
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [failureReason, setFailureReason] = useState("");
   const [attemptedAt, setAttemptedAt] = useState(nowForInput);
   const [submitting, setSubmitting] = useState(false);
 
+  // Use the prop when provided; otherwise the user-input value.
+  const effectiveCollectionId =
+    collectionIdProp ?? collectionIdInput.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!outcome) return;
+    if (!outcome || !effectiveCollectionId) return;
 
     setSubmitting(true);
     try {
       await outcomesApi.create({
         score_id: scoreId,
-        collection_id: collectionId,
+        collection_id: effectiveCollectionId,
         outcome,
         failure_reason:
           outcome === "FAILED" && failureReason.trim()
@@ -62,14 +77,37 @@ export function ReportOutcomeForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Report outcome
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          What happened when you attempted this collection?
-        </p>
-      </div>
+      {variant === "section" && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Report outcome
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            What happened when you attempted this collection?
+          </p>
+        </div>
+      )}
+
+      {/* collection_id input — only shown when not pre-filled */}
+      {collectionIdProp === undefined && (
+        <div>
+          <Label htmlFor="collection_id" className="text-xs">
+            Collection reference
+          </Label>
+          <Input
+            id="collection_id"
+            value={collectionIdInput}
+            onChange={(e) => setCollectionIdInput(e.target.value)}
+            placeholder="inst_001"
+            required
+            className="mt-1"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Your reference for the collection that was attempted. We&apos;ll
+            link this outcome to the matching score automatically.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <OutcomeButton
@@ -117,7 +155,11 @@ export function ReportOutcomeForm({
         />
       </div>
 
-      <Button type="submit" disabled={!outcome || submitting} className="w-full">
+      <Button
+        type="submit"
+        disabled={!outcome || !effectiveCollectionId || submitting}
+        className="w-full"
+      >
         {submitting ? "Recording…" : "Record outcome"}
       </Button>
     </form>
