@@ -62,6 +62,7 @@ class CustomerContext(BaseModel):
 class OutcomeSummary(BaseModel):
     """Linked outcome, or null if not yet reported."""
 
+    outcome_id: UUID
     outcome: str
     failure_reason: str | None = None
     attempted_at: datetime | None = None

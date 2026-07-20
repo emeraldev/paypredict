@@ -284,6 +284,7 @@ def _build_detail(
     outcome_summary = None
     if outcome:
         outcome_summary = OutcomeSummary(
+            outcome_id=outcome.id,
             outcome=outcome.outcome.value,
             failure_reason=outcome.failure_reason,
             attempted_at=outcome.attempted_at,

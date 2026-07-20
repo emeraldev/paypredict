@@ -4,18 +4,23 @@ Split by tag for OpenAPI grouping; the docs filter at the schema level keeps
 the dashboard endpoint out of the public Swagger UI.
 """
 from datetime import date
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.docs_config import DASHBOARD_API_RESPONSES, LENDER_API_RESPONSES
+from app.api.docs_config import (
+    DASHBOARD_API_RESPONSES,
+    LENDER_API_RESPONSES,
+    NOT_FOUND_RESPONSES,
+)
 from app.database import get_db
 from app.dependencies import enforce_rate_limit_or_jwt, get_current_user
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
 from app.schemas.outcomes_list import OutcomesListResponse
-from app.services.outcome_service import record_outcome
+from app.services.outcome_service import delete_outcome, record_outcome
 from app.services.outcomes_service import list_outcomes
 
 router = APIRouter()
@@ -85,3 +90,26 @@ async def outcomes_list(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+
+@router.delete(
+    "/outcomes/{outcome_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Dashboard Outcomes"],
+    responses={**DASHBOARD_API_RESPONSES, **NOT_FOUND_RESPONSES},
+)
+async def remove_outcome(
+    outcome_id: UUID,
+    # Dashboard-only — JWT required. We don't expose this to API key callers
+    # because deleting outcomes is destructive and shouldn't be reachable from
+    # a lender's automation by accident. Same auth rule as the rest of the
+    # /v1/outcomes GET surface.
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete an outcome. Clerks use this to fix a mistaken entry — the
+    correct workflow is delete + re-create, not edit, so the audit trail
+    stays clean (outcomes are part of the labelled dataset for ML)."""
+    deleted = await delete_outcome(db, user.tenant_id, outcome_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Outcome not found")

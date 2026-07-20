@@ -185,3 +185,115 @@ async def test_outcome_via_dashboard_jwt(async_client, sa_admin_user):
     assert r.json()["linked_score_id"] == score_id
     # No rate-limit headers on JWT path.
     assert "x-ratelimit-limit" not in {k.lower() for k in r.headers}
+
+
+# ---- DELETE /v1/outcomes/{id} (clerks fixing a mistaken entry) ----
+
+
+async def _login_jwt(client) -> str:
+    r = await client.post(
+        "/v1/auth/login",
+        json={"email": TEST_USER_EMAIL, "password": TEST_USER_PASSWORD},
+    )
+    return r.json()["token"]
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_success(async_client, sa_admin_user):
+    """Happy path: record an outcome via JWT, delete it, confirm it's gone."""
+    token = await _login_jwt(async_client)
+
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "collection_id": "col_to_delete",
+            "outcome": "FAILED",
+            "attempted_at": "2026-08-16T08:00:00Z",
+        },
+    )
+    outcome_id = r.json()["outcome_id"]
+
+    r = await async_client.delete(
+        f"/v1/outcomes/{outcome_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 204, r.text
+
+    r = await async_client.get(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert all(o["outcome_id"] != outcome_id for o in r.json()["items"])
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_unfreezes_score_for_relinking(
+    async_client, sa_admin_user
+):
+    """After delete, the score becomes un-outcomed — a fresh POST without
+    score_id auto-links to it via PR #24's lookup. Round-trips cleanly."""
+    token = await _login_jwt(async_client)
+    score_id = await _score(async_client, "col_refix")
+
+    # Wrong outcome first (clerk misclicks Failed instead of Succeeded)
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "score_id": score_id,
+            "collection_id": "col_refix",
+            "outcome": "FAILED",
+            "attempted_at": "2026-08-16T08:00:00Z",
+        },
+    )
+    wrong_outcome_id = r.json()["outcome_id"]
+
+    r = await async_client.delete(
+        f"/v1/outcomes/{wrong_outcome_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 204
+
+    # Re-create without score_id — auto-link should re-bind to the same score
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "collection_id": "col_refix",
+            "outcome": "SUCCESS",
+            "attempted_at": "2026-08-16T08:00:00Z",
+        },
+    )
+    assert r.status_code == 201
+    assert r.json()["linked_score_id"] == score_id
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_not_found(async_client, sa_admin_user):
+    token = await _login_jwt(async_client)
+    r = await async_client.delete(
+        "/v1/outcomes/00000000-0000-0000-0000-000000000000",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_requires_auth(async_client, sa_tenant):
+    r = await async_client.delete(
+        "/v1/outcomes/00000000-0000-0000-0000-000000000000",
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_rejects_api_key(async_client, sa_tenant):
+    """Delete is dashboard-only — an API-key caller should be rejected even if
+    it's a valid key. Prevents lender automation from accidentally deleting."""
+    r = await async_client.delete(
+        "/v1/outcomes/00000000-0000-0000-0000-000000000000",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+    )
+    # 401 because get_current_user only accepts JWTs, not API keys.
+    assert r.status_code == 401

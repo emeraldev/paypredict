@@ -1,10 +1,13 @@
 import { CalendarIcon, TrendingDownIcon, ZapIcon } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { FactorBreakdown } from "@/components/shared/factor-breakdown";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
+import { outcomesApi } from "@/lib/api/outcomes";
 import type { ScoreDetailResponse } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/format-currency";
@@ -34,6 +37,29 @@ export function RiskDetailContent({
 }: RiskDetailContentProps) {
   const riskConfig = getRiskConfig(detail.risk_level);
   const ctx = detail.customer_context;
+  const [removingOutcome, setRemovingOutcome] = useState(false);
+
+  const handleRemoveOutcome = async () => {
+    if (!detail.outcome) return;
+    if (
+      !window.confirm(
+        "Remove this outcome? You can record a new one in its place.",
+      )
+    )
+      return;
+    setRemovingOutcome(true);
+    try {
+      await outcomesApi.remove(detail.outcome.outcome_id);
+      toast.success("Outcome removed");
+      onOutcomeReported?.();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove outcome",
+      );
+    } finally {
+      setRemovingOutcome(false);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -231,6 +257,14 @@ export function RiskDetailContent({
                 Reason: {detail.outcome.failure_reason}
               </p>
             )}
+            <button
+              type="button"
+              onClick={handleRemoveOutcome}
+              disabled={removingOutcome}
+              className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+            >
+              {removingOutcome ? "Removing…" : "Wrong entry? Remove and re-record"}
+            </button>
           </div>
         </div>
       ) : (

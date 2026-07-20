@@ -112,3 +112,25 @@ async def _lookup_unmatched_score(
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def delete_outcome(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    outcome_id: uuid.UUID,
+) -> bool:
+    """Delete an outcome for the given tenant. Returns True if deleted, False
+    if no row matched (404 path). The tenant filter prevents cross-tenant
+    deletion via id-guessing."""
+    result = await db.execute(
+        select(Outcome).where(
+            Outcome.id == outcome_id,
+            Outcome.tenant_id == tenant_id,
+        )
+    )
+    outcome = result.scalar_one_or_none()
+    if outcome is None:
+        return False
+    await db.delete(outcome)
+    await db.flush()
+    return True
