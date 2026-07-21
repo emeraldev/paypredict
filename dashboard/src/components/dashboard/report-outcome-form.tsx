@@ -17,6 +17,13 @@ interface ReportOutcomeFormProps {
   /** Pre-filled when known. When omitted, the form renders an input so the
    *  clerk can type the collection reference themselves. */
   collectionId?: string;
+  /** Currency label ("ZAR"/"ZMW") shown next to the amount-collected input.
+   *  Only rendered when SUCCESS is picked. */
+  currency?: string;
+  /** Pre-fills the amount-collected input with the expected full amount.
+   *  The drawer knows this from the score row; the standalone form doesn't
+   *  and leaves it blank so the clerk can type it. Only used when SUCCESS. */
+  suggestedAmount?: number;
   /** Render mode. "section" renders bare for embedding in the drawer.
    *  "standalone" hides the "Report outcome" header (the dialog title
    *  carries that), and shows the collection_id input when needed. */
@@ -36,12 +43,17 @@ function nowForInput(): string {
 export function ReportOutcomeForm({
   scoreId,
   collectionId: collectionIdProp,
+  currency,
+  suggestedAmount,
   variant = "section",
   onReported,
 }: ReportOutcomeFormProps) {
   const [collectionIdInput, setCollectionIdInput] = useState("");
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [failureReason, setFailureReason] = useState("");
+  const [amountCollected, setAmountCollected] = useState(
+    suggestedAmount != null ? String(suggestedAmount) : "",
+  );
   const [attemptedAt, setAttemptedAt] = useState(nowForInput);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,6 +65,14 @@ export function ReportOutcomeForm({
     e.preventDefault();
     if (!outcome || !effectiveCollectionId) return;
 
+    // Only send amount_collected on SUCCESS + when the clerk actually
+    // entered a value. On FAILED it's meaningless; on blank it stays null
+    // so the API records "amount not tracked."
+    const amountValue =
+      outcome === "SUCCESS" && amountCollected.trim()
+        ? parseFloat(amountCollected)
+        : undefined;
+
     setSubmitting(true);
     try {
       await outcomesApi.create({
@@ -63,6 +83,7 @@ export function ReportOutcomeForm({
           outcome === "FAILED" && failureReason.trim()
             ? failureReason.trim()
             : undefined,
+        amount_collected: amountValue,
         // datetime-local has no timezone — treat as local time, send ISO.
         attempted_at: new Date(attemptedAt).toISOString(),
       });
@@ -138,6 +159,31 @@ export function ReportOutcomeForm({
             placeholder="insufficient_funds, account_closed, ..."
             className="mt-1"
           />
+        </div>
+      )}
+
+      {outcome === "SUCCESS" && (
+        <div>
+          <Label htmlFor="amount_collected" className="text-xs">
+            Amount collected {currency ? `(${currency})` : ""}{" "}
+            <span className="font-normal text-muted-foreground">— optional</span>
+          </Label>
+          <Input
+            id="amount_collected"
+            type="number"
+            step="0.01"
+            min="0"
+            value={amountCollected}
+            onChange={(e) => setAmountCollected(e.target.value)}
+            placeholder={
+              suggestedAmount != null ? String(suggestedAmount) : "e.g. 833.33"
+            }
+            className="mt-1"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Leave blank if the full amount was collected. Only fill in for
+            partial payments (more common on mobile wallet).
+          </p>
         </div>
       )}
 
