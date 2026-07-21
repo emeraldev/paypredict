@@ -37,4 +37,7 @@ export const outcomesApi = {
 
   create: (payload: ReportOutcomePayload) =>
     api.post<OutcomeCreatedResponse>("/v1/outcomes", payload),
+
+  remove: (outcomeId: string) =>
+    api.delete<void>(`/v1/outcomes/${outcomeId}`),
 };

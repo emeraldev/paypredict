@@ -167,6 +167,7 @@ export interface CustomerContext {
 }
 
 export interface OutcomeSummaryInDetail {
+  outcome_id: string;
   outcome: string;
   failure_reason: string | null;
   attempted_at: string | null;

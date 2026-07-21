@@ -17,12 +17,18 @@ interface OutcomesTableProps {
   outcomes: OutcomeListItem[];
   filter?: OutcomeFilter;
   onClearFilter?: () => void;
+  onRemoved?: () => void;
 }
 
 const HEADER_CLS =
   "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
-export function OutcomesTable({ outcomes, filter, onClearFilter }: OutcomesTableProps) {
+export function OutcomesTable({
+  outcomes,
+  filter,
+  onClearFilter,
+  onRemoved,
+}: OutcomesTableProps) {
   if (outcomes.length === 0) {
     if (filter && filter !== "ALL") {
       const label =
@@ -69,11 +75,18 @@ export function OutcomesTable({ outcomes, filter, onClearFilter }: OutcomesTable
             >
               Match
             </TableHead>
+            <TableHead className={`${HEADER_CLS} w-8`}>
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {outcomes.map((outcome) => (
-            <OutcomesTableRow key={outcome.outcome_id} outcome={outcome} />
+            <OutcomesTableRow
+              key={outcome.outcome_id}
+              outcome={outcome}
+              onRemoved={onRemoved}
+            />
           ))}
         </TableBody>
       </Table>

@@ -165,6 +165,7 @@ export default function OutcomesPage() {
                 setFilter("ALL");
                 setPage(1);
               }}
+              onRemoved={refetch}
             />
             {data && (
               <div className="border-t border-border">
