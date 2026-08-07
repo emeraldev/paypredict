@@ -1,10 +1,22 @@
-"""Factor weight configuration — appears in the public lender docs and is
-also consumed by the dashboard. Accepts either an API key or a JWT.
-When the caller is a dashboard user (JWT), a notification is created with
-that user as the actor; API-key calls record the tenant name instead."""
+"""Factor weight configuration.
+
+Weights are stored per collection method — every scoring request already
+carries `collection_method`, and the engine uses that to pick which
+factor bundle applies. A single tenant that collects via multiple
+methods (card + debit order, or payroll + card) tunes each independently.
+
+GET returns a grouped view: one entry per method the tenant actually
+uses (has scored at least once OR has saved custom weights for). A
+payroll-only lender sees one entry, not four.
+
+PUT touches ONE method at a time — a payload for CARD leaves the
+tenant's PAYROLL weights untouched. Weights must sum to 1.0 (±0.01) and
+every factor name must belong to the method's bundle.
+
+Accepts either an API key (rate-limited) or a JWT (ADMIN only).
+"""
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import LENDER_API_RESPONSES
@@ -14,63 +26,127 @@ from app.dependencies import (
     get_current_user,
     session_security,
 )
-from app.models.factor_weight import FactorWeight
+from app.models.score_request import CollectionMethod
 from app.models.tenant import Tenant
-from app.models.user import User
+from app.models.user import User, UserRole
+from app.schemas.config import (
+    WeightsFactorEntry,
+    WeightsMethodEntry,
+    WeightsResponse,
+    WeightsUpdateRequest,
+)
+from app.scoring.registry import (
+    FACTOR_DESCRIPTIONS,
+    FACTOR_LABELS,
+    METHOD_LABELS,
+    get_factors_for_method,
+)
+from app.services.weights_service import (
+    get_effective_weights_for_method,
+    list_configured_methods,
+    upsert_weights_for_method,
+)
 
 router = APIRouter(prefix="/config", tags=["Configuration"], responses=LENDER_API_RESPONSES)
 
 
-@router.get("/weights")
+WEIGHT_SUM_TOLERANCE = 0.01
+
+
+async def _build_response(
+    db: AsyncSession, tenant: Tenant
+) -> WeightsResponse:
+    """Compose the grouped GET body from persisted rows + defaults."""
+    methods = await list_configured_methods(db, tenant.id)
+    entries: list[WeightsMethodEntry] = []
+
+    for method in methods:
+        effective = await get_effective_weights_for_method(db, tenant.id, method)
+        # Preserve bundle-registry order — the dashboard renders sliders in
+        # the order the API returns.
+        ordered_names = list(get_factors_for_method(method).keys())
+        factors = [
+            WeightsFactorEntry(
+                factor_name=name,
+                label=FACTOR_LABELS.get(name, name),
+                description=FACTOR_DESCRIPTIONS.get(name, ""),
+                weight=effective[name],
+            )
+            for name in ordered_names
+        ]
+        entries.append(
+            WeightsMethodEntry(
+                collection_method=method,
+                method_label=METHOD_LABELS[method],
+                factors=factors,
+                total_weight=round(sum(f.weight for f in factors), 4),
+            )
+        )
+
+    return WeightsResponse(methods=entries)
+
+
+@router.get("/weights", response_model=WeightsResponse)
 async def get_weights(
     tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Return the tenant's factor weights."""
-    result = await db.execute(
-        select(FactorWeight)
-        .where(FactorWeight.tenant_id == tenant.id)
-        .order_by(FactorWeight.factor_name)
-    )
-    weights = result.scalars().all()
-    return {
-        "factor_set": tenant.factor_set.value,
-        "weights": [
-            {"factor_name": w.factor_name, "weight": w.weight}
-            for w in weights
-        ],
-    }
+) -> WeightsResponse:
+    """Return current factor weights grouped by collection method.
+
+    Only methods this tenant actually uses appear in the response.
+    """
+    return await _build_response(db, tenant)
 
 
-@router.put("/weights")
+@router.put("/weights", response_model=WeightsResponse)
 async def update_weights(
-    body: dict,
+    body: WeightsUpdateRequest,
     tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
     credentials: HTTPAuthorizationCredentials | None = Security(session_security),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Update the tenant's factor weights.
+) -> WeightsResponse:
+    """Update the tenant's factor weights for ONE collection method.
 
-    Body: { "weights": { "factor_name": 0.25, ... } }
+    Body:
+      {
+        "collection_method": "PAYROLL",
+        "weights": { "threshold_headroom": 0.30, ... }
+      }
+
+    ADMIN-only when called via JWT; API-key callers are implicitly
+    trusted (the key belongs to the tenant).
     """
-    new_weights: dict[str, float] = body.get("weights", {})
-    if not new_weights:
-        return await get_weights(tenant=tenant, db=db)
+    method = body.collection_method
 
-    result = await db.execute(
-        select(FactorWeight).where(FactorWeight.tenant_id == tenant.id)
-    )
-    existing = {w.factor_name: w for w in result.scalars().all()}
+    # Validate every submitted factor name belongs to this method's bundle.
+    # Cheap upfront check keeps the DB out of the failure mode.
+    valid_factors = set(get_factors_for_method(method).keys())
+    unknown = set(body.weights.keys()) - valid_factors
+    if unknown:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Unknown factor names for {method.value}",
+                "unknown_factors": sorted(unknown),
+                "valid_factors": sorted(valid_factors),
+            },
+        )
+
+    total = sum(body.weights.values())
+    if abs(total - 1.0) > WEIGHT_SUM_TOLERANCE:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Weights for {method.value} must sum to 1.0 "
+                f"(±{WEIGHT_SUM_TOLERANCE}); got {round(total, 4)}"
+            ),
+        )
 
     # Identify the acting user when the call came in via JWT so the
-    # notification has a real actor; API-key callers record the tenant.
-    # API-key callers are implicitly trusted (the key belongs to the
-    # tenant); JWT callers must be ADMIN — a Manager/Viewer can read
-    # weights but cannot rewrite them.
+    # notification has a real actor. API-key callers are implicitly
+    # trusted (the key belongs to the tenant); JWT callers must be ADMIN.
     actor_user: User | None = None
     if credentials and not credentials.credentials.startswith("pk_"):
-        from app.models.user import UserRole
-
         actor_user = await get_current_user(credentials, db)
         if actor_user.role != UserRole.ADMIN:
             raise HTTPException(
@@ -78,19 +154,27 @@ async def update_weights(
                 detail="Admin role required to update factor weights",
             )
 
-    for factor_name, weight in new_weights.items():
-        if factor_name in existing:
-            existing[factor_name].weight = weight
-            existing[factor_name].updated_by = actor_user.id if actor_user else None
-
-    await db.flush()
+    await upsert_weights_for_method(
+        db,
+        tenant.id,
+        method,
+        body.weights,
+        updated_by=actor_user.id if actor_user else None,
+    )
 
     from app.services.notification_service import EventType, create_notification
+
     await create_notification(
-        db, tenant.id, EventType.WEIGHTS_UPDATED,
-        metadata={"actor_name": actor_user.name if actor_user else "API key"},
+        db,
+        tenant.id,
+        EventType.WEIGHTS_UPDATED,
+        metadata={
+            "actor_name": actor_user.name if actor_user else "API key",
+            "collection_method": method.value,
+            "method_label": METHOD_LABELS[method],
+        },
         actor_id=actor_user.id if actor_user else None,
     )
 
     await db.commit()
-    return await get_weights(tenant=tenant, db=db)
+    return await _build_response(db, tenant)

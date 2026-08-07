@@ -130,3 +130,63 @@ def get_default_weights(factor_set: str) -> dict[str, float]:
     """DEPRECATED: use `get_default_weights_for_method`."""
     factors = get_factors_for_set(factor_set)
     return {name: weight for name, (_, weight) in factors.items()}
+
+
+# Plain-English display names + one-liner descriptions for every factor
+# name across every bundle. Surfaced in the weights API response so the
+# dashboard and integrators see the same wording without duplicating the
+# mapping. Must stay in sync with the dashboard's FACTOR_LABELS /
+# FACTOR_DESCRIPTIONS (the dashboard falls back to these client-side
+# copies if the API happens to add a new factor before the frontend ships).
+FACTOR_LABELS: dict[str, str] = {
+    "historical_failure_rate": "Past failure rate",
+    "day_of_month_vs_payday": "Date vs payday",
+    "days_since_last_payment": "Days since last payment",
+    "instalment_position": "Where in the instalment plan",
+    "order_value_vs_average": "Amount vs customer typical",
+    "card_health": "Card health (expiry & declines)",
+    "card_type": "Card type (debit/credit)",
+    "debit_order_return_history": "Past debit order returns",
+    "wallet_balance_trend": "Wallet balance trend",
+    "time_since_last_inflow": "Time since last wallet inflow",
+    "salary_cycle_alignment": "Aligned with income timing",
+    "concurrent_loan_count": "Active loans count",
+    "transaction_velocity": "Wallet activity change",
+    "airtime_purchase_pattern": "Airtime buying regularity",
+    "loan_cycling_behaviour": "Loan stacking pattern",
+    "threshold_headroom": "Salary threshold headroom",
+    "deduction_to_income_ratio": "Deduction vs income",
+    "resubmission_history": "Deduction resubmission history",
+    "borrower_segment": "Employment sector",
+}
+
+
+FACTOR_DESCRIPTIONS: dict[str, str] = {
+    "historical_failure_rate": "Past payment success/failure ratio",
+    "day_of_month_vs_payday": "Alignment with salary timing",
+    "days_since_last_payment": "Recency of last successful payment",
+    "instalment_position": "Position in the instalment plan",
+    "order_value_vs_average": "Collection amount vs customer history",
+    "card_health": "Card expiry and decline history",
+    "card_type": "Credit vs debit card risk",
+    "debit_order_return_history": "EFT return code patterns",
+    "wallet_balance_trend": "7-day wallet balance direction",
+    "time_since_last_inflow": "Hours since last wallet top-up",
+    "salary_cycle_alignment": "Collection vs income timing",
+    "concurrent_loan_count": "Number of active loans",
+    "transaction_velocity": "Recent transaction activity changes",
+    "airtime_purchase_pattern": "Airtime buying regularity",
+    "loan_cycling_behaviour": "Borrowing to repay pattern",
+    "threshold_headroom": "Room before hitting the regulatory deduction cap",
+    "deduction_to_income_ratio": "Deduction size relative to borrower's income",
+    "resubmission_history": "Past deductions resubmitted at lower amounts",
+    "borrower_segment": "Employment sector risk (government/mining/private)",
+}
+
+
+METHOD_LABELS: dict[CollectionMethod, str] = {
+    CollectionMethod.CARD: "Card",
+    CollectionMethod.DEBIT_ORDER: "Debit Order",
+    CollectionMethod.MOBILE_MONEY: "Mobile Money",
+    CollectionMethod.PAYROLL: "Payroll",
+}

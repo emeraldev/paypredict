@@ -184,10 +184,43 @@ PUBLIC_TAG_METADATA = [
     },
     {
         "name": "Configuration",
-        "description": (
-            "Read and update scoring factor weights. Weights control how "
-            "much each risk factor contributes to the final score."
-        ),
+        "description": """\
+Read and update scoring factor weights. Weights control how much each
+risk factor contributes to the final score.
+
+**Weights are stored per collection method.** Every scoring request
+already carries `collection_method`, and the engine uses that value to
+pick which factor bundle applies. A single tenant that collects via
+multiple methods — for example card + debit order, or payroll + card —
+tunes each method independently.
+
+`GET /v1/config/weights` returns a grouped view: one entry per method
+your tenant actually uses (has scored at least one collection with OR
+has saved custom weights for). A payroll-only lender sees one entry.
+
+`PUT /v1/config/weights` updates **one** method at a time. Supply the
+`collection_method` in the body — a PUT for `PAYROLL` leaves your
+`CARD` weights untouched. Weights must sum to 1.0 (±0.01 tolerance) and
+every factor name must belong to the method's bundle.
+
+**Example PUT body**:
+
+```json
+{
+  "collection_method": "PAYROLL",
+  "weights": {
+    "threshold_headroom": 0.30,
+    "historical_failure_rate": 0.20,
+    "deduction_to_income_ratio": 0.15,
+    "concurrent_loan_count": 0.15,
+    "resubmission_history": 0.10,
+    "borrower_segment": 0.05,
+    "loan_cycling_behaviour": 0.03,
+    "instalment_position": 0.02
+  }
+}
+```
+""",
     },
     {
         "name": "Webhooks",

@@ -1,9 +1,10 @@
-"""Pydantic schemas for dashboard config endpoints (api-keys, team, alerts)."""
+"""Pydantic schemas for dashboard config endpoints (api-keys, team, alerts, weights)."""
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.score_request import CollectionMethod
 from app.models.tenant import EmailDigest
 from app.models.user import UserRole
 
@@ -83,3 +84,48 @@ class AlertsConfigUpdateRequest(BaseModel):
     slack_webhook_url: str | None = None
     email_digest: EmailDigest | None = None
     email_recipients: list[str] | None = None
+
+
+# ---- Weights (per collection method) ----
+
+class WeightsFactorEntry(BaseModel):
+    """One factor's weight for a specific collection method.
+
+    `label` and `description` are inlined so integrators and the
+    dashboard see the same plain-English name for each factor without
+    duplicating the mapping.
+    """
+    factor_name: str
+    label: str
+    description: str
+    weight: float
+
+
+class WeightsMethodEntry(BaseModel):
+    """All factors + weights that apply to one collection method."""
+    collection_method: CollectionMethod
+    method_label: str
+    factors: list[WeightsFactorEntry]
+    total_weight: float
+
+
+class WeightsResponse(BaseModel):
+    """Grouped view: one entry per collection method the tenant uses.
+
+    Only methods where the tenant has scored at least one collection OR
+    saved custom weights appear here. A payroll-only lender receives one
+    entry; a lender running card + debit_order receives two.
+    """
+    methods: list[WeightsMethodEntry]
+
+
+class WeightsUpdateRequest(BaseModel):
+    """PUT payload — updates weights for ONE method only.
+
+    Cross-method isolation: a PUT that tunes CARD leaves the tenant's
+    PAYROLL weights untouched. Every factor in `weights` must belong to
+    the method's bundle; unknown names are rejected with 400. Weights
+    must sum to 1.0 (±0.01 tolerance).
+    """
+    collection_method: CollectionMethod
+    weights: dict[str, float] = Field(min_length=1)
