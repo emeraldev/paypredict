@@ -33,7 +33,7 @@ from app.models.notification import Notification, NotificationCategory, Notifica
 from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.user import User, UserRole
 from app.scoring.engine import ScoringEngine
-from app.scoring.registry import get_default_weights
+from app.scoring.registry import get_default_weights, get_default_weights_for_method
 from app.scoring.timing_optimiser import optimise_collection_date
 from app.services.auth_service import hash_password
 
@@ -310,19 +310,28 @@ async def seed(reseed: bool = False) -> None:
         ))
 
         # ---- Factor Weights ----
-        for tenant, factor_set in [
-            (sa_tenant, "CARD_DEBIT"),
-            (zm_tenant, "MOBILE_WALLET"),
-            (fresh_tenant, "CARD_DEBIT"),
-            (payroll_tenant, "PAYROLL"),
-        ]:
-            for factor_name, weight in get_default_weights(factor_set).items():
-                db.add(FactorWeight(
-                    tenant_id=tenant.id,
-                    factor_name=factor_name,
-                    weight=weight,
-                    updated_at=now,
-                ))
+        # Weights are per collection method. Each tenant gets one row per
+        # (method, factor) for every method their business actually uses —
+        # mirrors what the migration backfilled and what the weights UI
+        # expects to see. CARD_DEBIT tenants get both CARD and DEBIT_ORDER
+        # (they'll appear as two sub-tabs in the dashboard); the wallet and
+        # payroll tenants get one method each.
+        tenant_methods: list[tuple[object, list[CollectionMethod]]] = [
+            (sa_tenant, [CollectionMethod.CARD, CollectionMethod.DEBIT_ORDER]),
+            (zm_tenant, [CollectionMethod.MOBILE_MONEY]),
+            (fresh_tenant, [CollectionMethod.CARD, CollectionMethod.DEBIT_ORDER]),
+            (payroll_tenant, [CollectionMethod.PAYROLL]),
+        ]
+        for tenant, methods in tenant_methods:
+            for method in methods:
+                for factor_name, weight in get_default_weights_for_method(method).items():
+                    db.add(FactorWeight(
+                        tenant_id=tenant.id,
+                        collection_method=method.value,
+                        factor_name=factor_name,
+                        weight=weight,
+                        updated_at=now,
+                    ))
 
         # ---- Users ----
         admin_hash = hash_password("admin123")
@@ -799,7 +808,12 @@ async def seed(reseed: bool = False) -> None:
             status=BacktestStatus.COMPLETED,
             total_collections=50,
             factor_set_used="CARD_DEBIT",
-            weights_used=get_default_weights("CARD_DEBIT"),
+            # New per-method shape: `weights_used[method] = {factor: weight}`
+            # so replays can tell which method each row was measured against.
+            weights_used={
+                CollectionMethod.CARD.value: get_default_weights_for_method(CollectionMethod.CARD),
+                CollectionMethod.DEBIT_ORDER.value: get_default_weights_for_method(CollectionMethod.DEBIT_ORDER),
+            },
             summary={
                 "overall_accuracy": round(bt_accuracy, 3),
                 "collection_rate_actual": round(1 - len(bt_failed) / 50, 3),
