@@ -64,17 +64,23 @@ async def test_under_limit_succeeds_with_headers(
 async def test_over_limit_returns_429_with_retry_after(
     async_client, sa_tenant, reset_rate_limit_redis, monkeypatch
 ):
-    """Exceeding the tenant's tier limit returns 429 + Retry-After."""
-    # Shrink the STARTER limit so 2 requests exhaust it.
-    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 2)
+    """Exceeding the tenant's tier limit returns 429 + Retry-After.
 
-    for _ in range(2):
-        ok = await async_client.post("/v1/score", headers=_auth(), json=_SCORE_PAYLOAD)
-        assert ok.status_code == 200, ok.text
+    Uses a limit of 1 (not 2) so only 2 sequential HTTP requests are needed.
+    Three requests straddling a minute-window boundary in slow CI runners
+    would land in different buckets and no 429 fires — that flake actually
+    happened on PR #32's CI run. Reducing to 1 keeps the semantic (over-
+    limit returns 429 + correct headers + Retry-After) with less timing
+    exposure.
+    """
+    monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 1)
+
+    ok = await async_client.post("/v1/score", headers=_auth(), json=_SCORE_PAYLOAD)
+    assert ok.status_code == 200, ok.text
 
     blocked = await async_client.post("/v1/score", headers=_auth(), json=_SCORE_PAYLOAD)
     assert blocked.status_code == 429, blocked.text
-    assert blocked.headers["X-RateLimit-Limit"] == "2"
+    assert blocked.headers["X-RateLimit-Limit"] == "1"
     assert blocked.headers["X-RateLimit-Remaining"] == "0"
     assert int(blocked.headers["Retry-After"]) >= 1
     body = blocked.json()
