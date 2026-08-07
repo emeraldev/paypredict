@@ -16,7 +16,7 @@ The top-level entity. Each lender is a tenant.
 id:                  uuid, PK
 name:                string, not null          # "PayJustNow", "MTN Kongola"
 market:              enum (SA, ZM), not null   # Country — determines currency, payday defaults, regulation
-factor_set:          enum (CARD_DEBIT, MOBILE_WALLET, CUSTOM), not null  # Collection method — determines which factors to use
+factor_set:          enum (CARD_DEBIT, MOBILE_WALLET, PAYROLL, CUSTOM), not null  # DEPRECATED — retained for backward compat; scoring now reads collection_method per request
 is_active:           boolean, default true
 plan:                enum (PILOT, STARTER, GROWTH, SCALE), default PILOT
 webhook_url:         string, nullable          # For async results + alerts
@@ -49,18 +49,29 @@ INDEX: (tenant_id, is_active)
 
 ### FACTOR_WEIGHT
 
-Per-tenant configurable scoring weights. Seeded with defaults on tenant creation.
+Per-tenant configurable scoring weights, scoped per collection method.
+Seeded with defaults on tenant creation for every method the tenant uses.
 
 ```
 id:                  uuid, PK
 tenant_id:           uuid, FK → Tenant, not null
+collection_method:   string, not null          # "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY" | "PAYROLL"
 factor_name:         string, not null          # "historical_failure_rate", "wallet_balance_trend"
 weight:              float, not null           # 0.0 to 1.0
 updated_at:          datetime, not null
 updated_by:          uuid, FK → User, nullable
 
-UNIQUE: (tenant_id, factor_name)
+UNIQUE: (tenant_id, collection_method, factor_name)
 ```
+
+Weights are stored per `collection_method`. A tenant that collects via
+multiple methods (e.g. card + debit order, or payroll + card) tunes
+each independently. A single `PUT /v1/config/weights` touches one
+method only.
+
+`tenant.factor_set` is deprecated: it no longer drives which bundle
+loads. The scoring path reads `collection_method` on each request and
+looks up the bundle via `app.scoring.registry.METHOD_FACTOR_SETS`.
 
 ### SCORE_REQUEST
 
@@ -195,7 +206,7 @@ This keeps our schema simple and avoids duplicating the lender's data model, whi
 
 ### Why JSONB for factors?
 
-Factor sets differ between collection methods (CARD_DEBIT has 8, MOBILE_WALLET has 8, some shared). The `factor_set` describes the collection method, not the geography — `market` (SA, ZM) is a separate field on the Tenant. New factors can be added without schema changes. The JSONB column stores the full breakdown array. Querying individual factors is possible via PostgreSQL JSONB operators when needed for analytics.
+Factor bundles differ between collection methods (each of CARD_DEBIT, MOBILE_WALLET, and PAYROLL has 8 factors, some shared). Bundles are keyed by `collection_method` per scoring request — the tenant-level `factor_set` field is no longer read by the scoring path. `market` (SA, ZM) is still a separate field on the Tenant and drives currency + regulatory context. New factors can be added without schema changes. The JSONB column stores the full breakdown array. Querying individual factors is possible via PostgreSQL JSONB operators when needed for analytics.
 
 ### Why separate ScoreRequest and ScoreResult?
 
@@ -207,6 +218,6 @@ ScoreRequest captures input. ScoreResult captures output. This separation means:
 ### Tenant seeding
 
 When a new tenant is created:
-1. Generate default FactorWeight records based on their factor_set (CARD_DEBIT or MOBILE_WALLET defaults)
+1. Generate default FactorWeight records for every collection method the tenant collects with (one row per (method, factor) pair). CARD_DEBIT tenants get CARD + DEBIT_ORDER; MOBILE_WALLET tenants get MOBILE_MONEY; PAYROLL tenants get PAYROLL.
 2. Generate a first API key (return the raw key once, then only store the hash)
 3. Create an ADMIN user for the dashboard

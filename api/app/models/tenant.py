@@ -16,6 +16,22 @@ class Market(str, enum.Enum):
 
 
 class FactorSet(str, enum.Enum):
+    """DEPRECATED. `tenant.factor_set` no longer drives which factor
+    bundle the scoring engine loads — every scoring request already
+    carries `collection_method`, and the engine uses THAT to pick the
+    bundle (see `app.scoring.registry.METHOD_FACTOR_SETS`).
+
+    The column is retained for backward compatibility only:
+    - `backtest_runs.factor_set_used` still records the tenant's default
+      set at time of run (a coarse audit signal — scheduled for removal
+      in a later cleanup once nothing reads it).
+    - Auth response payloads still carry the field for any legacy
+      dashboard build that reads it.
+
+    Do not add any new code path that reads `tenant.factor_set`. Do not
+    delete the column without a schema migration and a coordinated
+    dashboard release."""
+
     CARD_DEBIT = "CARD_DEBIT"          # Card-on-file + debit order collections
     MOBILE_WALLET = "MOBILE_WALLET"    # Mobile money wallet auto-deductions
     PAYROLL = "PAYROLL"                # Payroll deduction (salary advances, Zambia)

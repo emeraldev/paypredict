@@ -333,3 +333,94 @@ async def test_alerts_partial_update(async_client, sa_admin_user):
 async def test_alerts_no_auth(async_client, sa_tenant):
     r = await async_client.get("/v1/config/alerts")
     assert r.status_code == 401
+
+
+# ==================== Weights (per collection method) ====================
+
+
+CARD_WEIGHTS = {
+    "historical_failure_rate": 0.25,
+    "day_of_month_vs_payday": 0.20,
+    "days_since_last_payment": 0.15,
+    "instalment_position": 0.10,
+    "order_value_vs_average": 0.10,
+    "card_health": 0.10,
+    "card_type": 0.05,
+    "debit_order_return_history": 0.05,
+}
+
+
+@pytest.mark.asyncio
+async def test_get_weights_grouped_by_method(async_client, sa_admin_user):
+    """The SA test tenant is seeded with weights for CARD + DEBIT_ORDER.
+    GET should return both, each with its label and 8 factors."""
+    token = await _login(async_client)
+    r = await async_client.get("/v1/config/weights", headers=_auth(token))
+    assert r.status_code == 200
+    body = r.json()
+    methods = {m["collection_method"]: m for m in body["methods"]}
+    assert set(methods.keys()) == {"CARD", "DEBIT_ORDER"}
+    for entry in methods.values():
+        assert entry["method_label"] in ("Card", "Debit Order")
+        assert len(entry["factors"]) == 8
+        # Each factor carries its plain-English label and one-liner.
+        for f in entry["factors"]:
+            assert f["label"]
+            assert f["description"]
+        assert abs(entry["total_weight"] - 1.0) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_put_weights_isolates_method(async_client, sa_admin_user):
+    """PUT for CARD must leave DEBIT_ORDER weights untouched — the whole
+    point of the per-method schema."""
+    token = await _login(async_client)
+
+    # Skew CARD weights toward historical_failure_rate.
+    skewed = {**CARD_WEIGHTS, "historical_failure_rate": 0.40, "day_of_month_vs_payday": 0.05}
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": skewed},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    methods = {m["collection_method"]: m for m in body["methods"]}
+    card_hfr = next(f for f in methods["CARD"]["factors"] if f["factor_name"] == "historical_failure_rate")
+    debit_hfr = next(f for f in methods["DEBIT_ORDER"]["factors"] if f["factor_name"] == "historical_failure_rate")
+    assert card_hfr["weight"] == 0.40
+    assert debit_hfr["weight"] == 0.25, (
+        "DEBIT_ORDER weights should be untouched by a CARD-only PUT"
+    )
+
+
+@pytest.mark.asyncio
+async def test_put_weights_rejects_wrong_sum(async_client, sa_admin_user):
+    token = await _login(async_client)
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={
+            "collection_method": "CARD",
+            "weights": {"historical_failure_rate": 0.5},
+        },
+    )
+    assert r.status_code == 400
+    assert "sum" in r.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_put_weights_rejects_unknown_factor_for_method(async_client, sa_admin_user):
+    """threshold_headroom belongs to PAYROLL, not CARD — reject it loudly."""
+    token = await _login(async_client)
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={
+            "collection_method": "CARD",
+            "weights": {**CARD_WEIGHTS, "threshold_headroom": 0.10},
+        },
+    )
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "threshold_headroom" in detail["unknown_factors"]

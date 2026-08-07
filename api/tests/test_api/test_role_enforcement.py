@@ -128,7 +128,22 @@ async def test_regenerate_webhook_secret_requires_admin(
 async def test_update_weights_requires_admin_on_jwt(
     async_client, sa_admin_user, sa_manager_user, sa_viewer_user
 ):
-    body = {"weights": {"historical_failure_rate": 0.25}}
+    # Weights payloads are per-method now; supply a full valid CARD bundle
+    # so the request itself is well-formed and only role enforcement can
+    # cause a 403.
+    body = {
+        "collection_method": "CARD",
+        "weights": {
+            "historical_failure_rate": 0.25,
+            "day_of_month_vs_payday": 0.20,
+            "days_since_last_payment": 0.15,
+            "instalment_position": 0.10,
+            "order_value_vs_average": 0.10,
+            "card_health": 0.10,
+            "card_type": 0.05,
+            "debit_order_return_history": 0.05,
+        },
+    }
     admin = await _token(async_client, TEST_USER_EMAIL)
     manager = await _token(async_client, TEST_MANAGER_EMAIL)
     viewer = await _token(async_client, TEST_VIEWER_EMAIL)
@@ -145,7 +160,19 @@ async def test_update_weights_via_api_key_still_works(async_client, sa_tenant):
     r = await async_client.put(
         "/v1/config/weights",
         headers={"Authorization": f"Bearer {TEST_API_KEY}"},
-        json={"weights": {"historical_failure_rate": 0.25}},
+        json={
+            "collection_method": "CARD",
+            "weights": {
+                "historical_failure_rate": 0.25,
+                "day_of_month_vs_payday": 0.20,
+                "days_since_last_payment": 0.15,
+                "instalment_position": 0.10,
+                "order_value_vs_average": 0.10,
+                "card_health": 0.10,
+                "card_type": 0.05,
+                "debit_order_return_history": 0.05,
+            },
+        },
     )
     assert r.status_code == 200
 

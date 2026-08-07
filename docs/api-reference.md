@@ -103,7 +103,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
 
 **Notes:**
 - All customer_data fields are optional. Missing data results in moderate default scores for affected factors (typically 0.3-0.5). More data = more accurate scores.
-- The engine automatically selects the correct factor set based on the tenant's `factor_set` configuration (CARD_DEBIT, MOBILE_WALLET, or PAYROLL). Fields for other factor sets are ignored.
+- The engine picks the factor bundle from the request's `collection_method`: CARD or DEBIT_ORDER → the card/debit bundle (per-factor filter skips CardHealth/CardType for debit orders and DebitOrderReturnHistory for cards); MOBILE_MONEY → the wallet bundle; PAYROLL → the payroll bundle. Fields for other bundles are ignored.
 - `recommended_action` values: `collect_normally`, `shift_date`, `flag_for_review`, `pre_collection_sms`
 
 ### Timing optimiser
@@ -306,35 +306,76 @@ Query parameters:
 
 ### Configuration
 
+Weights are stored **per collection method**. Every scoring request already
+carries `collection_method`, and the engine uses that value to pick which
+factor bundle applies. A single tenant that collects via multiple methods
+(card + debit order, or payroll + card) tunes each independently.
+
 ```
 GET /v1/config/weights
 ```
 
-Returns current factor weights for the tenant.
+Returns weights grouped by collection method. Only methods this tenant
+actually uses appear (has scored at least one collection with OR has
+saved custom weights for). A payroll-only lender sees one entry.
+
+**Response:**
+
+```json
+{
+  "methods": [
+    {
+      "collection_method": "PAYROLL",
+      "method_label": "Payroll",
+      "total_weight": 1.0,
+      "factors": [
+        {
+          "factor_name": "threshold_headroom",
+          "label": "Salary threshold headroom",
+          "description": "Room before hitting the regulatory deduction cap",
+          "weight": 0.25
+        }
+        // ... 7 more factors in registry order
+      ]
+    }
+  ]
+}
+```
 
 ```
 PUT /v1/config/weights
 ```
 
+Update the weights for **one** collection method at a time. A payload
+for `CARD` leaves the tenant's `PAYROLL` weights untouched.
+
 **Request body:**
 
 ```json
 {
+  "collection_method": "PAYROLL",
   "weights": {
-    "historical_failure_rate": 0.30,
-    "day_of_month_vs_payday": 0.15,
-    "card_health": 0.15
+    "threshold_headroom": 0.30,
+    "historical_failure_rate": 0.20,
+    "deduction_to_income_ratio": 0.15,
+    "concurrent_loan_count": 0.15,
+    "resubmission_history": 0.10,
+    "borrower_segment": 0.05,
+    "loan_cycling_behaviour": 0.03,
+    "instalment_position": 0.02
   }
 }
 ```
 
-Partial updates — only include weights you want to change. Weights must sum to 1.0 across all factors (validated server-side).
+Rules:
 
-```
-GET /v1/config/factors
-```
-
-Returns the list of available factors for the tenant's factor_set, with descriptions and current weights.
+- Every factor name must belong to the method's bundle. Unknown names return
+  `400` with `unknown_factors` + `valid_factors` in the detail.
+- Weights must sum to 1.0 (±0.01 tolerance). Rejected with `400` otherwise.
+- The submitted keys REPLACE the tenant's saved rows for this method —
+  any pre-existing factor missing from the payload is dropped.
+- ADMIN-only when called via JWT; API-key callers are trusted (the key
+  belongs to the tenant).
 
 ---
 
