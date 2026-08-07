@@ -1,3 +1,4 @@
+from app.models.score_request import CollectionMethod
 from app.scoring.factors.base import BaseFactor
 
 # Shared factors (used by multiple factor sets)
@@ -68,6 +69,10 @@ PAYROLL_FACTORS: dict[str, FactorEntry] = {
     "instalment_position": (InstalmentPosition(), 0.05),
 }
 
+# DEPRECATED: kept for backward compat with any caller that still passes a
+# tenant.factor_set string. The primary lookup is now by CollectionMethod via
+# METHOD_FACTOR_SETS below. Will be removed once the deprecation window
+# passes and no external caller relies on the string form.
 FACTOR_REGISTRY: dict[str, dict[str, FactorEntry]] = {
     "CARD_DEBIT": CARD_DEBIT_FACTORS,
     "MOBILE_WALLET": MOBILE_WALLET_FACTORS,
@@ -75,8 +80,46 @@ FACTOR_REGISTRY: dict[str, dict[str, FactorEntry]] = {
 }
 
 
+# Primary lookup: which factor bundle applies to which collection method.
+# CARD and DEBIT_ORDER share the same underlying bundle (CARD_DEBIT_FACTORS);
+# the per-factor `applicable_methods` filter still handles skipping
+# CardHealth/CardType for debit orders and DebitOrderReturnHistory for cards,
+# same as before — no factor logic changes with this mapping.
+METHOD_FACTOR_SETS: dict[CollectionMethod, dict[str, FactorEntry]] = {
+    CollectionMethod.CARD: CARD_DEBIT_FACTORS,
+    CollectionMethod.DEBIT_ORDER: CARD_DEBIT_FACTORS,
+    CollectionMethod.MOBILE_MONEY: MOBILE_WALLET_FACTORS,
+    CollectionMethod.PAYROLL: PAYROLL_FACTORS,
+}
+
+
+def get_factors_for_method(
+    method: CollectionMethod,
+) -> dict[str, FactorEntry]:
+    """Return factor instances + default weights for a collection method.
+
+    Every scoring request already carries `collection_method`; this is the
+    canonical way to pick the factor bundle. Replaces `get_factors_for_set`
+    for all new scoring code paths.
+    """
+    factors = METHOD_FACTOR_SETS.get(method)
+    if factors is None:
+        raise ValueError(f"No factor bundle registered for method: {method}")
+    return factors
+
+
+def get_default_weights_for_method(
+    method: CollectionMethod,
+) -> dict[str, float]:
+    """Return default weights per factor for a collection method."""
+    factors = get_factors_for_method(method)
+    return {name: weight for name, (_, weight) in factors.items()}
+
+
 def get_factors_for_set(factor_set: str) -> dict[str, FactorEntry]:
-    """Return factor instances and default weights for a factor set."""
+    """DEPRECATED: use `get_factors_for_method` instead. Kept so any legacy
+    caller passing a factor_set string keeps working during the migration
+    window."""
     factors = FACTOR_REGISTRY.get(factor_set)
     if factors is None:
         raise ValueError(f"Unknown factor set: {factor_set}")
@@ -84,6 +127,6 @@ def get_factors_for_set(factor_set: str) -> dict[str, FactorEntry]:
 
 
 def get_default_weights(factor_set: str) -> dict[str, float]:
-    """Return default weights for a factor set."""
+    """DEPRECATED: use `get_default_weights_for_method`."""
     factors = get_factors_for_set(factor_set)
     return {name: weight for name, (_, weight) in factors.items()}
