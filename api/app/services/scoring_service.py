@@ -1,17 +1,15 @@
 import uuid
 from datetime import datetime, timezone
-from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.factor_weight import FactorWeight
 from app.models.score_request import CollectionCurrency, CollectionMethod, ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
 from app.models.tenant import Tenant
 from app.schemas.score import ScoreRequest as ScoreRequestSchema, ScoreResponse, FactorBreakdown
 from app.scoring.engine import ScoringEngine
 from app.scoring.timing_optimiser import optimise_collection_date
+from app.services.weights_service import get_custom_weights_for_method
 
 engine = ScoringEngine()
 
@@ -26,11 +24,8 @@ async def score_collection(
     # Run scoring engine with method-driven factor selection.
     collection_method = CollectionMethod(request.collection_method)
 
-    # Load tenant's custom weights for THIS method only. Cross-method rows
-    # (a tenant that tunes both CARD and PAYROLL, for example) must not
-    # leak — factor names like `historical_failure_rate` appear in more
-    # than one bundle with different defaults per bundle.
-    custom_weights = await _load_custom_weights(tenant.id, collection_method, db)
+    # Load tenant's custom weights for THIS method only.
+    custom_weights = await get_custom_weights_for_method(db, tenant.id, collection_method)
 
     customer_data = request.customer_data.model_dump()
     collection_data = {
@@ -132,21 +127,3 @@ async def score_collection(
     )
 
 
-async def _load_custom_weights(
-    tenant_id: uuid.UUID,
-    method: CollectionMethod,
-    db: AsyncSession,
-) -> dict[str, float]:
-    """Load tenant's custom factor weights for a specific collection method.
-
-    Weights are per-method — a tenant that collects via multiple methods
-    (e.g. card + debit order) tunes each independently.
-    """
-    result = await db.execute(
-        select(FactorWeight).where(
-            FactorWeight.tenant_id == tenant_id,
-            FactorWeight.collection_method == method.value,
-        )
-    )
-    weights = result.scalars().all()
-    return {w.factor_name: w.weight for w in weights}

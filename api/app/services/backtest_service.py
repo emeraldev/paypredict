@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.backtest import BacktestItem, BacktestRun, BacktestStatus
-from app.models.factor_weight import FactorWeight
 from app.models.score_request import CollectionMethod
 from app.models.tenant import Tenant
 from app.schemas.backtest import (
@@ -28,6 +27,7 @@ from app.schemas.backtest import (
     BacktestSummary,
 )
 from app.scoring.engine import ScoringEngine
+from app.services.weights_service import load_all_weights_by_method
 
 _engine = ScoringEngine()
 
@@ -55,15 +55,11 @@ async def run_backtest(
     # row in the backtest picks its own bundle from its own method — a
     # backtest CSV can safely mix card, debit_order, and mobile_money rows
     # for the same tenant now.
-    result = await db.execute(
-        select(FactorWeight).where(FactorWeight.tenant_id == tenant.id)
-    )
-    weights_rows = result.scalars().all()
-    weights_by_method: dict[str, dict[str, float]] = {}
-    weights_snapshot: dict[str, dict[str, float]] = {}
-    for w in weights_rows:
-        weights_by_method.setdefault(w.collection_method, {})[w.factor_name] = w.weight
-        weights_snapshot.setdefault(w.collection_method, {})[w.factor_name] = w.weight
+    weights_by_method = await load_all_weights_by_method(db, tenant.id)
+    # Snapshot copy — persisted verbatim on the BacktestRun so a later
+    # replay knows which weights this run was measured against, even if
+    # the tenant has since retuned them.
+    weights_snapshot = {m: dict(w) for m, w in weights_by_method.items()}
 
     # Create run record. `factor_set_used` is retained as a NOT NULL
     # column and still populated from the tenant field for now — it

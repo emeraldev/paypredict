@@ -21,9 +21,8 @@ from app.models.tenant import Tenant
 from app.schemas.score import FactorBreakdown, ScoreResponse
 from app.scoring.engine import ScoringEngine
 from app.scoring.timing_optimiser import optimise_collection_date
+from app.services.weights_service import load_all_weights_by_method
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.models.factor_weight import FactorWeight
 
 _engine = ScoringEngine()
 _redis = redis.from_url(settings.redis_url, decode_responses=True)
@@ -182,7 +181,7 @@ async def score_bulk_sync(
     collections: list[dict],
 ) -> dict:
     """Score a batch synchronously and persist results."""
-    weights_by_method = await _load_weights_by_method(db, tenant.id)
+    weights_by_method = await load_all_weights_by_method(db, tenant.id)
 
     results = []
     summary = {"high_risk": 0, "medium_risk": 0, "low_risk": 0, "total_value_at_risk": 0.0}
@@ -308,19 +307,3 @@ def get_job_status(job_id: str) -> dict | None:
     return result
 
 
-async def _load_weights_by_method(
-    db: AsyncSession, tenant_id: uuid.UUID
-) -> dict[str, dict[str, float]]:
-    """Load a tenant's custom weights bucketed by collection_method.
-
-    Returned shape: `{method_value: {factor_name: weight}}`. Missing
-    methods yield an empty inner dict (engine falls back to defaults).
-    Loading once per bulk call amortises the query across all rows.
-    """
-    result = await db.execute(
-        select(FactorWeight).where(FactorWeight.tenant_id == tenant_id)
-    )
-    buckets: dict[str, dict[str, float]] = {}
-    for w in result.scalars().all():
-        buckets.setdefault(w.collection_method, {})[w.factor_name] = w.weight
-    return buckets
