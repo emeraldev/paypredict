@@ -51,7 +51,6 @@ class TimingRecommendation:
 def optimise_collection_date(
     engine: ScoringEngine,
     *,
-    factor_set: str,
     customer_data: dict,
     collection_data: dict,
     collection_method: CollectionMethod,
@@ -79,7 +78,6 @@ def optimise_collection_date(
             continue
 
         result = engine.score(
-            factor_set=factor_set,
             customer_data=customer_data,
             collection_data={**collection_data, "collection_due_date": candidate},
             custom_weights=custom_weights,

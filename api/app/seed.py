@@ -417,7 +417,6 @@ async def seed(reseed: bool = False) -> None:
 
             timing = optimise_collection_date(
                 engine,
-                factor_set="CARD_DEBIT",
                 customer_data=customer_data,
                 collection_data=collection_data,
                 collection_method=method,
@@ -509,7 +508,6 @@ async def seed(reseed: bool = False) -> None:
 
             timing = optimise_collection_date(
                 engine,
-                factor_set="MOBILE_WALLET",
                 customer_data=customer_data,
                 collection_data=collection_data,
                 collection_method=CollectionMethod.MOBILE_MONEY,
@@ -604,7 +602,6 @@ async def seed(reseed: bool = False) -> None:
             )
             timing = optimise_collection_date(
                 engine,
-                factor_set="PAYROLL",
                 customer_data=customer_data,
                 collection_data=collection_data,
                 collection_method=CollectionMethod.PAYROLL,

@@ -12,7 +12,7 @@ from app.services.bulk_scoring_service import (
     get_job_status,
     queue_bulk_job,
     score_bulk_sync,
-    _load_weights,
+    _load_weights_by_method,
 )
 
 router = APIRouter(tags=["Scoring"], responses=LENDER_API_RESPONSES)
@@ -40,12 +40,11 @@ async def score_bulk(
         return result
 
     # Async path: queue to Celery
-    weights = await _load_weights(db, tenant.id)
+    weights_by_method = await _load_weights_by_method(db, tenant.id)
     return queue_bulk_job(
         tenant_id=str(tenant.id),
-        factor_set=tenant.factor_set.value,
         collections=collections,
-        weights=weights,
+        weights_by_method=weights_by_method,
     )
 
 

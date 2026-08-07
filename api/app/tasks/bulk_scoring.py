@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.config import settings
 from app.models.score_request import CollectionCurrency, CollectionMethod, ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
-from app.models.tenant import FactorSet
 from app.scoring.engine import ScoringEngine
 from app.services.bulk_scoring_service import _factor_to_db_shape, _score_one, _to_json_safe, JOB_TTL
 from app.tasks.celery_app import celery_app
@@ -83,29 +82,25 @@ def score_bulk_task(
     self,
     job_id: str,
     tenant_id: str,
-    factor_set: str,
     collections: list[dict],
-    weights: dict[str, float],
+    weights_by_method: dict[str, dict[str, float]],
 ) -> None:
     """Score a batch of collections asynchronously.
 
     Persists ScoreRequest + ScoreResult to the DB (same as sync path).
     Stores progress in Redis so the polling endpoint can report it.
     Final results stored in Redis with a 1-hour TTL.
+
+    Each row picks its factor bundle from its own `collection_method` —
+    a mixed-method CSV scores each row against the right bundle. Weights
+    are per-method, delivered as a nested dict.
     """
-    # Build a minimal tenant-like object for _score_one
-    class _TenantStub:
-        def __init__(self, fs: str):
-            self.factor_set = FactorSet(fs)
-
-    tenant_stub = _TenantStub(factor_set)
-
     results = []
     summary = {"high_risk": 0, "medium_risk": 0, "low_risk": 0, "total_value_at_risk": 0.0}
     items_with_scores: list[tuple[dict, dict]] = []
 
     for i, item in enumerate(collections):
-        scored = _score_one(tenant_stub, item, weights)  # type: ignore[arg-type]
+        scored = _score_one(item, weights_by_method)
         results.append(scored)
         items_with_scores.append((item, scored))
 
