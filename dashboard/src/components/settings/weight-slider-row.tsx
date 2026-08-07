@@ -8,11 +8,24 @@ interface WeightSliderRowProps {
   value: number; // 0-100 (percentage)
   onChange: (value: number) => void;
   disabled?: boolean;
+  // Optional overrides — the weights API returns per-method labels +
+  // descriptions and the tab passes them through. Fall back to the local
+  // constants so any component still calling this row without them keeps
+  // working (defensive during the API migration window).
+  label?: string;
+  description?: string;
 }
 
-export function WeightSliderRow({ factorName, value, onChange, disabled }: WeightSliderRowProps) {
-  const label = FACTOR_LABELS[factorName] ?? factorName;
-  const description = FACTOR_DESCRIPTIONS[factorName] ?? "";
+export function WeightSliderRow({
+  factorName,
+  value,
+  onChange,
+  disabled,
+  label: labelProp,
+  description: descriptionProp,
+}: WeightSliderRowProps) {
+  const label = labelProp ?? FACTOR_LABELS[factorName] ?? factorName;
+  const description = descriptionProp ?? FACTOR_DESCRIPTIONS[factorName] ?? "";
 
   return (
     <div className="space-y-2">

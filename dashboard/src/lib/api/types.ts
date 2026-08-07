@@ -319,14 +319,31 @@ export interface AccuracyResponse {
 
 // ==================== Config ====================
 
-export interface FactorWeight {
+// Weights are stored per collection method. Each entry in
+// `WeightsResponse.methods` is the full factor set for one method the
+// tenant actually uses (has scored at least once OR has saved custom
+// weights for) — a payroll-only lender receives one entry.
+export interface WeightsFactorEntry {
   factor_name: string;
+  label: string;
+  description: string;
   weight: number;
 }
 
+export interface WeightsMethodEntry {
+  collection_method: CollectionMethod;
+  method_label: string;
+  factors: WeightsFactorEntry[];
+  total_weight: number;
+}
+
 export interface WeightsResponse {
-  factor_set: "CARD_DEBIT" | "MOBILE_WALLET" | "CUSTOM";
-  weights: FactorWeight[];
+  methods: WeightsMethodEntry[];
+}
+
+export interface WeightsUpdateRequest {
+  collection_method: CollectionMethod;
+  weights: Record<string, number>;
 }
 
 export interface ApiKeyListItem {

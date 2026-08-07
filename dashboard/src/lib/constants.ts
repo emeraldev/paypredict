@@ -134,6 +134,58 @@ export const FACTOR_DESCRIPTIONS: Record<string, string> = {
   borrower_segment: "Employment sector risk (government/mining/private)",
 };
 
+// Ordered factor list per collection method — mirrors the backend
+// registry order. Only used as a defensive local fallback: the API
+// response already carries labels + order per method, so components
+// should prefer the API's `factors[]` when rendering. Kept here so
+// tools that need to enumerate the space (analytics stubs, tests)
+// don't have to hit the API for a static piece of metadata.
+export const METHOD_FACTORS: Record<
+  "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY" | "PAYROLL",
+  readonly string[]
+> = {
+  CARD: [
+    "historical_failure_rate",
+    "day_of_month_vs_payday",
+    "days_since_last_payment",
+    "instalment_position",
+    "order_value_vs_average",
+    "card_health",
+    "card_type",
+    "debit_order_return_history",
+  ],
+  DEBIT_ORDER: [
+    "historical_failure_rate",
+    "day_of_month_vs_payday",
+    "days_since_last_payment",
+    "instalment_position",
+    "order_value_vs_average",
+    "card_health",
+    "card_type",
+    "debit_order_return_history",
+  ],
+  MOBILE_MONEY: [
+    "wallet_balance_trend",
+    "historical_failure_rate",
+    "time_since_last_inflow",
+    "salary_cycle_alignment",
+    "concurrent_loan_count",
+    "transaction_velocity",
+    "airtime_purchase_pattern",
+    "loan_cycling_behaviour",
+  ],
+  PAYROLL: [
+    "threshold_headroom",
+    "historical_failure_rate",
+    "deduction_to_income_ratio",
+    "concurrent_loan_count",
+    "resubmission_history",
+    "borrower_segment",
+    "loan_cycling_behaviour",
+    "instalment_position",
+  ],
+} as const;
+
 // Friendly factor display names. Used in the factor breakdown (drawer,
 // single-score result, backtest) AND as YAxis labels in the failure-factors
 // chart, so keep them under ~28 chars. Preserve semantic direction (e.g.
