@@ -103,6 +103,23 @@ method. Send at least these for the best results:
 | `active_loan_count` | Customers with multiple active loans fail more. |
 | `transactions_last_7d` + `transactions_avg_7d` | Velocity change is a distress signal. |
 
+**Payroll (`collection_method` = `PAYROLL`):**
+
+For salary-advance lenders collecting via payroll deduction. Failure
+here is usually regulatory — Zambia caps total deductions from all
+creditors at 40% of gross salary; if the ceiling's already consumed
+your deduction is rejected regardless of the borrower's willingness.
+
+| Field | Why it matters |
+|---|---|
+| `gross_salary` | Sets the ceiling — required for any headroom calculation. |
+| `current_total_deductions` | Deductions by all other creditors. Combined with `gross_salary`, this is the single biggest predictor. |
+| `deduction_threshold_pct` | Regulatory cap as a fraction of gross salary. Defaults to 0.40 (Zambia). Override for other jurisdictions. |
+| `net_pay` | Drives the deduction-vs-income ratio — a large deduction on a small paycheck is riskier even with headroom. |
+| `resubmission_count` | Past deductions we've had to resubmit at lower amounts signal ongoing threshold pressure. |
+| `borrower_segment` | `government` / `mining` / `private_sector` / `contract` / `informal` — a coarse prior on segment volatility. |
+| `active_loan_count` | Same as elsewhere — competing deductions consume headroom. |
+
 Fields not listed above are useful enrichment but rarely flip a
 decision. If you're integrating from scratch, send the must-haves
 first and add the rest as your data layer matures.
