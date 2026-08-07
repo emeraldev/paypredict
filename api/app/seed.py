@@ -84,6 +84,59 @@ def _sa_customer(rng: random.Random, risk_bias: str) -> dict:
     }
 
 
+def _payroll_customer(rng: random.Random, risk_bias: str, segment: str) -> dict:
+    """Generate realistic payroll-deduction customer data for Zambia
+    salary-advance lenders. `segment` is one of "government" or "mining"
+    (matches Lumo's actual mix). Threshold headroom is the dominant risk
+    driver, so we synthesise gross_salary + current_total_deductions such
+    that the resulting ratio matches the requested risk bias."""
+
+    if segment == "government":
+        gross = round(rng.uniform(6000, 15000), 2)  # ZMW, reasonable civil-service range
+    else:  # mining
+        gross = round(rng.uniform(8000, 22000), 2)  # miners earn more but volatile
+
+    # Existing deductions from other creditors as % of 40% ceiling
+    if risk_bias == "high":
+        deduction_pct_of_cap = rng.uniform(0.80, 0.98)
+        total = rng.randint(3, 12)
+        success = rng.randint(0, total // 2)
+        resubmissions = rng.randint(2, 5)
+    elif risk_bias == "medium":
+        deduction_pct_of_cap = rng.uniform(0.55, 0.80)
+        total = rng.randint(3, 10)
+        success = rng.randint(total // 2, total - 1)
+        resubmissions = rng.randint(0, 2)
+    else:  # low
+        deduction_pct_of_cap = rng.uniform(0.15, 0.50)
+        total = rng.randint(3, 12)
+        success = max(rng.randint(total - 2, total), 0)
+        resubmissions = 0
+
+    current_deductions = round(gross * 0.40 * deduction_pct_of_cap, 2)
+    net_pay = round(gross - current_deductions - (gross * 0.15), 2)  # rough tax proxy
+    active_loans = rng.randint(1, 4) if risk_bias != "low" else rng.choice([1, 2])
+
+    total_instalments = rng.choice([1, 2, 3])  # short-term advances
+    instalment_num = rng.randint(1, total_instalments)
+
+    return {
+        "total_payments": total,
+        "successful_payments": min(success, total),
+        "instalment_number": instalment_num,
+        "total_instalments": total_instalments,
+        "active_loan_count": active_loans,
+        "loans_taken_last_90d": rng.randint(0, 3),
+        # PAYROLL-specific
+        "gross_salary": gross,
+        "net_pay": net_pay,
+        "current_total_deductions": current_deductions,
+        "deduction_threshold_pct": 0.40,  # Zambia
+        "resubmission_count": resubmissions,
+        "borrower_segment": segment,
+    }
+
+
 def _zm_customer(rng: random.Random, risk_bias: str) -> dict:
     """Generate realistic ZM mobile money customer data."""
     if risk_bias == "high":
@@ -201,7 +254,22 @@ async def seed(reseed: bool = False) -> None:
             created_at=now,
             updated_at=now,
         )
-        db.add_all([sa_tenant, zm_tenant, fresh_tenant])
+        # Zambia payroll-deduction lender (Lumo-style — first live prospect).
+        # Salary advances collected via payroll deduction; threshold headroom
+        # is the dominant risk driver.
+        payroll_tenant = Tenant(
+            id=uuid.uuid4(),
+            name="Demo Payroll ZM",
+            market=Market.ZM,
+            factor_set=FactorSet.PAYROLL,
+            plan=Plan.PILOT,
+            is_active=True,
+            alert_threshold=0.20,
+            webhook_secret="whsec_" + secrets.token_urlsafe(32),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add_all([sa_tenant, zm_tenant, fresh_tenant, payroll_tenant])
 
         # ---- API Keys ----
         sa_raw, sa_hash = generate_api_key("pk_test_")
@@ -232,12 +300,21 @@ async def seed(reseed: bool = False) -> None:
             label="Default Key",
             is_active=True,
         ))
+        payroll_raw, payroll_hash = generate_api_key("pk_test_")
+        db.add(ApiKey(
+            tenant_id=payroll_tenant.id,
+            key_hash=payroll_hash,
+            key_prefix=payroll_raw[:8],
+            label="Test Key",
+            is_active=True,
+        ))
 
         # ---- Factor Weights ----
         for tenant, factor_set in [
             (sa_tenant, "CARD_DEBIT"),
             (zm_tenant, "MOBILE_WALLET"),
             (fresh_tenant, "CARD_DEBIT"),
+            (payroll_tenant, "PAYROLL"),
         ]:
             for factor_name, weight in get_default_weights(factor_set).items():
                 db.add(FactorWeight(
@@ -293,6 +370,20 @@ async def seed(reseed: bool = False) -> None:
             name="Fresh Manager",
             password_hash=hash_password("manager123"),
             role=UserRole.MANAGER,
+        ))
+        db.add(User(
+            tenant_id=payroll_tenant.id,
+            email="admin@demo-payroll.paypredict.dev",
+            name="Payroll Admin",
+            password_hash=admin_hash,
+            role=UserRole.ADMIN,
+        ))
+        db.add(User(
+            tenant_id=payroll_tenant.id,
+            email="viewer@demo-payroll.paypredict.dev",
+            name="Payroll Viewer",
+            password_hash=hash_password("viewer123"),
+            role=UserRole.VIEWER,
         ))
 
         # ---- Scored Collections ----
@@ -472,6 +563,99 @@ async def seed(reseed: bool = False) -> None:
                     "skipped": scoring_result.skipped_factors,
                 },
                 recommended_action=zm_recommended_action,
+                recommended_collection_date=timing.recommended_date,
+                recommended_score=timing.recommended_score,
+                score_improvement=(
+                    timing.score_improvement if timing.should_shift else None
+                ),
+                model_version=scoring_result.model_version,
+                scoring_duration_ms=scoring_result.scoring_duration_ms,
+                created_at=scored_at,
+            )
+            db.add(req)
+            db.add(res)
+            all_scores.append((res, req))
+
+        # Payroll (Zambia): 50 salary advances — ~80% government, 20% miners
+        # (matches Lumo's ~1000 gov / ~100 mining mix). Miners bias higher
+        # risk regardless because of segment volatility.
+        payroll_risk_biases = ["high"] * 5 + ["medium"] * 15 + ["low"] * 30
+        rng.shuffle(payroll_risk_biases)
+        for i in range(50):
+            segment = "government" if i < 40 else "mining"
+            bias = payroll_risk_biases[i]
+            customer_data = _payroll_customer(rng, bias, segment)
+            amount = round(rng.uniform(500, 4500), 2)  # ZMW salary-advance range
+            due_days = rng.randint(-2, 30)
+            due_date = (now + timedelta(days=due_days)).date()
+
+            collection_data = {
+                "collection_amount": amount,
+                "collection_due_date": due_date,
+                "collection_method": "PAYROLL",
+                "collection_currency": "ZMW",
+            }
+
+            scoring_result = engine.score(
+                factor_set="PAYROLL",
+                customer_data=customer_data,
+                collection_data=collection_data,
+                collection_method=CollectionMethod.PAYROLL,
+            )
+            timing = optimise_collection_date(
+                engine,
+                factor_set="PAYROLL",
+                customer_data=customer_data,
+                collection_data=collection_data,
+                collection_method=CollectionMethod.PAYROLL,
+                original_score=scoring_result.score,
+                today=due_date,
+            )
+            payroll_recommended_action = (
+                "shift_date" if timing.should_shift else scoring_result.recommended_action
+            )
+
+            scored_at = now - timedelta(hours=rng.randint(1, 720))
+            payload = {
+                "customer_data": customer_data,
+                "collection_amount": amount,
+                "collection_due_date": due_date.isoformat(),
+                "collection_method": "PAYROLL",
+                "collection_currency": "ZMW",
+            }
+
+            req = ScoreRequest(
+                id=uuid.uuid4(),
+                tenant_id=payroll_tenant.id,
+                external_customer_id=f"emp_{segment[:3]}_{i + 1:03d}",
+                external_collection_id=f"ded_{now.year}_{now.month:02d}_{i + 1:03d}",
+                collection_amount=Decimal(str(amount)),
+                collection_currency=CollectionCurrency.ZMW,
+                collection_due_date=due_date,
+                collection_method=CollectionMethod.PAYROLL,
+                request_payload=payload,
+                created_at=scored_at,
+            )
+            res = ScoreResult(
+                id=uuid.uuid4(),
+                score_request_id=req.id,
+                tenant_id=payroll_tenant.id,
+                score=scoring_result.score,
+                risk_level=RiskLevel(scoring_result.risk_level),
+                factors={
+                    "evaluated": [
+                        {
+                            "factor_name": f.factor_name,
+                            "raw_score": f.raw_score,
+                            "weight": f.weight,
+                            "weighted_score": f.weighted_score,
+                            "explanation": f.explanation,
+                        }
+                        for f in scoring_result.factors
+                    ],
+                    "skipped": scoring_result.skipped_factors,
+                },
+                recommended_action=payroll_recommended_action,
                 recommended_collection_date=timing.recommended_date,
                 recommended_score=timing.recommended_score,
                 score_improvement=(
@@ -775,6 +959,11 @@ async def seed(reseed: bool = False) -> None:
         print(f"  API Key:   {fresh_raw}")
         print(f"  Scores:    0  — empty tenant, exercises every first-time empty state")
         print()
+        print("=== Demo Payroll ZM (Lumo-style) ===")
+        print(f"  Tenant ID: {payroll_tenant.id}")
+        print(f"  API Key:   {payroll_raw}")
+        print(f"  Scores:    50 (PAYROLL — 40 government workers, 10 miners)")
+        print()
         print("=== Dashboard Login ===")
         print(f"  Admin:   admin@demo-sa.paypredict.dev     / admin123")
         print(f"  Viewer:  viewer@demo-sa.paypredict.dev    / viewer123")
@@ -782,6 +971,8 @@ async def seed(reseed: bool = False) -> None:
         print(f"  Viewer:  viewer@demo-zm.paypredict.dev    / viewer123")
         print(f"  Admin:   admin@demo-fresh.paypredict.dev  / admin123    ← fresh, no data")
         print(f"  Manager: manager@demo-fresh.paypredict.dev / manager123 ← fresh, no data")
+        print(f"  Admin:   admin@demo-payroll.paypredict.dev / admin123   ← payroll")
+        print(f"  Viewer:  viewer@demo-payroll.paypredict.dev / viewer123 ← payroll")
 
 
 if __name__ == "__main__":

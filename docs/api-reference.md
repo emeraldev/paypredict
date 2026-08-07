@@ -35,7 +35,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
   "collection_amount": "decimal, required",
   "collection_currency": "enum: ZAR | ZMW, required",
   "collection_due_date": "date (YYYY-MM-DD), required",
-  "collection_method": "enum: CARD | DEBIT_ORDER | MOBILE_MONEY, required",
+  "collection_method": "enum: CARD | DEBIT_ORDER | MOBILE_MONEY | PAYROLL, required",
   "customer_data": {
     // --- Common fields (all factor sets) ---
     "total_payments": "integer, optional (default 0)",
@@ -62,7 +62,15 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
     "transactions_avg_7d": "integer, optional",
     "last_airtime_purchase_days_ago": "integer, optional",
     "new_loan_within_repayment_period": "boolean, optional",
-    "loans_taken_last_90d": "integer, optional"
+    "loans_taken_last_90d": "integer, optional",
+
+    // --- PAYROLL fields (salary-advance lenders, Zambia and similar) ---
+    "gross_salary": "decimal, optional — borrower's monthly gross pay",
+    "net_pay": "decimal, optional — take-home after tax + existing deductions",
+    "current_total_deductions": "decimal, optional — total deductions from ALL creditors this month",
+    "deduction_threshold_pct": "float, optional (default 0.40 for Zambia) — regulatory ceiling as a fraction of gross salary",
+    "resubmission_count": "integer, optional — times this borrower's deduction was resubmitted at a lower amount in the past 6 months",
+    "borrower_segment": "string, optional — one of: government, private_sector, contract, mining, informal (case-insensitive)"
   }
 }
 ```
@@ -95,7 +103,7 @@ Score one upcoming collection. Synchronous — returns immediately (~15ms).
 
 **Notes:**
 - All customer_data fields are optional. Missing data results in moderate default scores for affected factors (typically 0.3-0.5). More data = more accurate scores.
-- The engine automatically selects the correct factor set based on the tenant's `factor_set` configuration (CARD_DEBIT or MOBILE_WALLET). Card fields are ignored for wallet tenants and vice versa.
+- The engine automatically selects the correct factor set based on the tenant's `factor_set` configuration (CARD_DEBIT, MOBILE_WALLET, or PAYROLL). Fields for other factor sets are ignored.
 - `recommended_action` values: `collect_normally`, `shift_date`, `flag_for_review`, `pre_collection_sms`
 
 ### Timing optimiser
@@ -269,7 +277,7 @@ GET /v1/analytics/accuracy?period=30d
 
 Query parameters:
 - `period`: `7d`, `30d`, `90d`, `12m`
-- `collection_method`: `CARD`, `DEBIT_ORDER`, `MOBILE_MONEY`
+- `collection_method`: `CARD`, `DEBIT_ORDER`, `MOBILE_MONEY`, `PAYROLL`
 - `risk_level`: `LOW`, `MEDIUM`, `HIGH`
 
 **Summary response (200):**

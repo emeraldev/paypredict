@@ -116,5 +116,6 @@ class ScoringEngine:
         versions = {
             "CARD_DEBIT": "heuristic_card_v1",
             "MOBILE_WALLET": "heuristic_wallet_v1",
+            "PAYROLL": "heuristic_payroll_v1",
         }
         return versions.get(factor_set, f"heuristic_{factor_set.lower()}_v1")

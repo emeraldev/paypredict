@@ -103,7 +103,7 @@ SCORING_REQUIRED_COLUMNS = {
 }
 
 VALID_CURRENCIES = {"ZAR", "ZMW"}
-VALID_METHODS = {"CARD", "DEBIT_ORDER", "MOBILE_MONEY"}
+VALID_METHODS = {"CARD", "DEBIT_ORDER", "MOBILE_MONEY", "PAYROLL"}
 VALID_OUTCOMES = {"SUCCESS", "FAILED"}
 
 
@@ -454,6 +454,17 @@ def _row_to_scoring_input(row: dict[str, str]) -> BulkScoreItem:
         last_airtime_purchase_days_ago=_scoring_int(row, "last_airtime_purchase_days_ago"),
         new_loan_within_repayment_period=_scoring_bool(row, "new_loan_within_repayment_period"),
         loans_taken_last_90d=_scoring_int(row, "loans_taken_last_90d"),
+        # PAYROLL factor set (Zambia salary-advance lenders)
+        gross_salary=_scoring_decimal(row, "gross_salary"),
+        net_pay=_scoring_decimal(row, "net_pay"),
+        current_total_deductions=_scoring_decimal(row, "current_total_deductions"),
+        deduction_threshold_pct=(
+            float(row["deduction_threshold_pct"])
+            if row.get("deduction_threshold_pct", "").strip()
+            else None
+        ),
+        resubmission_count=_scoring_int(row, "resubmission_count"),
+        borrower_segment=row.get("borrower_segment") or None,
     )
 
     return BulkScoreItem(

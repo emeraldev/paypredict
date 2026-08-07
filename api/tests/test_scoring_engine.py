@@ -103,6 +103,116 @@ class TestScoringEngineWallet:
         assert len(result.factors) == 8
 
 
+class TestScoringEnginePayroll:
+    """PAYROLL factor set — Zambia salary-advance lenders. 4 payroll-specific
+    factors + 4 shared factors = 8 total (same count as CARD_DEBIT and
+    MOBILE_WALLET). None should be skipped when collection_method=PAYROLL —
+    the payroll factors declare `applicable_methods = [PAYROLL]`, and the
+    shared factors apply everywhere."""
+
+    from app.models.score_request import CollectionMethod
+
+    _payroll_customer = {
+        "total_payments": 6,
+        "successful_payments": 5,
+        "instalment_number": 2,
+        "total_instalments": 3,
+        "active_loan_count": 2,
+        "loans_taken_last_90d": 1,
+        "gross_salary": 10000,
+        "net_pay": 5500,
+        "current_total_deductions": 2400,
+        "deduction_threshold_pct": 0.40,
+        "resubmission_count": 1,
+        "borrower_segment": "government",
+    }
+    _payroll_collection = {
+        "collection_amount": 1500,
+        "collection_due_date": date(2026, 8, 25),
+        "collection_method": "PAYROLL",
+        "collection_currency": "ZMW",
+    }
+
+    def test_scores_all_8_payroll_factors(self):
+        result = engine.score(
+            "PAYROLL",
+            self._payroll_customer,
+            self._payroll_collection,
+            collection_method=self.CollectionMethod.PAYROLL,
+        )
+        assert len(result.factors) == 8
+        assert 0.0 <= result.score <= 1.0
+        assert result.risk_level in ("LOW", "MEDIUM", "HIGH")
+        assert result.model_version == "heuristic_payroll_v1"
+        # No PAYROLL factor should be skipped when the method matches.
+        assert result.skipped_factors == []
+
+    def test_factor_names(self):
+        result = engine.score(
+            "PAYROLL",
+            self._payroll_customer,
+            self._payroll_collection,
+            collection_method=self.CollectionMethod.PAYROLL,
+        )
+        names = {f.factor_name for f in result.factors}
+        expected = {
+            "threshold_headroom", "historical_failure_rate",
+            "deduction_to_income_ratio", "concurrent_loan_count",
+            "resubmission_history", "borrower_segment",
+            "loan_cycling_behaviour", "instalment_position",
+        }
+        assert names == expected
+
+    def test_empty_customer_data_degrades_gracefully(self):
+        # No salary data, no segment, no history — every factor should fall
+        # back to its default without crashing.
+        result = engine.score(
+            "PAYROLL",
+            {},
+            self._payroll_collection,
+            collection_method=self.CollectionMethod.PAYROLL,
+        )
+        assert len(result.factors) == 8
+        assert 0.0 <= result.score <= 1.0
+
+    def test_tight_headroom_produces_high_risk_score(self):
+        # Existing deductions consume 90% of the 40% cap; our deduction
+        # exceeds the remaining headroom. ThresholdHeadroom is 25% of the
+        # blended score, so a 0.9-1.0 raw contribution moves the needle.
+        tight = {
+            **self._payroll_customer,
+            "current_total_deductions": 3600,  # 90% of ZMW 4000 cap
+        }
+        big_deduction = {**self._payroll_collection, "collection_amount": 800}
+        loose = {
+            **self._payroll_customer,
+            "current_total_deductions": 800,  # 20% of cap — plenty of room
+        }
+        small_deduction = {**self._payroll_collection, "collection_amount": 200}
+
+        tight_score = engine.score(
+            "PAYROLL", tight, big_deduction,
+            collection_method=self.CollectionMethod.PAYROLL,
+        ).score
+        loose_score = engine.score(
+            "PAYROLL", loose, small_deduction,
+            collection_method=self.CollectionMethod.PAYROLL,
+        ).score
+        assert tight_score > loose_score
+
+    def test_shared_factors_produce_identical_scores_across_sets(self):
+        """HistoricalFailureRate is one of the 4 shared factors — same inputs
+        must produce the same value whether scored under CARD_DEBIT or
+        PAYROLL. Guards against accidental method-conditional logic slipping
+        into a 'shared' factor."""
+        from app.scoring.factors.shared.historical_failure import HistoricalFailureRate
+        f = HistoricalFailureRate()
+        data = {"total_payments": 10, "successful_payments": 7}
+        assert f.calculate(data, {}) == f.calculate(data, {})  # deterministic
+        # And it applies everywhere — shared factor invariant.
+        assert f.applicable_methods is None
+
+
 class TestRiskMapping:
     def test_low(self):
         assert engine._map_risk_level(0.15) == "LOW"

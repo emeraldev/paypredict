@@ -35,6 +35,15 @@ class CustomerData(BaseModel):
     new_loan_within_repayment_period: bool | None = None
     loans_taken_last_90d: int | None = None
 
+    # Payroll deduction fields (used when collection_method == PAYROLL —
+    # salary-advance lenders whose collections go through payroll systems)
+    gross_salary: Decimal | None = None
+    net_pay: Decimal | None = None
+    current_total_deductions: Decimal | None = None
+    deduction_threshold_pct: float | None = None
+    resubmission_count: int | None = None
+    borrower_segment: str | None = None
+
 
 class ScoreRequest(BaseModel):
     """Request body for POST /v1/score."""
@@ -44,7 +53,7 @@ class ScoreRequest(BaseModel):
     collection_amount: Decimal = Field(gt=0)
     collection_currency: str = Field(pattern="^(ZAR|ZMW)$")
     collection_due_date: date
-    collection_method: str = Field(pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY)$")
+    collection_method: str = Field(pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY|PAYROLL)$")
     customer_data: CustomerData = Field(default_factory=CustomerData)
 
 
