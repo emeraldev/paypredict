@@ -184,7 +184,24 @@ async def seed(reseed: bool = False) -> None:
             created_at=now,
             updated_at=now,
         )
-        db.add_all([sa_tenant, zm_tenant])
+        # A brand-new tenant with no scores/outcomes/alerts/notifications —
+        # for verifying the first-time non-technical-lender experience.
+        # Everything a lender gets on registration is here (default factor
+        # weights, one API key, admin + manager users) but no historical
+        # data, so every page's empty state is exercised.
+        fresh_tenant = Tenant(
+            id=uuid.uuid4(),
+            name="Fresh Lender (Demo)",
+            market=Market.SA,
+            factor_set=FactorSet.CARD_DEBIT,
+            plan=Plan.PILOT,
+            is_active=True,
+            alert_threshold=0.20,
+            webhook_secret="whsec_" + secrets.token_urlsafe(32),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add_all([sa_tenant, zm_tenant, fresh_tenant])
 
         # ---- API Keys ----
         sa_raw, sa_hash = generate_api_key("pk_test_")
@@ -203,11 +220,24 @@ async def seed(reseed: bool = False) -> None:
             label="Test Key",
             is_active=True,
         ))
+        # Fresh tenant gets a key too — a real registered lender would have
+        # one from onboarding. Withholding it would make the "API Keys" tab
+        # look broken and force the tester to create one before they can even
+        # walk through the empty states.
+        fresh_raw, fresh_hash = generate_api_key("pk_test_")
+        db.add(ApiKey(
+            tenant_id=fresh_tenant.id,
+            key_hash=fresh_hash,
+            key_prefix=fresh_raw[:8],
+            label="Default Key",
+            is_active=True,
+        ))
 
         # ---- Factor Weights ----
         for tenant, factor_set in [
             (sa_tenant, "CARD_DEBIT"),
             (zm_tenant, "MOBILE_WALLET"),
+            (fresh_tenant, "CARD_DEBIT"),
         ]:
             for factor_name, weight in get_default_weights(factor_set).items():
                 db.add(FactorWeight(
@@ -247,6 +277,22 @@ async def seed(reseed: bool = False) -> None:
             name="ZM Viewer",
             password_hash=hash_password("viewer123"),
             role=UserRole.VIEWER,
+        ))
+        # Fresh tenant users: one admin, one manager. Skipping viewer here on
+        # purpose — a brand-new lender wouldn't usually have viewers seat 1.
+        db.add(User(
+            tenant_id=fresh_tenant.id,
+            email="admin@demo-fresh.paypredict.dev",
+            name="Fresh Admin",
+            password_hash=admin_hash,
+            role=UserRole.ADMIN,
+        ))
+        db.add(User(
+            tenant_id=fresh_tenant.id,
+            email="manager@demo-fresh.paypredict.dev",
+            name="Fresh Manager",
+            password_hash=hash_password("manager123"),
+            role=UserRole.MANAGER,
         ))
 
         # ---- Scored Collections ----
@@ -724,11 +770,18 @@ async def seed(reseed: bool = False) -> None:
         print(f"  API Key:   {zm_raw}")
         print(f"  Scores:    80  (MOBILE_MONEY)")
         print()
+        print("=== Fresh Lender (Demo) ===")
+        print(f"  Tenant ID: {fresh_tenant.id}")
+        print(f"  API Key:   {fresh_raw}")
+        print(f"  Scores:    0  — empty tenant, exercises every first-time empty state")
+        print()
         print("=== Dashboard Login ===")
-        print(f"  Admin:  admin@demo-sa.paypredict.dev  / admin123")
-        print(f"  Viewer: viewer@demo-sa.paypredict.dev / viewer123")
-        print(f"  Admin:  admin@demo-zm.paypredict.dev  / admin123")
-        print(f"  Viewer: viewer@demo-zm.paypredict.dev / viewer123")
+        print(f"  Admin:   admin@demo-sa.paypredict.dev     / admin123")
+        print(f"  Viewer:  viewer@demo-sa.paypredict.dev    / viewer123")
+        print(f"  Admin:   admin@demo-zm.paypredict.dev     / admin123")
+        print(f"  Viewer:  viewer@demo-zm.paypredict.dev    / viewer123")
+        print(f"  Admin:   admin@demo-fresh.paypredict.dev  / admin123    ← fresh, no data")
+        print(f"  Manager: manager@demo-fresh.paypredict.dev / manager123 ← fresh, no data")
 
 
 if __name__ == "__main__":
