@@ -21,6 +21,12 @@ from app.scoring.factors.wallet.salary_cycle import SalaryCycleAlignment
 from app.scoring.factors.wallet.transaction_velocity import TransactionVelocity
 from app.scoring.factors.wallet.airtime_pattern import AirtimePurchasePattern
 
+# Payroll factors (Zambia salary-advance lenders)
+from app.scoring.factors.payroll.threshold_headroom import ThresholdHeadroom
+from app.scoring.factors.payroll.deduction_to_income import DeductionToIncomeRatio
+from app.scoring.factors.payroll.resubmission_history import ResubmissionHistory
+from app.scoring.factors.payroll.borrower_segment import BorrowerSegment
+
 
 # Factor name → (factor instance, default weight)
 FactorEntry = tuple[BaseFactor, float]
@@ -47,9 +53,25 @@ MOBILE_WALLET_FACTORS: dict[str, FactorEntry] = {
     "loan_cycling_behaviour": (LoanCyclingBehaviour(), 0.05),
 }
 
+# Payroll deduction (salary advances, initially Zambia). Threshold headroom
+# dominates — that's the regulatory rejection mechanism. Concurrent loans is
+# heavily weighted because "someone else's deduction consumed the headroom"
+# is the same failure mode. Segment sits low because it's a coarse prior.
+PAYROLL_FACTORS: dict[str, FactorEntry] = {
+    "threshold_headroom": (ThresholdHeadroom(), 0.25),
+    "historical_failure_rate": (HistoricalFailureRate(), 0.20),
+    "deduction_to_income_ratio": (DeductionToIncomeRatio(), 0.15),
+    "concurrent_loan_count": (ConcurrentLoanCount(), 0.15),
+    "resubmission_history": (ResubmissionHistory(), 0.10),
+    "borrower_segment": (BorrowerSegment(), 0.05),
+    "loan_cycling_behaviour": (LoanCyclingBehaviour(), 0.05),
+    "instalment_position": (InstalmentPosition(), 0.05),
+}
+
 FACTOR_REGISTRY: dict[str, dict[str, FactorEntry]] = {
     "CARD_DEBIT": CARD_DEBIT_FACTORS,
     "MOBILE_WALLET": MOBILE_WALLET_FACTORS,
+    "PAYROLL": PAYROLL_FACTORS,
 }
 
 

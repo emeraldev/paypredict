@@ -39,7 +39,7 @@ class BacktestCollectionInput(BaseModel):
     collection_amount: Decimal = Field(gt=0)
     collection_currency: str = Field(pattern="^(ZAR|ZMW)$")
     collection_date: date
-    collection_method: str = Field(pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY)$")
+    collection_method: str = Field(pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY|PAYROLL)$")
     customer_data: BacktestCustomerData = Field(default_factory=BacktestCustomerData)
     actual_outcome: str = Field(pattern="^(SUCCESS|FAILED)$")
     failure_reason: str | None = None

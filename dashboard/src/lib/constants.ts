@@ -63,6 +63,13 @@ export const METHOD_CONFIG = {
     bg: "bg-orange-500/10",
     border: "border-orange-500/30",
   },
+  PAYROLL: {
+    label: "Payroll",
+    icon: "Landmark",
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+    border: "border-cyan-500/30",
+  },
 } as const;
 
 // Role badge configuration — SINGLE SOURCE OF TRUTH
@@ -120,6 +127,11 @@ export const FACTOR_DESCRIPTIONS: Record<string, string> = {
   transaction_velocity: "Recent transaction activity changes",
   airtime_purchase_pattern: "Airtime buying regularity",
   loan_cycling_behaviour: "Borrowing to repay pattern",
+  // PAYROLL factor set
+  threshold_headroom: "Room before hitting the regulatory deduction cap",
+  deduction_to_income_ratio: "Deduction size relative to borrower's income",
+  resubmission_history: "Past deductions resubmitted at lower amounts",
+  borrower_segment: "Employment sector risk (government/mining/private)",
 };
 
 // Friendly factor display names. Used in the factor breakdown (drawer,
@@ -142,4 +154,9 @@ export const FACTOR_LABELS: Record<string, string> = {
   transaction_velocity: "Wallet activity change",
   airtime_purchase_pattern: "Airtime buying regularity",
   loan_cycling_behaviour: "Loan stacking pattern",
+  // PAYROLL factor set
+  threshold_headroom: "Salary threshold headroom",
+  deduction_to_income_ratio: "Deduction vs income",
+  resubmission_history: "Deduction resubmission history",
+  borrower_segment: "Employment sector",
 };

@@ -72,6 +72,14 @@ export interface CustomerData {
   last_airtime_purchase_days_ago?: number | null;
   new_loan_within_repayment_period?: boolean | null;
   loans_taken_last_90d?: number | null;
+
+  // Payroll deduction fields (used when collection_method === "PAYROLL")
+  gross_salary?: number | null;
+  net_pay?: number | null;
+  current_total_deductions?: number | null;
+  deduction_threshold_pct?: number | null;
+  resubmission_count?: number | null;
+  borrower_segment?: string | null;
 }
 
 export interface ScoreRequestPayload {

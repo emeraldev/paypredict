@@ -20,6 +20,7 @@ class CollectionMethod(str, enum.Enum):
     CARD = "CARD"
     DEBIT_ORDER = "DEBIT_ORDER"
     MOBILE_MONEY = "MOBILE_MONEY"
+    PAYROLL = "PAYROLL"
 
 
 class ScoreRequest(Base):

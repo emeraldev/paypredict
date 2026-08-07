@@ -122,6 +122,32 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   loans_taken_last_90d: {
     label: "Loans taken in the last 90 days",
   },
+
+  // ---- PAYROLL optional (salary-advance lenders, Zambia and similar) ----
+  gross_salary: {
+    label: "Gross monthly salary",
+    help: "Before tax and any deductions. Anchors the threshold-headroom calculation.",
+  },
+  net_pay: {
+    label: "Net pay",
+    help: "Take-home after tax + existing deductions. Drives the deduction-vs-income ratio.",
+  },
+  current_total_deductions: {
+    label: "Existing deductions (all creditors)",
+    help: "Total already being deducted from payroll by other lenders this month.",
+  },
+  deduction_threshold_pct: {
+    label: "Regulatory threshold %",
+    help: "0.40 = 40% for Zambia. Override only if the borrower's jurisdiction differs.",
+  },
+  resubmission_count: {
+    label: "Deductions resubmitted (last 6 months)",
+    help: "Times you had to resubmit this borrower's deduction at a lower amount.",
+  },
+  borrower_segment: {
+    label: "Employment segment",
+    help: "Coarse prior on income stability — government / mining / private / contract / informal.",
+  },
 };
 
 export function getFieldLabel(name: string): string {

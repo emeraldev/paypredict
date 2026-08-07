@@ -46,7 +46,7 @@ SCORING_CSV_TEMPLATE = (
     # Required columns
     "customer_id,collection_id,collection_amount,collection_currency,"
     "collection_due_date,collection_method,"
-    # Common optional (apply to both factor sets)
+    # Common optional (apply to all factor sets)
     "total_payments,successful_payments,last_successful_payment_date,"
     "average_collection_amount,instalment_number,total_instalments,"
     # CARD_DEBIT optional
@@ -54,7 +54,10 @@ SCORING_CSV_TEMPLATE = (
     # MOBILE_WALLET optional
     "wallet_balance_7d_avg,wallet_balance_current,hours_since_last_inflow,"
     "regular_inflow_day,active_loan_count,transactions_last_7d,transactions_avg_7d,"
-    "last_airtime_purchase_days_ago,new_loan_within_repayment_period,loans_taken_last_90d\n"
+    "last_airtime_purchase_days_ago,new_loan_within_repayment_period,loans_taken_last_90d,"
+    # PAYROLL optional (Zambia salary-advance lenders)
+    "gross_salary,net_pay,current_total_deductions,deduction_threshold_pct,"
+    "resubmission_count,borrower_segment\n"
 )
 
 
@@ -93,7 +96,7 @@ async def scores_list(
     page_size: int = Query(25, ge=1, le=100),
     risk_level: str | None = Query(None, pattern="^(HIGH|MEDIUM|LOW)$"),
     collection_method: str | None = Query(
-        None, pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY)$"
+        None, pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY|PAYROLL)$"
     ),
     recommended_action: str | None = Query(
         None,

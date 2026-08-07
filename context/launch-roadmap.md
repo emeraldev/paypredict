@@ -73,6 +73,8 @@ even if they don't damage revenue yet.
 | 9 | **Secrets via env, not committed config** — confirm no `.env` is in git, document required envs in a single place (probably `docs/deployment-guide.md`) | 1 hour | Already mostly true (`.env` is gitignored), but no checklist exists. |
 | 10 | **DB backups** — Fly has snapshots, RDS has automated backups; document RPO (recovery point) target. Even "1-hour snapshots, 7-day retention" is fine for pilot. | 30 min | Loss of pilot data = loss of pilot. |
 | 11 | **Webhook delivery confirmed against the pilot's endpoint** before go-live | 1 hour | We have webhook code + a per-tenant secret, but it's never delivered to a real lender URL. Smoke-test before the first paid event. |
+| 12 | **Password change + forgotten-password flow** — settings page for the logged-in user to change their own password, plus a "forgot password" email link on `/login` | ~half day | Today a user can log in but can't rotate their password; if they forget it, only DB access recovers them. Non-blocker for a demo, blocker for any live account. |
+| 13 | **Terms of use acceptance on first login** — checkbox + timestamp stored on the User row, gates access to the dashboard until accepted | ~2 hours | Even a soft pilot needs the lender to click "I've read this." Without it we have no record of consent to store their (or their customers') data. |
 
 ### Nice-to-have at this stage
 

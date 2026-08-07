@@ -303,6 +303,131 @@ Example: Took a new loan 2 days before repayment was due → score = 0.8
 
 ---
 
+## Payroll Deduction Factor Set (PAYROLL)
+
+For salary-advance lenders whose collections go through payroll systems (Zambia
+and similar jurisdictions with regulatory deduction ceilings). Initial customer:
+Lumo Financial Services (Zambia), who service ~1,000 government workers and
+~100 miners with 1–3 month salary advances.
+
+The dominant failure mechanism is regulatory: **Zambia caps total payroll
+deductions from all creditors at 40% of gross salary.** If the borrower's other
+creditors have already consumed that headroom, the lender's deduction is
+rejected — even if the borrower has money. Threshold headroom is the single
+biggest predictor.
+
+### 1. ThresholdHeadroom
+**Default weight: 0.25** | **Applicable methods: PAYROLL**
+
+Gap between current total deductions and the regulatory ceiling. THE key factor
+for payroll — a full ceiling means the deduction will be rejected regardless of
+the borrower's willingness or ability.
+
+```
+Input:   customer_data.gross_salary, customer_data.current_total_deductions,
+         customer_data.deduction_threshold_pct (defaults to 0.40),
+         collection_data.collection_amount
+Logic:   If gross_salary unknown: return 0.5
+         cap = gross_salary × threshold_pct
+         If current_deductions provided:
+           headroom = cap - current_deductions
+           If headroom <= 0:          1.0  (already at/over cap)
+           If amount > headroom:      0.9  (our deduction exceeds available room)
+           buffer = (headroom - amount) / cap
+             If buffer < 5%:          0.8
+             If buffer < 15%:         0.5
+             If buffer < 30%:         0.3
+             Else:                    0.1
+         Else (only gross known):
+           ratio = amount / cap
+             If ratio > 0.8:          0.8
+             ... (same tiering, single-deduction proxy)
+Example: gross ZMW 10000, existing deductions 3600, our deduction 500
+         cap = 4000, headroom = 400 < 500 → 0.9
+```
+
+### 2. HistoricalFailureRate
+**Default weight: 0.20** | **Applicable methods: all** (shared factor)
+
+Same logic as the shared factor used by CARD_DEBIT and MOBILE_WALLET. Past
+deduction success/failure ratio.
+
+### 3. DeductionToIncomeRatio
+**Default weight: 0.15** | **Applicable methods: PAYROLL**
+
+Deduction amount as a share of the borrower's income. A large ratio is riskier
+even when the threshold factor is comfortable, because take-home pay pressure
+increases the chance of the borrower disputing or reversing the deduction.
+
+```
+Input:   customer_data.net_pay (or gross_salary as fallback),
+         collection_data.collection_amount
+Logic:   If no income: return 0.5
+         ratio = amount / income
+           If ratio > 0.50: 0.9
+           If ratio > 0.35: 0.7
+           If ratio > 0.20: 0.4
+           If ratio > 0.10: 0.2
+           Else:            0.1
+Example: net_pay ZMW 5100, deduction ZMW 2600 → ratio 0.51 → 0.9
+```
+
+### 4. ConcurrentLoanCount
+**Default weight: 0.15** | **Applicable methods: all** (shared factor)
+
+Number of active loans from other creditors. Directly maps to the threshold-
+consumption story — every other creditor deducting from the same payroll
+consumes headroom.
+
+### 5. ResubmissionHistory
+**Default weight: 0.10** | **Applicable methods: PAYROLL**
+
+How often we've had to resubmit this borrower's deduction with a lower amount
+in the recent past. Resubmissions signal ongoing threshold pressure or income
+volatility.
+
+```
+Input:   customer_data.resubmission_count (past 6 months)
+Logic:   If no data: 0.3 (unknown, mild default)
+         0 resubmissions:  0.0 (clean history)
+         1 resubmission:   0.3 (possibly one-off)
+         2 resubmissions:  0.6 (pattern forming)
+         3+ resubmissions: 0.85
+Example: 3 resubmissions in the past 6 months → 0.85
+```
+
+### 6. BorrowerSegment
+**Default weight: 0.05** | **Applicable methods: PAYROLL**
+
+Employment sector as a coarse risk prior. For Lumo specifically: government
+workers have stable, on-time salaries; miners move between sites, get
+retrenched in commodity downturns, or disappear entirely.
+
+```
+Input:   customer_data.borrower_segment (case-insensitive)
+Logic:   Segment → base score:
+           government:      0.2
+           private_sector:  0.4
+           contract:        0.5
+           mining:          0.6
+           informal:        0.7
+         Unknown / missing: 0.4 (moderate default)
+Example: borrower_segment "government" → 0.2
+```
+
+### 7. LoanCyclingBehaviour
+**Default weight: 0.05** | **Applicable methods: all** (shared factor)
+
+Borrowers who take new loans while still repaying — same logic as the shared
+factor used by MOBILE_WALLET.
+
+### 8. InstalmentPosition
+**Default weight: 0.05** | **Applicable methods: all** (shared factor)
+
+Which month of the (usually 1–3 month) advance we're on. Same shared factor.
+
+---
+
 ## Adding a new factor
 
 1. Create a new file in `api/app/scoring/factors/card/`, `wallet/`, or `shared/`

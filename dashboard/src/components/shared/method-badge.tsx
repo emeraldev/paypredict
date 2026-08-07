@@ -1,4 +1,4 @@
-import { Building, CreditCard, Smartphone } from "lucide-react";
+import { Building, CreditCard, Landmark, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getMethodConfig, type CollectionMethod } from "@/lib/utils/format-method";
 
@@ -11,6 +11,7 @@ const ICON_MAP = {
   CreditCard,
   Building,
   Smartphone,
+  Landmark,
 } as const;
 
 export function MethodBadge({ method, className }: MethodBadgeProps) {

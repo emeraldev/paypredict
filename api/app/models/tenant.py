@@ -18,6 +18,7 @@ class Market(str, enum.Enum):
 class FactorSet(str, enum.Enum):
     CARD_DEBIT = "CARD_DEBIT"          # Card-on-file + debit order collections
     MOBILE_WALLET = "MOBILE_WALLET"    # Mobile money wallet auto-deductions
+    PAYROLL = "PAYROLL"                # Payroll deduction (salary advances, Zambia)
     CUSTOM = "CUSTOM"                  # Future: tenant-defined factor mix
 
 
