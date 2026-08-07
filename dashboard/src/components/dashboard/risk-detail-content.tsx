@@ -271,6 +271,8 @@ export function RiskDetailContent({
         <ReportOutcomeForm
           scoreId={detail.score_id}
           collectionId={detail.collection_id}
+          currency={detail.collection_currency}
+          suggestedAmount={Number(detail.collection_amount)}
           onReported={() => onOutcomeReported?.()}
         />
       )}
