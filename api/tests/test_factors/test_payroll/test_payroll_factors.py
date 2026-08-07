@@ -81,6 +81,32 @@ class TestThresholdHeadroom:
         assert self.factor.applies_to(CollectionMethod.PAYROLL)
         assert not self.factor.applies_to(CollectionMethod.CARD)
 
+    def test_none_threshold_pct_falls_back_to_zambia_default(self):
+        """Regression: Pydantic emits explicit None for omitted optional
+        fields — .get(key, default) doesn't fire the default, so we have to
+        handle None explicitly. Bug hit in the bulk endpoint when a caller
+        omitted `deduction_threshold_pct`, TypeError from float(None)."""
+        score = self.factor.calculate(
+            {
+                "gross_salary": 10000,
+                "current_total_deductions": 1200,
+                "deduction_threshold_pct": None,  # explicit None, not omitted
+            },
+            {"collection_amount": 800},
+        )
+        # Should behave the same as the "loose headroom" case with 40% default
+        # applied: cap = 4000, headroom = 2800, buffer after 800 = 2000 → 50%
+        # → 0.1 branch.
+        assert score == 0.1
+
+    def test_omitted_threshold_pct_falls_back_to_zambia_default(self):
+        """When the key isn't in the dict at all — same expected behaviour."""
+        score = self.factor.calculate(
+            {"gross_salary": 10000, "current_total_deductions": 1200},
+            {"collection_amount": 800},
+        )
+        assert score == 0.1
+
 
 # --- DeductionToIncomeRatio ---
 

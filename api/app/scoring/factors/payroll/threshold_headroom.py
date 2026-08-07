@@ -24,7 +24,12 @@ class ThresholdHeadroom(BaseFactor):
     def calculate(self, customer_data: dict, collection_data: dict) -> float:
         gross_salary = customer_data.get("gross_salary")
         current_deductions = customer_data.get("current_total_deductions")
-        threshold_pct = customer_data.get("deduction_threshold_pct", 0.40)
+        # Pydantic serialises optional fields as explicit None when omitted,
+        # so .get(key, default) doesn't shield us — handle None first, same
+        # trap as LoanCyclingBehaviour hit.
+        threshold_pct = customer_data.get("deduction_threshold_pct")
+        if threshold_pct is None:
+            threshold_pct = 0.40  # Zambia default
         collection_amount = collection_data.get("collection_amount", 0)
 
         if not gross_salary:
