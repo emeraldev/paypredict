@@ -18,6 +18,11 @@ class FactorWeight(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
     )
+    # Weights are scoped per collection method. A tenant that collects via
+    # multiple methods (e.g. card + debit order, or payroll + card) tunes
+    # each independently. See migration `52f6a4d1b0c9` for the backfill
+    # that expanded pre-existing single-set weights across their methods.
+    collection_method: Mapped[str] = mapped_column(String(50), nullable=False)
     factor_name: Mapped[str] = mapped_column(String(255), nullable=False)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -31,5 +36,10 @@ class FactorWeight(Base):
     tenant: Mapped["Tenant"] = relationship(back_populates="factor_weights")  # noqa: F821
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "factor_name", name="uq_factor_weight_tenant_factor"),
+        UniqueConstraint(
+            "tenant_id",
+            "collection_method",
+            "factor_name",
+            name="uq_factor_weight_tenant_method_factor",
+        ),
     )
