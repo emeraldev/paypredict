@@ -22,7 +22,7 @@ import type {
   ScoreResponse,
 } from "@/lib/api/types";
 
-type Method = "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY";
+type Method = "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY" | "PAYROLL";
 
 interface SingleCollectionFormProps {
   onScored: (result: ScoreResponse) => void;
@@ -75,6 +75,14 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   const [newLoanCycling, setNewLoanCycling] = useState<"" | "true" | "false">("");
   const [loansTakenLast90d, setLoansTakenLast90d] = useState("");
 
+  // Payroll optional
+  const [grossSalary, setGrossSalary] = useState("");
+  const [netPay, setNetPay] = useState("");
+  const [currentTotalDeductions, setCurrentTotalDeductions] = useState("");
+  const [deductionThresholdPct, setDeductionThresholdPct] = useState("");
+  const [resubmissionCount, setResubmissionCount] = useState("");
+  const [borrowerSegment, setBorrowerSegment] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
 
   const buildCustomerData = (): CustomerData => {
@@ -123,6 +131,18 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
       setInt("transactions_avg_7d", transactionsAvg7d);
       setInt("last_airtime_purchase_days_ago", lastAirtimeDaysAgo);
       setBool("new_loan_within_repayment_period", newLoanCycling);
+      setInt("loans_taken_last_90d", loansTakenLast90d);
+    }
+    if (method === "PAYROLL") {
+      setNum("gross_salary", grossSalary);
+      setNum("net_pay", netPay);
+      setNum("current_total_deductions", currentTotalDeductions);
+      setNum("deduction_threshold_pct", deductionThresholdPct);
+      setInt("resubmission_count", resubmissionCount);
+      setStr("borrower_segment", borrowerSegment);
+      // active_loan_count matters for payroll too (competing deductions) —
+      // reuse the same input by treating it as a common field for PAYROLL.
+      setInt("active_loan_count", activeLoanCount);
       setInt("loans_taken_last_90d", loansTakenLast90d);
     }
     return cd;
@@ -216,6 +236,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                   <SelectItem value="CARD">Card on file</SelectItem>
                   <SelectItem value="DEBIT_ORDER">Debit order</SelectItem>
                   <SelectItem value="MOBILE_MONEY">Mobile money</SelectItem>
+                  <SelectItem value="PAYROLL">Payroll deduction</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -459,6 +480,102 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                             <SelectItem value="true">Yes</SelectItem>
                           </SelectContent>
                         </Select>
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payroll */}
+                {method === "PAYROLL" && (
+                  <div className="space-y-3 border-t border-border pt-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Payroll-specific
+                    </p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Field name="gross_salary">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={grossSalary}
+                          onChange={(e) => setGrossSalary(e.target.value)}
+                          placeholder="10000"
+                        />
+                      </Field>
+                      <Field name="net_pay">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={netPay}
+                          onChange={(e) => setNetPay(e.target.value)}
+                          placeholder="5500"
+                        />
+                      </Field>
+                      <Field name="current_total_deductions">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={currentTotalDeductions}
+                          onChange={(e) => setCurrentTotalDeductions(e.target.value)}
+                          placeholder="2400"
+                        />
+                      </Field>
+                      <Field name="deduction_threshold_pct">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={deductionThresholdPct}
+                          onChange={(e) => setDeductionThresholdPct(e.target.value)}
+                          placeholder="0.40"
+                        />
+                      </Field>
+                      <Field name="resubmission_count">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={resubmissionCount}
+                          onChange={(e) => setResubmissionCount(e.target.value)}
+                          placeholder="0"
+                        />
+                      </Field>
+                      <Field name="borrower_segment">
+                        <Select
+                          value={borrowerSegment}
+                          onValueChange={(v) => setBorrowerSegment(v ?? "")}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="government">Government</SelectItem>
+                            <SelectItem value="private_sector">Private sector</SelectItem>
+                            <SelectItem value="contract">Contract</SelectItem>
+                            <SelectItem value="mining">Mining</SelectItem>
+                            <SelectItem value="informal">Informal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field name="active_loan_count">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={activeLoanCount}
+                          onChange={(e) => setActiveLoanCount(e.target.value)}
+                          placeholder="1"
+                        />
+                      </Field>
+                      <Field name="loans_taken_last_90d">
+                        <Input
+                          type="number"
+                          min="0"
+                          value={loansTakenLast90d}
+                          onChange={(e) => setLoansTakenLast90d(e.target.value)}
+                          placeholder="0"
+                        />
                       </Field>
                     </div>
                   </div>
