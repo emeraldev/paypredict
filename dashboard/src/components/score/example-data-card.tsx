@@ -10,7 +10,7 @@ import { getFieldLabel } from "@/lib/utils/field-labels";
 interface ExampleRow {
   title: string;
   expectedRisk: "LOW" | "MEDIUM" | "HIGH";
-  method: "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY";
+  method: "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY" | "PAYROLL";
   rationale: string;
   fields: Record<string, string>;
 }
@@ -172,6 +172,60 @@ const EXAMPLES: ExampleRow[] = [
       transactions_avg_7d: "11",
       last_airtime_purchase_days_ago: "10",
       new_loan_within_repayment_period: "false",
+      loans_taken_last_90d: "2",
+    },
+  },
+  {
+    title: "Government worker, comfortable threshold headroom",
+    expectedRisk: "LOW",
+    method: "PAYROLL",
+    rationale:
+      "Government employment (stable), existing deductions are 30% of the 40% cap so plenty of headroom for our deduction, deduction under 20% of net pay, clean history.",
+    fields: {
+      customer_id: "EXAMPLE_GOV_001",
+      collection_id: "EXAMPLE_DED_701",
+      collection_amount: "800.00",
+      collection_currency: "ZMW",
+      collection_due_date: "2026-07-25",
+      collection_method: "PAYROLL",
+      total_payments: "6",
+      successful_payments: "6",
+      instalment_number: "2",
+      total_instalments: "3",
+      gross_salary: "10000",
+      net_pay: "5500",
+      current_total_deductions: "1200",
+      deduction_threshold_pct: "0.40",
+      resubmission_count: "0",
+      borrower_segment: "government",
+      active_loan_count: "1",
+      loans_taken_last_90d: "0",
+    },
+  },
+  {
+    title: "Miner near the deduction ceiling, past resubmissions",
+    expectedRisk: "HIGH",
+    method: "PAYROLL",
+    rationale:
+      "Existing deductions consume 90% of the 40% cap — our deduction alone exceeds the remaining headroom. Volatile mining segment, three prior resubmissions signal ongoing threshold pressure.",
+    fields: {
+      customer_id: "EXAMPLE_MIN_001",
+      collection_id: "EXAMPLE_DED_702",
+      collection_amount: "1000.00",
+      collection_currency: "ZMW",
+      collection_due_date: "2026-07-25",
+      collection_method: "PAYROLL",
+      total_payments: "4",
+      successful_payments: "1",
+      instalment_number: "1",
+      total_instalments: "3",
+      gross_salary: "12000",
+      net_pay: "6200",
+      current_total_deductions: "4320",
+      deduction_threshold_pct: "0.40",
+      resubmission_count: "3",
+      borrower_segment: "mining",
+      active_loan_count: "3",
       loans_taken_last_90d: "2",
     },
   },
