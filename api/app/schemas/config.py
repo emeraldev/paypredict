@@ -129,3 +129,14 @@ class WeightsUpdateRequest(BaseModel):
     """
     collection_method: CollectionMethod
     weights: dict[str, float] = Field(min_length=1)
+
+
+class WeightsAddMethodRequest(BaseModel):
+    """POST payload — opt into weight configuration for a new method.
+
+    Seeds default weights for the method so the dashboard shows a tab
+    for it before the tenant has scored their first collection with
+    that method. Idempotent: calling it for a method that already has
+    weights is a no-op that still returns the current state.
+    """
+    collection_method: CollectionMethod

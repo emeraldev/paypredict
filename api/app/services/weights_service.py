@@ -74,6 +74,40 @@ async def load_all_weights_by_method(
     return buckets
 
 
+async def add_method_with_defaults(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    method: CollectionMethod,
+    updated_by: uuid.UUID | None,
+) -> bool:
+    """Ensure the tenant has weight rows for `method`, seeded with defaults.
+
+    Returns True when new rows were created, False when the tenant already
+    had them (idempotent — repeated calls are safe). Used by the dashboard
+    "+ Add method" affordance so lenders can pre-configure weights for a
+    method they intend to expand into, before their first collection with
+    that method arrives.
+    """
+    existing = await get_custom_weights_for_method(db, tenant_id, method)
+    if existing:
+        return False
+
+    now = datetime.now(timezone.utc)
+    for factor_name, weight in get_default_weights_for_method(method).items():
+        db.add(
+            FactorWeight(
+                tenant_id=tenant_id,
+                collection_method=method.value,
+                factor_name=factor_name,
+                weight=weight,
+                updated_at=now,
+                updated_by=updated_by,
+            )
+        )
+    await db.flush()
+    return True
+
+
 async def upsert_weights_for_method(
     db: AsyncSession,
     tenant_id: uuid.UUID,

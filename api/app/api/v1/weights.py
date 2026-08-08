@@ -30,6 +30,7 @@ from app.models.score_request import CollectionMethod
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.schemas.config import (
+    WeightsAddMethodRequest,
     WeightsFactorEntry,
     WeightsMethodEntry,
     WeightsResponse,
@@ -42,6 +43,7 @@ from app.scoring.registry import (
     get_factors_for_method,
 )
 from app.services.weights_service import (
+    add_method_with_defaults,
     get_effective_weights_for_method,
     list_configured_methods,
     upsert_weights_for_method,
@@ -175,6 +177,64 @@ async def update_weights(
         },
         actor_id=actor_user.id if actor_user else None,
     )
+
+    await db.commit()
+    return await _build_response(db, tenant)
+
+
+@router.post("/weights/methods", response_model=WeightsResponse)
+async def add_weights_method(
+    body: WeightsAddMethodRequest,
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
+    credentials: HTTPAuthorizationCredentials | None = Security(session_security),
+    db: AsyncSession = Depends(get_db),
+) -> WeightsResponse:
+    """Opt into weight configuration for a new collection method.
+
+    Seeds default weights for the method so the dashboard exposes a tab
+    for it before the tenant has scored their first collection with
+    that method. Useful when a lender is preparing to expand into a
+    new collection method and wants to tune weights up front.
+
+    Idempotent — repeating the call for a method that already has
+    weights is a no-op that returns the same current state.
+
+    ADMIN-only when called via JWT; API-key callers are trusted (the
+    key belongs to the tenant).
+    """
+    method = body.collection_method
+
+    actor_user: User | None = None
+    if credentials and not credentials.credentials.startswith("pk_"):
+        actor_user = await get_current_user(credentials, db)
+        if actor_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin role required to add a collection method",
+            )
+
+    created = await add_method_with_defaults(
+        db,
+        tenant.id,
+        method,
+        updated_by=actor_user.id if actor_user else None,
+    )
+
+    if created:
+        from app.services.notification_service import EventType, create_notification
+
+        await create_notification(
+            db,
+            tenant.id,
+            EventType.WEIGHTS_UPDATED,
+            metadata={
+                "actor_name": actor_user.name if actor_user else "API key",
+                "collection_method": method.value,
+                "method_label": METHOD_LABELS[method],
+                "action": "method_added",
+            },
+            actor_id=actor_user.id if actor_user else None,
+        )
 
     await db.commit()
     return await _build_response(db, tenant)
