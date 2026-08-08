@@ -377,6 +377,24 @@ Rules:
 - ADMIN-only when called via JWT; API-key callers are trusted (the key
   belongs to the tenant).
 
+```
+POST /v1/config/weights/methods
+```
+
+Opt into weight configuration for a method the tenant does not yet use.
+Seeds default weights so a tab appears for it in the dashboard before
+the tenant scores their first collection with that method. Useful when
+a lender is preparing to expand into a new collection method.
+
+**Request body:**
+
+```json
+{ "collection_method": "MOBILE_MONEY" }
+```
+
+Idempotent — calling it for a method that already has weights returns
+the current state without modification. ADMIN-only via JWT.
+
 ---
 
 ### Webhooks

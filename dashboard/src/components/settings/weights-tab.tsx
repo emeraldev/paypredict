@@ -1,11 +1,18 @@
 "use client";
 
-import { AlertCircleIcon, CheckCircle2Icon, SlidersHorizontalIcon } from "lucide-react";
+import { AlertCircleIcon, CheckCircle2Icon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { HelpPopover } from "@/components/shared/help-popover";
@@ -14,9 +21,20 @@ import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/use-api";
 import { useAuth } from "@/hooks/use-auth";
 import { configApi } from "@/lib/api/config";
+import { METHOD_CONFIG } from "@/lib/constants";
 import type { WeightsMethodEntry, WeightsResponse } from "@/lib/api/types";
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import { WeightSliderRow } from "./weight-slider-row";
+
+// Every method the backend registry knows about. The tab strip normally
+// shows only the subset the tenant actually uses; the "+ Add method"
+// menu below offers whatever's missing.
+const ALL_METHODS: readonly CollectionMethod[] = [
+  "CARD",
+  "DEBIT_ORDER",
+  "MOBILE_MONEY",
+  "PAYROLL",
+] as const;
 
 type MethodDraft = {
   values: Record<string, number>;
@@ -64,11 +82,36 @@ export function WeightsTab() {
   );
   const [activeMethod, setActiveMethod] = useState<CollectionMethod | null>(null);
   const [savingMethod, setSavingMethod] = useState<CollectionMethod | null>(null);
+  const [addingMethod, setAddingMethod] = useState<CollectionMethod | null>(null);
 
   const methods = useMemo<WeightsMethodEntry[]>(
     () => data?.methods ?? [],
     [data],
   );
+
+  // Methods the tenant does NOT yet have a tab for — offered in the
+  // "+ Add method" menu so a lender preparing to expand into a new
+  // method can pre-configure its weights before the first collection.
+  const availableToAdd = useMemo<CollectionMethod[]>(
+    () => ALL_METHODS.filter(
+      (m) => !methods.some((entry) => entry.collection_method === m),
+    ),
+    [methods],
+  );
+
+  const handleAddMethod = async (method: CollectionMethod) => {
+    try {
+      setAddingMethod(method);
+      await configApi.addWeightsMethod(method);
+      toast.success(`${METHOD_CONFIG[method].label} tab added`);
+      setActiveMethod(method);
+      refetch();
+    } catch {
+      toast.error("Failed to add method");
+    } finally {
+      setAddingMethod(null);
+    }
+  };
 
   useEffect(() => {
     if (!data) return;
@@ -93,11 +136,41 @@ export function WeightsTab() {
           <EmptyState
             icon={<SlidersHorizontalIcon className="h-6 w-6" />}
             title="No weights to tune yet"
-            description="Weights appear here per collection method once your tenant has scored at least one collection. Score one to get started."
+            description={
+              isAdmin
+                ? "Weights appear here per collection method. Score a collection with a method to open its tab, or add one below to pre-configure defaults before you start collecting."
+                : "Weights appear here per collection method once your tenant has scored at least one collection."
+            }
             action={
-              <Button size="sm" onClick={() => router.push("/dashboard/score")}>
-                Score a collection
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button size="sm" onClick={() => router.push("/dashboard/score")}>
+                  Score a collection
+                </Button>
+                {isAdmin && availableToAdd.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="outline" size="sm">
+                          <PlusIcon className="mr-1 h-4 w-4" />
+                          Add method
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="center">
+                      <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
+                      {availableToAdd.map((m) => (
+                        <DropdownMenuItem
+                          key={m}
+                          disabled={addingMethod !== null}
+                          onClick={() => handleAddMethod(m)}
+                        >
+                          {METHOD_CONFIG[m].label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             }
           />
         </CardContent>
@@ -209,9 +282,35 @@ export function WeightsTab() {
               <p>
                 Weights are stored per method, so a change on Card doesn&apos;t
                 affect Debit Order scoring. Score a collection with a new
-                method to see its tab appear here.
+                method to see its tab appear, or use{" "}
+                <span className="font-medium">Add method</span> to pre-configure
+                weights before you start collecting with it.
               </p>
             </HelpPopover>
+            {isAdmin && availableToAdd.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="outline" size="sm" className="ml-auto">
+                      <PlusIcon className="mr-1 h-4 w-4" />
+                      Add method
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
+                  {availableToAdd.map((m) => (
+                    <DropdownMenuItem
+                      key={m}
+                      disabled={addingMethod !== null}
+                      onClick={() => handleAddMethod(m)}
+                    >
+                      {METHOD_CONFIG[m].label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {methods.map((entry) => {

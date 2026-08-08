@@ -22,6 +22,13 @@ export const configApi = {
       collection_method,
       weights,
     }),
+  // Opt in to a new method — seeds default weights so a tab appears
+  // before the tenant scores their first collection with that method.
+  // Idempotent for methods that already have weights.
+  addWeightsMethod: (collection_method: CollectionMethod) =>
+    api.post<WeightsResponse>("/v1/config/weights/methods", {
+      collection_method,
+    }),
 
   // API Keys
   getApiKeys: () => api.get<ApiKeyListResponse>("/v1/config/api-keys"),
