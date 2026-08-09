@@ -54,6 +54,12 @@ def upgrade() -> None:
     # 3. Expand each pre-migration row into one row per applicable method.
     #    CARD_DEBIT tenants get both CARD and DEBIT_ORDER so their tuning
     #    survives for both. gen_random_uuid() is core in PG 13+.
+    #
+    #    Cast `t.factor_set` (a Postgres enum) to text before the CASE so we
+    #    compare text-against-text — otherwise PG has to resolve the string
+    #    literals as enum values, and when the previous migration
+    #    (8f4a1c2d0e3b) added PAYROLL to `factor_set_enum` in the same
+    #    Alembic run it can't be used yet (UnsafeNewEnumValueUsageError).
     op.execute(
         """
         INSERT INTO factor_weights
@@ -65,7 +71,7 @@ def upgrade() -> None:
         JOIN tenants t ON t.id = fw.tenant_id
         CROSS JOIN LATERAL (
             SELECT unnest(
-                CASE t.factor_set
+                CASE t.factor_set::text
                     WHEN 'CARD_DEBIT'    THEN ARRAY['CARD', 'DEBIT_ORDER']
                     WHEN 'MOBILE_WALLET' THEN ARRAY['MOBILE_MONEY']
                     WHEN 'PAYROLL'       THEN ARRAY['PAYROLL']
