@@ -73,6 +73,57 @@ jobs:
           REDIS_URL: redis://localhost:6380/0
         run: pytest -q --tb=short
 
+  migrations:
+    name: Migrations (round-trip)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: paypredict
+          POSTGRES_PASSWORD: localdev
+          POSTGRES_DB: paypredict_dev
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U paypredict"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: api/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # A migration must survive being applied, rolled back, and re-applied
+      # on a fresh DB — that's what a real production deploy or emergency
+      # rollback looks like. Bugs that only surface on downgrade (data loss,
+      # constraint mismatches, enum shape drift) never surface if we only
+      # test forward. FORCE_DESTRUCTIVE_DOWNGRADE is set to acknowledge
+      # that this job is allowed to drop data — production operators must
+      # opt in themselves.
+      - name: Round-trip migrations (upgrade → downgrade base → upgrade)
+        env:
+          DATABASE_URL: postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev
+          FORCE_DESTRUCTIVE_DOWNGRADE: "1"
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
   frontend:
     name: Frontend (build + lint)
     runs-on: ubuntu-latest
@@ -105,12 +156,13 @@ jobs:
   ci-passed:
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, migrations, frontend]
     if: always()
     steps:
       - name: Verify all jobs succeeded
         run: |
           if [ "${{ needs.backend.result }}" != "success" ] || \
+             [ "${{ needs.migrations.result }}" != "success" ] || \
              [ "${{ needs.frontend.result }}" != "success" ]; then
             echo "One or more jobs failed"
             exit 1

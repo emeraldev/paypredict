@@ -18,11 +18,15 @@ Backfill rules:
 Old rows without a collection_method are removed after the expansion —
 they'd violate the new unique constraint otherwise.
 
-Downgrade collapses the two rows for CARD_DEBIT back into one (keeping the
-CARD variant, discarding DEBIT_ORDER), drops the column, and restores the
-original unique constraint. Any DEBIT_ORDER-only customisations from the
-new UI would be lost on downgrade; documented explicitly in code.
+Downgrade is destructive by design: it collapses two rows-per-CARD_DEBIT
+tenant back into one (keeping the CARD sibling, dropping DEBIT_ORDER).
+Any DEBIT_ORDER-only customisations made through the new UI would be
+lost. To prevent that surprise in production, the downgrade REFUSES if
+data would be dropped unless the operator sets
+`FORCE_DESTRUCTIVE_DOWNGRADE=1` in the environment — a deliberate
+opt-in that documents intent in the shell history.
 """
+import os
 from typing import Sequence, Union
 
 from alembic import op
@@ -103,11 +107,36 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 1. Restore the old unique constraint. Any DEBIT_ORDER rows introduced
-    #    since the upgrade would collide with their CARD sibling — drop them
-    #    first so the constraint restore succeeds. CARD wins as the
-    #    canonical representation of the old CARD_DEBIT weights.
-    op.execute("DELETE FROM factor_weights WHERE collection_method = 'DEBIT_ORDER'")
+    # Refuse to drop customer-visible data unless the operator has opted
+    # in via FORCE_DESTRUCTIVE_DOWNGRADE=1. The check counts BOTH DEBIT_ORDER
+    # rows (which the constraint restore forces us to drop) and non-CARD
+    # variants that would violate the restored unique(tenant_id, factor_name)
+    # constraint. CI sets FORCE=1 so round-trip tests work; a human on a
+    # production shell has to type it deliberately.
+    bind = op.get_bind()
+    at_risk = bind.execute(
+        sa.text(
+            "SELECT count(*) FROM factor_weights "
+            "WHERE collection_method IN ('DEBIT_ORDER', 'MOBILE_MONEY', 'PAYROLL')"
+        )
+    ).scalar_one()
+
+    if at_risk > 0 and os.environ.get("FORCE_DESTRUCTIVE_DOWNGRADE") != "1":
+        raise RuntimeError(
+            f"Refusing to downgrade: {at_risk} factor_weight row(s) would be "
+            "silently deleted (DEBIT_ORDER / MOBILE_MONEY / PAYROLL rows have "
+            "no home in the old schema). Set FORCE_DESTRUCTIVE_DOWNGRADE=1 in "
+            "the environment to acknowledge and proceed."
+        )
+
+    # 1. Restore the old unique constraint. Non-CARD rows would collide with
+    #    their CARD sibling (or be orphaned entirely), so drop them first.
+    #    CARD wins as the canonical representation of the old CARD_DEBIT
+    #    weights.
+    op.execute(
+        "DELETE FROM factor_weights "
+        "WHERE collection_method IN ('DEBIT_ORDER', 'MOBILE_MONEY', 'PAYROLL')"
+    )
 
     op.drop_constraint(
         "uq_factor_weight_tenant_method_factor",
