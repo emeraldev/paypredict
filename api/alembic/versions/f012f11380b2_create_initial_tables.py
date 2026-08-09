@@ -169,3 +169,23 @@ def downgrade() -> None:
     op.drop_table('alerts')
     op.drop_table('tenants')
     # ### end Alembic commands ###
+
+    # Drop native Postgres enum types created inline via `sa.Enum(..., name=X)`
+    # in the upgrade above. Without this, `alembic downgrade base` leaves 10
+    # orphan types behind, and any subsequent `alembic upgrade head` fails
+    # with `type "market_enum" already exists`. checkfirst=True keeps this
+    # safe if a partial-downgrade rerun means some are already gone.
+    bind = op.get_bind()
+    for enum_name in (
+        "outcome_status_enum",
+        "failure_category_enum",
+        "risk_level_enum",
+        "collection_currency_enum",
+        "collection_method_enum",
+        "user_role_enum",
+        "alert_type_enum",
+        "plan_enum",
+        "factor_set_enum",
+        "market_enum",
+    ):
+        sa.Enum(name=enum_name).drop(bind, checkfirst=True)

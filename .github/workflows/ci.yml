@@ -108,26 +108,23 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      # The most recent migration must survive being applied, rolled back,
-      # and re-applied — that's the realistic emergency-rollback scenario
-      # for a real customer: bad migration deploys, ops rolls back -1,
-      # fix and re-deploy. Bugs that only surface on downgrade (data loss,
-      # constraint mismatches, enum shape drift) never surface if we only
-      # test forward. We intentionally do NOT downgrade to `base` because
-      # some historical migrations don't DROP TYPE their enums on
-      # downgrade — a real bug worth fixing separately, but out of scope
-      # for this per-PR safety net.
+      # The full migration stack must round-trip: apply everything, roll
+      # back to an empty DB, apply everything again. This catches every
+      # class of downgrade bug (data loss, constraint mismatch, orphan
+      # native enum types, enum shape drift) — the realistic emergency-
+      # rollback scenario for a real customer, plus the nuclear reset
+      # case where prod is rebuilt from scratch.
       #
       # FORCE_DESTRUCTIVE_DOWNGRADE=1 is set so the guard in migration
       # 52f6a4d1b0c9 (and any future destructive downgrade) allows this
       # CI check to complete; production operators must set it themselves.
-      - name: Round-trip most recent migration (up → down -1 → up)
+      - name: Round-trip full migration stack (up → down base → up)
         env:
           DATABASE_URL: postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev
           FORCE_DESTRUCTIVE_DOWNGRADE: "1"
         run: |
           alembic upgrade head
-          alembic downgrade -1
+          alembic downgrade base
           alembic upgrade head
 
   frontend:
