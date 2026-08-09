@@ -333,3 +333,169 @@ async def test_alerts_partial_update(async_client, sa_admin_user):
 async def test_alerts_no_auth(async_client, sa_tenant):
     r = await async_client.get("/v1/config/alerts")
     assert r.status_code == 401
+
+
+# ==================== Weights (per collection method) ====================
+
+
+CARD_WEIGHTS = {
+    "historical_failure_rate": 0.25,
+    "day_of_month_vs_payday": 0.20,
+    "days_since_last_payment": 0.15,
+    "instalment_position": 0.10,
+    "order_value_vs_average": 0.10,
+    "card_health": 0.10,
+    "card_type": 0.05,
+    "debit_order_return_history": 0.05,
+}
+
+
+@pytest.mark.asyncio
+async def test_get_weights_grouped_by_method(async_client, sa_admin_user):
+    """The SA test tenant is seeded with weights for CARD + DEBIT_ORDER.
+    GET should return both, each with its label and 8 factors."""
+    token = await _login(async_client)
+    r = await async_client.get("/v1/config/weights", headers=_auth(token))
+    assert r.status_code == 200
+    body = r.json()
+    methods = {m["collection_method"]: m for m in body["methods"]}
+    assert set(methods.keys()) == {"CARD", "DEBIT_ORDER"}
+    for entry in methods.values():
+        assert entry["method_label"] in ("Card", "Debit Order")
+        assert len(entry["factors"]) == 8
+        # Each factor carries its plain-English label and one-liner.
+        for f in entry["factors"]:
+            assert f["label"]
+            assert f["description"]
+        assert abs(entry["total_weight"] - 1.0) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_put_weights_isolates_method(async_client, sa_admin_user):
+    """PUT for CARD must leave DEBIT_ORDER weights untouched — the whole
+    point of the per-method schema."""
+    token = await _login(async_client)
+
+    # Skew CARD weights toward historical_failure_rate.
+    skewed = {**CARD_WEIGHTS, "historical_failure_rate": 0.40, "day_of_month_vs_payday": 0.05}
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": skewed},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    methods = {m["collection_method"]: m for m in body["methods"]}
+    card_hfr = next(f for f in methods["CARD"]["factors"] if f["factor_name"] == "historical_failure_rate")
+    debit_hfr = next(f for f in methods["DEBIT_ORDER"]["factors"] if f["factor_name"] == "historical_failure_rate")
+    assert card_hfr["weight"] == 0.40
+    assert debit_hfr["weight"] == 0.25, (
+        "DEBIT_ORDER weights should be untouched by a CARD-only PUT"
+    )
+
+
+@pytest.mark.asyncio
+async def test_put_weights_rejects_wrong_sum(async_client, sa_admin_user):
+    token = await _login(async_client)
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={
+            "collection_method": "CARD",
+            "weights": {"historical_failure_rate": 0.5},
+        },
+    )
+    assert r.status_code == 400
+    assert "sum" in r.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_put_weights_rejects_unknown_factor_for_method(async_client, sa_admin_user):
+    """threshold_headroom belongs to PAYROLL, not CARD — reject it loudly."""
+    token = await _login(async_client)
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={
+            "collection_method": "CARD",
+            "weights": {**CARD_WEIGHTS, "threshold_headroom": 0.10},
+        },
+    )
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "threshold_headroom" in detail["unknown_factors"]
+
+
+@pytest.mark.asyncio
+async def test_add_method_creates_default_rows(async_client, sa_admin_user):
+    """POST /v1/config/weights/methods with a NEW method seeds defaults
+    and makes the tab appear in the grouped GET response."""
+    token = await _login(async_client)
+
+    # Baseline: SA fixture has CARD + DEBIT_ORDER only.
+    r = await async_client.get("/v1/config/weights", headers=_auth(token))
+    baseline = {m["collection_method"] for m in r.json()["methods"]}
+    assert baseline == {"CARD", "DEBIT_ORDER"}
+
+    # Opt into PAYROLL.
+    r = await async_client.post(
+        "/v1/config/weights/methods",
+        headers=_auth(token),
+        json={"collection_method": "PAYROLL"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    methods = {m["collection_method"]: m for m in body["methods"]}
+    assert "PAYROLL" in methods
+    payroll = methods["PAYROLL"]
+    assert len(payroll["factors"]) == 8
+    assert abs(payroll["total_weight"] - 1.0) < 0.01
+    # Defaults, not zeros.
+    threshold_headroom = next(
+        f for f in payroll["factors"] if f["factor_name"] == "threshold_headroom"
+    )
+    assert threshold_headroom["weight"] > 0
+
+
+@pytest.mark.asyncio
+async def test_add_method_is_idempotent(async_client, sa_admin_user):
+    """Calling POST for a method the tenant already has must not stomp
+    their tuning — return the existing state, no changes."""
+    token = await _login(async_client)
+
+    # Tune CARD to a distinctive shape first.
+    skewed = {**CARD_WEIGHTS, "historical_failure_rate": 0.40, "day_of_month_vs_payday": 0.05}
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": skewed},
+    )
+    assert r.status_code == 200
+
+    # Now "add" CARD again — should be a no-op.
+    r = await async_client.post(
+        "/v1/config/weights/methods",
+        headers=_auth(token),
+        json={"collection_method": "CARD"},
+    )
+    assert r.status_code == 200
+    methods = {m["collection_method"]: m for m in r.json()["methods"]}
+    hfr = next(f for f in methods["CARD"]["factors"] if f["factor_name"] == "historical_failure_rate")
+    assert hfr["weight"] == 0.40, "Existing tuning must be preserved"
+
+
+@pytest.mark.asyncio
+async def test_add_method_requires_admin_on_jwt(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """Manager + Viewer roles cannot expand the tenant's method set."""
+    from tests.conftest import TEST_MANAGER_EMAIL, TEST_VIEWER_EMAIL
+
+    admin = await _login(async_client, email=TEST_USER_EMAIL)
+    manager = await _login(async_client, email=TEST_MANAGER_EMAIL)
+    viewer = await _login(async_client, email=TEST_VIEWER_EMAIL)
+
+    body = {"collection_method": "PAYROLL"}
+    assert (await async_client.post("/v1/config/weights/methods", headers=_auth(manager), json=body)).status_code == 403
+    assert (await async_client.post("/v1/config/weights/methods", headers=_auth(viewer), json=body)).status_code == 403
+    assert (await async_client.post("/v1/config/weights/methods", headers=_auth(admin), json=body)).status_code == 200

@@ -57,7 +57,6 @@ def test_recommends_shift_to_just_after_payday(engine):
 
     result = optimise_collection_date(
         engine,
-        factor_set="CARD_DEBIT",
         customer_data=customer,
         collection_data={
             "collection_amount": 1500.0,
@@ -97,7 +96,6 @@ def test_no_shift_when_original_is_already_optimal(engine):
 
     result = optimise_collection_date(
         engine,
-        factor_set="CARD_DEBIT",
         customer_data=customer,
         collection_data={
             "collection_amount": 1500.0,
@@ -126,7 +124,6 @@ def test_skips_past_dates(engine):
     # better (the 25th), but it's filtered out by the floor.
     result = optimise_collection_date(
         engine,
-        factor_set="CARD_DEBIT",
         customer_data=customer,
         collection_data={
             "collection_amount": 1500.0,
@@ -171,7 +168,6 @@ def test_no_date_dependent_factors_returns_no_shift(engine):
 
     result = optimise_collection_date(
         engine,
-        factor_set="CARD_DEBIT",
         customer_data=customer,
         collection_data={
             "collection_amount": 1500.0,
@@ -215,7 +211,6 @@ def test_threshold_keeps_trivial_improvements_silent(engine, monkeypatch):
 
     result = optimise_collection_date(
         engine,
-        factor_set="CARD_DEBIT",
         customer_data=customer,
         collection_data={
             "collection_amount": 1500.0,
@@ -261,7 +256,6 @@ def test_wallet_factor_set_with_inflow_day(engine):
 
     result = optimise_collection_date(
         engine,
-        factor_set="MOBILE_WALLET",
         customer_data=customer,
         collection_data={
             "collection_amount": 250.0,

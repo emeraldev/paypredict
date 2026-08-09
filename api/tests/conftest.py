@@ -28,7 +28,7 @@ from app.models.tenant import FactorSet, Market, Plan, Tenant
 from app.models.api_key import ApiKey
 from app.models.factor_weight import FactorWeight
 from app.models.user import User, UserRole
-from app.scoring.registry import get_default_weights
+from app.scoring.registry import get_default_weights_for_method
 from app.services.auth_service import hash_password
 
 TEST_API_KEY = "pk_test_unit_test_key_1234567890abcdef"
@@ -106,12 +106,19 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
         is_active=True,
     ))
 
-    for factor_name, weight in get_default_weights("CARD_DEBIT").items():
-        db_session.add(FactorWeight(
-            tenant_id=tenant.id,
-            factor_name=factor_name,
-            weight=weight,
-        ))
+    # Seed weights for BOTH methods the CARD_DEBIT bundle covers, matching
+    # what a production tenant would look like after the per-method
+    # migration backfilled their pre-migration weights.
+    from app.models.score_request import CollectionMethod as _CM
+
+    for method in (_CM.CARD, _CM.DEBIT_ORDER):
+        for factor_name, weight in get_default_weights_for_method(method).items():
+            db_session.add(FactorWeight(
+                tenant_id=tenant.id,
+                collection_method=method.value,
+                factor_name=factor_name,
+                weight=weight,
+            ))
 
     await db_session.flush()
     return tenant

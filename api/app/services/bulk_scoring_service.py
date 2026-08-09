@@ -21,9 +21,8 @@ from app.models.tenant import Tenant
 from app.schemas.score import FactorBreakdown, ScoreResponse
 from app.scoring.engine import ScoringEngine
 from app.scoring.timing_optimiser import optimise_collection_date
+from app.services.weights_service import load_all_weights_by_method
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.models.factor_weight import FactorWeight
 
 _engine = ScoringEngine()
 _redis = redis.from_url(settings.redis_url, decode_responses=True)
@@ -89,11 +88,15 @@ def _count_populated_optional_fields(customer_data: dict) -> int:
 
 
 def _score_one(
-    tenant: Tenant,
     item: dict,
-    custom_weights: dict[str, float],
+    weights_by_method: dict[str, dict[str, float]],
 ) -> dict:
-    """Score a single collection and return the result dict (not persisted)."""
+    """Score a single collection and return the result dict (not persisted).
+
+    `weights_by_method` maps collection_method string -> factor_name ->
+    weight. The row's method decides which sub-dict is applied — cross-
+    method weight rows on the same tenant never mix.
+    """
     customer_data = item.get("customer_data", {})
     collection_method = CollectionMethod(item["collection_method"])
 
@@ -109,11 +112,12 @@ def _score_one(
         "collection_method": item["collection_method"],
         "collection_currency": item["collection_currency"],
     }
+    custom_weights = weights_by_method.get(collection_method.value, {}) or None
+
     result = _engine.score(
-        factor_set=tenant.factor_set.value,
         customer_data=customer_data,
         collection_data=collection_data,
-        custom_weights=custom_weights or None,
+        custom_weights=custom_weights,
         collection_method=collection_method,
     )
 
@@ -122,12 +126,11 @@ def _score_one(
     # action when a meaningful improvement exists.
     timing = optimise_collection_date(
         _engine,
-        factor_set=tenant.factor_set.value,
         customer_data=customer_data,
         collection_data=collection_data,
         collection_method=collection_method,
         original_score=result.score,
-        custom_weights=custom_weights or None,
+        custom_weights=custom_weights,
     )
     recommended_action = (
         "shift_date" if timing.should_shift else result.recommended_action
@@ -178,13 +181,13 @@ async def score_bulk_sync(
     collections: list[dict],
 ) -> dict:
     """Score a batch synchronously and persist results."""
-    weights = await _load_weights(db, tenant.id)
+    weights_by_method = await load_all_weights_by_method(db, tenant.id)
 
     results = []
     summary = {"high_risk": 0, "medium_risk": 0, "low_risk": 0, "total_value_at_risk": 0.0}
 
     for item in collections:
-        scored = _score_one(tenant, item, weights)
+        scored = _score_one(item, weights_by_method)
 
         # Persist ScoreRequest + ScoreResult
         # Build JSON-safe payload for the JSONB column
@@ -251,11 +254,14 @@ async def score_bulk_sync(
 
 def queue_bulk_job(
     tenant_id: str,
-    factor_set: str,
     collections: list[dict],
-    weights: dict[str, float],
+    weights_by_method: dict[str, dict[str, float]],
 ) -> dict:
-    """Queue a bulk scoring job to Celery and return the job_id."""
+    """Queue a bulk scoring job to Celery and return the job_id.
+
+    `weights_by_method` is a nested dict: collection_method value ->
+    factor_name -> weight. The worker picks the right sub-dict per row.
+    """
     job_id = str(uuid.uuid4())
 
     # Store initial status in Redis
@@ -265,7 +271,7 @@ def queue_bulk_job(
 
     # Queue the Celery task
     from app.tasks.bulk_scoring import score_bulk_task
-    score_bulk_task.delay(job_id, tenant_id, factor_set, collections, weights)
+    score_bulk_task.delay(job_id, tenant_id, collections, weights_by_method)
 
     return {
         "job_id": job_id,
@@ -301,8 +307,3 @@ def get_job_status(job_id: str) -> dict | None:
     return result
 
 
-async def _load_weights(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, float]:
-    result = await db.execute(
-        select(FactorWeight).where(FactorWeight.tenant_id == tenant_id)
-    )
-    return {w.factor_name: w.weight for w in result.scalars().all()}

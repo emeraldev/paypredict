@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.backtest import BacktestItem, BacktestRun, BacktestStatus
-from app.models.factor_weight import FactorWeight
 from app.models.score_request import CollectionMethod
 from app.models.tenant import Tenant
 from app.schemas.backtest import (
@@ -28,6 +27,7 @@ from app.schemas.backtest import (
     BacktestSummary,
 )
 from app.scoring.engine import ScoringEngine
+from app.services.weights_service import load_all_weights_by_method
 
 _engine = ScoringEngine()
 
@@ -51,15 +51,20 @@ async def run_backtest(
     """Score each collection, compare to actual outcomes, store results."""
     now = datetime.now(timezone.utc)
 
-    # Load tenant's current weights
-    result = await db.execute(
-        select(FactorWeight).where(FactorWeight.tenant_id == tenant.id)
-    )
-    weights_rows = result.scalars().all()
-    custom_weights = {w.factor_name: w.weight for w in weights_rows}
-    weights_snapshot = {w.factor_name: w.weight for w in weights_rows}
+    # Load tenant's current weights, bucketed by collection method. Each
+    # row in the backtest picks its own bundle from its own method — a
+    # backtest CSV can safely mix card, debit_order, and mobile_money rows
+    # for the same tenant now.
+    weights_by_method = await load_all_weights_by_method(db, tenant.id)
+    # Snapshot copy — persisted verbatim on the BacktestRun so a later
+    # replay knows which weights this run was measured against, even if
+    # the tenant has since retuned them.
+    weights_snapshot = {m: dict(w) for m, w in weights_by_method.items()}
 
-    # Create run record
+    # Create run record. `factor_set_used` is retained as a NOT NULL
+    # column and still populated from the tenant field for now — it
+    # represents "the tenant's default set at time of run" and is
+    # scheduled for removal in a later cleanup once nothing reads it.
     run = BacktestRun(
         id=uuid.uuid4(),
         tenant_id=tenant.id,
@@ -76,6 +81,7 @@ async def run_backtest(
     items: list[BacktestItem] = []
     for coll in collections:
         customer_data = coll.customer_data.model_dump()
+        collection_method = CollectionMethod(coll.collection_method)
         collection_data = {
             "collection_amount": float(coll.collection_amount),
             "collection_due_date": coll.collection_date,
@@ -83,12 +89,12 @@ async def run_backtest(
             "collection_currency": coll.collection_currency,
         }
 
+        row_weights = weights_by_method.get(collection_method.value, {}) or None
         score_result = _engine.score(
-            factor_set=tenant.factor_set.value,
             customer_data=customer_data,
             collection_data=collection_data,
-            custom_weights=custom_weights if custom_weights else None,
-            collection_method=CollectionMethod(coll.collection_method),
+            custom_weights=row_weights,
+            collection_method=collection_method,
         )
 
         matched = _prediction_matched(score_result.risk_level, coll.actual_outcome)

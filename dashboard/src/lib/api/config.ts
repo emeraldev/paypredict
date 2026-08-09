@@ -1,3 +1,4 @@
+import type { CollectionMethod } from "@/lib/utils/format-method";
 import { api } from "./client";
 import type {
   AlertSettings,
@@ -10,10 +11,24 @@ import type {
 } from "./types";
 
 export const configApi = {
-  // Weights
+  // Weights — grouped per collection_method. Updates target ONE method at
+  // a time; other methods' weights are untouched.
   getWeights: () => api.get<WeightsResponse>("/v1/config/weights"),
-  updateWeights: (weights: Record<string, number>) =>
-    api.put<WeightsResponse>("/v1/config/weights", { weights }),
+  updateWeights: (
+    collection_method: CollectionMethod,
+    weights: Record<string, number>,
+  ) =>
+    api.put<WeightsResponse>("/v1/config/weights", {
+      collection_method,
+      weights,
+    }),
+  // Opt in to a new method — seeds default weights so a tab appears
+  // before the tenant scores their first collection with that method.
+  // Idempotent for methods that already have weights.
+  addWeightsMethod: (collection_method: CollectionMethod) =>
+    api.post<WeightsResponse>("/v1/config/weights/methods", {
+      collection_method,
+    }),
 
   // API Keys
   getApiKeys: () => api.get<ApiKeyListResponse>("/v1/config/api-keys"),

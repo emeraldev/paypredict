@@ -23,6 +23,7 @@ EXPECTED_PUBLIC_PATHS = {
     "/v1/analytics/factors",
     "/v1/analytics/summary",
     "/v1/config/weights",
+    "/v1/config/weights/methods",
     "/v1/health",
     "/v1/health/detailed",
     "/v1/outcomes",
@@ -36,6 +37,7 @@ EXPECTED_PUBLIC_SCHEMAS = {
     "AnalyticsSummaryResponse",
     "BulkScoreItem",
     "BulkScoreRequest",
+    "CollectionMethod",
     "CollectionRatePoint",
     "CollectionRateResponse",
     "ConfusionMatrix",
@@ -52,6 +54,11 @@ EXPECTED_PUBLIC_SCHEMAS = {
     "ScoreRequest",
     "ScoreResponse",
     "ValidationError",
+    "WeightsAddMethodRequest",
+    "WeightsFactorEntry",
+    "WeightsMethodEntry",
+    "WeightsResponse",
+    "WeightsUpdateRequest",
 }
 
 # Substrings that should never appear in the public schema name set.

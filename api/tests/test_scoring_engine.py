@@ -237,3 +237,63 @@ class TestInvalidFactorSet:
         import pytest
         with pytest.raises(ValueError, match="Unknown factor set"):
             engine.score("INVALID", {}, {})
+
+
+class TestMethodDrivenBundleSelection:
+    """Same tenant, same engine — different bundle per row via
+    `collection_method`. This is the correctness fix that the whole
+    per-method migration exists to enable."""
+
+    from app.models.score_request import CollectionMethod
+
+    _customer = {"total_payments": 10, "successful_payments": 7}
+    _base_collection = {
+        "collection_amount": 500.0,
+        "collection_due_date": date(2026, 8, 20),
+    }
+
+    def test_card_uses_card_bundle(self):
+        result = engine.score(
+            customer_data=self._customer,
+            collection_data={**self._base_collection, "collection_method": "CARD"},
+            collection_method=self.CollectionMethod.CARD,
+        )
+        names = {f.factor_name for f in result.factors}
+        assert "card_health" in names or "card_health" in result.skipped_factors
+        assert "wallet_balance_trend" not in names
+        assert "threshold_headroom" not in names
+        assert result.model_version == "heuristic_card_v1"
+
+    def test_payroll_uses_payroll_bundle(self):
+        result = engine.score(
+            customer_data={
+                **self._customer,
+                "gross_salary": 10000,
+                "current_total_deductions": 2000,
+            },
+            collection_data={**self._base_collection, "collection_method": "PAYROLL"},
+            collection_method=self.CollectionMethod.PAYROLL,
+        )
+        names = {f.factor_name for f in result.factors}
+        assert "threshold_headroom" in names
+        assert "card_health" not in names
+        assert "wallet_balance_trend" not in names
+        assert result.model_version == "heuristic_payroll_v1"
+
+    def test_debit_order_and_card_share_bundle_with_different_skips(self):
+        """Both methods share CARD_DEBIT_FACTORS; the per-factor filter picks
+        which get skipped. CARD skips DebitOrderReturnHistory; DEBIT_ORDER
+        skips CardHealth + CardType."""
+        card = engine.score(
+            customer_data=self._customer,
+            collection_data={**self._base_collection, "collection_method": "CARD"},
+            collection_method=self.CollectionMethod.CARD,
+        )
+        debit = engine.score(
+            customer_data=self._customer,
+            collection_data={**self._base_collection, "collection_method": "DEBIT_ORDER"},
+            collection_method=self.CollectionMethod.DEBIT_ORDER,
+        )
+        assert card.skipped_factors == ["debit_order_return_history"]
+        assert set(debit.skipped_factors) == {"card_health", "card_type"}
+        assert card.model_version == debit.model_version == "heuristic_card_v1"
