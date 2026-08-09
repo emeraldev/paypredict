@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -157,16 +158,18 @@ export function WeightsTab() {
                       }
                     />
                     <DropdownMenuContent align="center">
-                      <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
-                      {availableToAdd.map((m) => (
-                        <DropdownMenuItem
-                          key={m}
-                          disabled={addingMethod !== null}
-                          onClick={() => handleAddMethod(m)}
-                        >
-                          {METHOD_CONFIG[m].label}
-                        </DropdownMenuItem>
-                      ))}
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
+                        {availableToAdd.map((m) => (
+                          <DropdownMenuItem
+                            key={m}
+                            disabled={addingMethod !== null}
+                            onClick={() => handleAddMethod(m)}
+                          >
+                            {METHOD_CONFIG[m].label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -298,16 +301,18 @@ export function WeightsTab() {
                   }
                 />
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
-                  {availableToAdd.map((m) => (
-                    <DropdownMenuItem
-                      key={m}
-                      disabled={addingMethod !== null}
-                      onClick={() => handleAddMethod(m)}
-                    >
-                      {METHOD_CONFIG[m].label}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Add method tab</DropdownMenuLabel>
+                    {availableToAdd.map((m) => (
+                      <DropdownMenuItem
+                        key={m}
+                        disabled={addingMethod !== null}
+                        onClick={() => handleAddMethod(m)}
+                      >
+                        {METHOD_CONFIG[m].label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
