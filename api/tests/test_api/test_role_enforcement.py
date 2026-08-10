@@ -217,6 +217,20 @@ async def test_backtest_upload_requires_admin_or_manager(
     assert r.status_code == 403
 
 
+@pytest.mark.asyncio
+async def test_scores_upload_requires_admin_or_manager(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """M1 regression: POST /v1/scores/upload was using `get_current_user`,
+    which meant VIEWERs could persist scoring rows and fire alert
+    notifications by uploading a CSV. It now mirrors /v1/backtest/upload's
+    require_admin_or_manager gate."""
+    viewer = await _token(async_client, TEST_VIEWER_EMAIL)
+    files = {"file": ("not_a_csv.txt", b"irrelevant", "text/plain")}
+    r = await async_client.post("/v1/scores/upload", headers=_h(viewer), files=files)
+    assert r.status_code == 403
+
+
 # ---- Team management (Admin-only — already enforced; sanity ensure unchanged) ----
 
 
