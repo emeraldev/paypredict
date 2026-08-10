@@ -539,3 +539,68 @@ async def test_api_key_auth_unknown_lookup_id_returns_401(async_client, sa_tenan
         json={},
     )
     assert r.status_code == 401
+# ==================== Alerts null-clear (M4) ====================
+
+
+@pytest.mark.asyncio
+async def test_alerts_null_clears_webhook_url(async_client, sa_admin_user):
+    """An explicit null on webhook_url REVOKES the URL. Before the M4 fix
+    this branch was `if req.field is not None`, so a null was silently
+    ignored and a leaked webhook stayed live."""
+    token = await _login(async_client)
+
+    # Set a webhook URL.
+    r = await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"webhook_url": "https://example.com/hook"},
+    )
+    assert r.status_code == 200
+    assert r.json()["webhook_url"] == "https://example.com/hook"
+
+    # Send null to clear it.
+    r = await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"webhook_url": None},
+    )
+    assert r.status_code == 200
+    assert r.json()["webhook_url"] is None, "null must clear the webhook"
+
+
+@pytest.mark.asyncio
+async def test_alerts_null_clears_slack_and_email_but_not_omitted(async_client, sa_admin_user):
+    """`model_dump(exclude_unset=True)` semantics: null in body clears,
+    absent from body leaves untouched. Prove both in one test."""
+    token = await _login(async_client)
+
+    # Baseline: set both.
+    await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={
+            "slack_webhook_url": "https://hooks.slack.com/services/xxx",
+            "email_recipients": ["ops@example.com"],
+        },
+    )
+
+    # Send only slack_webhook_url=null; email_recipients omitted must stay.
+    r = await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"slack_webhook_url": None},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["slack_webhook_url"] is None
+    assert body["email_recipients"] == ["ops@example.com"], (
+        "omitted field must not change"
+    )
+
+    # Now clear email_recipients with []
+    r = await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"email_recipients": []},
+    )
+    assert r.json()["email_recipients"] == []

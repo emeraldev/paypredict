@@ -4,9 +4,12 @@ All queries scoped to tenant_id for row-level isolation.
 """
 from __future__ import annotations
 
+import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
+
+_logger = logging.getLogger(__name__)
 
 import bcrypt
 from fastapi import HTTPException
@@ -274,19 +277,65 @@ async def get_alerts_config(
 async def update_alerts_config(
     db: AsyncSession, tenant_id: uuid.UUID, req: AlertsConfigUpdateRequest
 ) -> AlertsConfigResponse:
+    """Update alert config, supporting explicit-null to CLEAR a value.
+
+    Before the M4 fix this used `if req.field is not None`, which conflated
+    "caller omitted the field" with "caller sent null to clear it". A
+    tenant sending `{"webhook_url": null}` to revoke a leaked webhook
+    got a 200 and no change — silent revocation failure. Now we use
+    `model_dump(exclude_unset=True)`, which yields only the keys the
+    caller actually sent; a `null` value clears the column, a missing
+    key leaves it alone.
+
+    Cleared destinations (webhook_url, slack_webhook_url, email_recipients)
+    are logged so the audit trail records the revocation intent — the
+    whole point of clearing a leaked destination is to be able to prove
+    later that you did.
+    """
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one()
 
-    if req.high_risk_threshold is not None:
-        tenant.alert_threshold = req.high_risk_threshold
-    if req.webhook_url is not None:
-        tenant.webhook_url = req.webhook_url
-    if req.slack_webhook_url is not None:
-        tenant.slack_webhook_url = req.slack_webhook_url
-    if req.email_digest is not None:
-        tenant.email_digest = req.email_digest
-    if req.email_recipients is not None:
-        tenant.email_recipients = req.email_recipients
+    provided = req.model_dump(exclude_unset=True)
+
+    # high_risk_threshold rejects null via the schema (float | None with
+    # ge/le only accepts a real number); no clear semantics.
+    if "high_risk_threshold" in provided and provided["high_risk_threshold"] is not None:
+        tenant.alert_threshold = provided["high_risk_threshold"]
+
+    # For each destination-shaped field: allow both set (str/list) and
+    # explicit-null (clear). Log the clear so a leaked webhook has an
+    # audit trail.
+    if "webhook_url" in provided:
+        if provided["webhook_url"] is None and tenant.webhook_url:
+            _logger.info(
+                "alerts.webhook_url cleared for tenant %s (previous=%s)",
+                tenant_id, tenant.webhook_url,
+            )
+        tenant.webhook_url = provided["webhook_url"]
+
+    if "slack_webhook_url" in provided:
+        if provided["slack_webhook_url"] is None and tenant.slack_webhook_url:
+            _logger.info(
+                "alerts.slack_webhook_url cleared for tenant %s (previous=%s)",
+                tenant_id, tenant.slack_webhook_url,
+            )
+        tenant.slack_webhook_url = provided["slack_webhook_url"]
+
+    if "email_digest" in provided and provided["email_digest"] is not None:
+        # `email_digest` is an enum with OFF as the "no digest" value —
+        # explicit null is meaningless. Follow the previous set-only shape.
+        tenant.email_digest = provided["email_digest"]
+
+    if "email_recipients" in provided:
+        # None or [] both mean "no recipients." Log if this represents a clear.
+        was_populated = bool(tenant.email_recipients)
+        if provided["email_recipients"] in (None, []) and was_populated:
+            _logger.info(
+                "alerts.email_recipients cleared for tenant %s (previous=%s)",
+                tenant_id, tenant.email_recipients,
+            )
+        # Persist as an empty list rather than NULL to match the ARRAY column.
+        tenant.email_recipients = provided["email_recipients"] or []
 
     await db.flush()
 
