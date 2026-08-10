@@ -32,6 +32,10 @@ dev = [
     "httpx>=0.28.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    # Sync Postgres driver — used by tests/test_migration_guards.py for
+    # admin operations (CREATE/DROP DATABASE, pg_terminate_backend) that
+    # can't run inside a transaction. Runtime uses asyncpg.
+    "psycopg2-binary>=2.9.0",
 ]
 
 [tool.setuptools.packages.find]
