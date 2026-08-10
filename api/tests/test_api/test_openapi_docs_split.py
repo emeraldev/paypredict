@@ -208,7 +208,16 @@ async def test_internal_openapi_disabled_in_production(monkeypatch, async_client
     rebuild)."""
     from app.config import Settings
 
-    prod = Settings(environment="production", internal_docs_enabled=True)
+    # Production Settings now refuses to boot without a real JWT_SECRET_KEY
+    # + SECRET_KEY (H10 fix). Supply valid ones so this test can construct
+    # the object; the assertions below are unrelated to secrets.
+    _prod_secrets = {
+        "jwt_secret_key": "a" * 32,
+        "secret_key": "b" * 32,
+    }
+    prod = Settings(
+        environment="production", internal_docs_enabled=True, **_prod_secrets
+    )
     assert prod.internal_docs_visible is False, "production must hide internal docs"
 
     disabled = Settings(environment="development", internal_docs_enabled=False)
