@@ -5,6 +5,8 @@ generate new UUIDs), so their Redis bucket keys never collide. To test
 the over-limit path without making 200 real requests, we monkeypatch
 `PLAN_RATE_LIMITS` to a tiny number for the duration of the test.
 """
+import time
+
 import pytest
 
 from app import config
@@ -94,8 +96,22 @@ async def test_over_limit_does_not_burn_extra_tickets(
 ):
     """Once over the limit, subsequent 429s shouldn't keep incrementing the
     counter — otherwise an attacker spamming requests stretches the
-    cooldown indefinitely."""
+    cooldown indefinitely.
+
+    Freezing `time.time` inside the rate-limit service is essential: the
+    three sequential HTTP POSTs below can otherwise straddle a 60-second
+    window boundary (r1 lands in window N, r2 lands in window N+1 with a
+    fresh counter → r2 = 200 instead of 429). Locally hard to hit; CI
+    runners have enough jitter to reproduce it. Freezing wall-clock time
+    inside the service (not globally) keeps the test's HTTP path
+    realistic while removing the flake.
+    """
     monkeypatch.setitem(config.PLAN_RATE_LIMITS, "STARTER", 1)
+
+    from app.services import rate_limit_service
+
+    frozen = int(time.time())
+    monkeypatch.setattr(rate_limit_service.time, "time", lambda: frozen)
 
     # Burn the single ticket.
     await async_client.post("/v1/score", headers=_auth(), json=_SCORE_PAYLOAD)
