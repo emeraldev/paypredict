@@ -14,6 +14,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from app.migration_guards import require_downgrade_ack
+
 
 revision: str = '9ce5ceb0356c'
 down_revision: Union[str, None] = '4664b45678c5'
@@ -33,5 +35,23 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text(
+                "SELECT count(*) FROM score_results "
+                "WHERE recommended_score IS NOT NULL "
+                "OR score_improvement IS NOT NULL"
+            )
+        ).scalar_one(),
+        description=(
+            "Dropping recommended_score + score_improvement discards "
+            "the timing-optimiser output on every score row that had "
+            "a shift recommendation. The scoring row itself survives, "
+            "but the historical record of 'we suggested moving this "
+            "collection to date X' is unrecoverable."
+        ),
+    )
+
     op.drop_column("score_results", "score_improvement")
     op.drop_column("score_results", "recommended_score")

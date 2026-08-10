@@ -15,6 +15,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from app.migration_guards import require_downgrade_ack
+
 
 revision: str = "ad96b9835926"
 down_revision: Union[str, None] = "66d275afe3ed"
@@ -76,6 +78,19 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text("SELECT count(*) FROM notifications")
+        ).scalar_one(),
+        description=(
+            "Dropping notifications wipes the dashboard bell inbox for "
+            "every tenant. Unread action items (weights changes, API "
+            "key events, alert-threshold breaches) that the customer "
+            "hasn't clicked through disappear silently."
+        ),
+    )
+
     op.drop_index("ix_notifications_tenant_created", table_name="notifications")
     op.drop_index("ix_notifications_tenant_category", table_name="notifications")
     op.drop_index("ix_notifications_tenant_unread", table_name="notifications")
