@@ -112,6 +112,7 @@ decisions.
 | 15 | **Per-tenant alerting on key health signals** — collection rate drop, prediction drift, unused API keys; scheduled via Celery Beat | 2-3 days | Hardcoded as Phase 3 deferred items. Worth doing once there's actual customer data to tune thresholds against. |
 | 16 | **Operational runbook** — what to do when an alert fires, when webhook delivery fails, when scoring latency spikes | 1 day | Becomes essential as soon as we're on the hook for SLA. |
 | 17 | **Real domain on `api.` and dashboard sub-domain** if not already done | 1 hour | At paid-customer stage, vanity URL matters. |
+| 18 | **Move bulk-scoring job state off Redis** — surfaced by PR #37's H4 fix. Celery uses the same Redis for broker + result backend + our job-status keys. If Redis is down at the exact moment `on_failure` fires, the failure record can't be written (we need Redis to record the failure). The task's traceback lands in the worker log; the polling client sees eternal "processing" until 1h TTL. Fix: persist bulk-job status/completed/error to a `bulk_jobs` Postgres table, keep Redis only as a fast progress-counter cache. Not a data-loss risk (scored rows are already in Postgres) but a real UX gap for the customer trying to diagnose a failed batch. | 1-2 days | Stage 2 timing because a real customer sending large bulks will occasionally hit this class of failure and expect a proper answer from their polling client, not "still processing" for an hour. |
 
 ### Nice-to-have at this stage
 
