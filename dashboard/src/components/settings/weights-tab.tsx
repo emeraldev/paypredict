@@ -50,27 +50,47 @@ function toPercentMap(entry: WeightsMethodEntry): Record<string, number> {
   );
 }
 
-function draftsFromResponse(
-  data: WeightsResponse,
-): Record<CollectionMethod, MethodDraft> {
-  const drafts = {} as Record<CollectionMethod, MethodDraft>;
-  for (const entry of data.methods) {
-    const pct = toPercentMap(entry);
-    drafts[entry.collection_method] = { values: pct, initial: pct };
-  }
-  return drafts;
-}
-
-function methodTotal(draft: MethodDraft | undefined) {
-  if (!draft) return 0;
-  return Object.values(draft.values).reduce((sum, v) => sum + v, 0);
-}
-
 function isDirty(draft: MethodDraft | undefined) {
   if (!draft) return false;
   return Object.keys(draft.values).some(
     (k) => draft.values[k] !== draft.initial[k],
   );
+}
+
+/**
+ * Merge a fresh API response into the current per-method drafts.
+ *
+ * A tab that has unsaved user edits KEEPS its local draft untouched
+ * (both `values` and `initial`) so the amber dirty-dot stays honest
+ * and the user's in-progress edits don't vanish when a save on another
+ * tab triggers `refetch()` — H6. A clean tab (or a method we didn't
+ * have local state for yet) refreshes both fields from the server so
+ * a concurrent edit from another admin surfaces on the next render.
+ *
+ * Methods present in `prev` but absent from `data` are dropped —
+ * their tab is going away anyway.
+ */
+function mergeResponseIntoDrafts(
+  prev: Record<CollectionMethod, MethodDraft>,
+  data: WeightsResponse,
+): Record<CollectionMethod, MethodDraft> {
+  const next = {} as Record<CollectionMethod, MethodDraft>;
+  for (const entry of data.methods) {
+    const method = entry.collection_method;
+    const existing = prev[method];
+    if (existing && isDirty(existing)) {
+      next[method] = existing;
+      continue;
+    }
+    const serverPct = toPercentMap(entry);
+    next[method] = { values: serverPct, initial: serverPct };
+  }
+  return next;
+}
+
+function methodTotal(draft: MethodDraft | undefined) {
+  if (!draft) return 0;
+  return Object.values(draft.values).reduce((sum, v) => sum + v, 0);
 }
 
 export function WeightsTab() {
@@ -116,7 +136,10 @@ export function WeightsTab() {
 
   useEffect(() => {
     if (!data) return;
-    setDrafts(draftsFromResponse(data));
+    // Merge in place: dirty tabs keep their local edits (H6 fix),
+    // clean tabs refresh from the server, new methods initialise from
+    // the server, deleted methods drop out.
+    setDrafts((prev) => mergeResponseIntoDrafts(prev, data));
     // Only initialise activeMethod once — don't stomp the user's tab
     // selection when a refetch lands after a save.
     setActiveMethod((prev) => prev ?? data.methods[0]?.collection_method ?? null);
