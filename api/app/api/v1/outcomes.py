@@ -15,7 +15,10 @@ from app.api.docs_config import (
     NOT_FOUND_RESPONSES,
 )
 from app.database import get_db
-from app.dependencies import enforce_rate_limit_or_jwt, get_current_user
+from app.dependencies import (
+    enforce_rate_limit_or_jwt_write,
+    get_current_user,
+)
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
@@ -38,10 +41,13 @@ router = APIRouter()
 )
 async def report_outcome(
     request: OutcomeRequest,
-    # Dual-auth: API key (rate-limited, same as before) OR dashboard JWT
-    # (rate-limit-bypassed, used by the "Report outcome" form in the
-    # risk-detail drawer). Same pattern as POST /v1/score.
-    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
+    # Dual-auth WRITE: API key (rate-limited, same as before) OR dashboard
+    # JWT restricted to ADMIN or MANAGER (rate-limit-bypassed, used by the
+    # "Report outcome" form in the risk-detail drawer). Pre-M2 this used
+    # `enforce_rate_limit_or_jwt` and any VIEWER JWT could persist outcome
+    # rows — outcomes feed the labelled ML dataset, so a VIEWER-generated
+    # outcome silently corrupts training data.
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt_write),
     db: AsyncSession = Depends(get_db),
 ) -> OutcomeResponse:
     """Report the result of a collection attempt."""

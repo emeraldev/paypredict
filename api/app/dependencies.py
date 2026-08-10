@@ -197,6 +197,11 @@ async def enforce_rate_limit_or_jwt(
     and gets `X-RateLimit-*` headers. When the caller used a dashboard
     JWT, no ticket is charged and no headers are emitted — the
     dashboard team should never throttle itself.
+
+    NOTE — read-only. Any dashboard user (ADMIN/MANAGER/VIEWER) can call
+    the endpoint via JWT. Do NOT use this on mutation endpoints: a VIEWER
+    could persist rows through the JWT branch. For dual-auth mutations
+    use `enforce_rate_limit_or_jwt_write` (M2 fix).
     """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -205,6 +210,40 @@ async def enforce_rate_limit_or_jwt(
         _apply_rate_limit(tenant, response)
         return tenant
     user = await get_current_user(credentials, db)
+    return user.tenant
+
+
+async def enforce_rate_limit_or_jwt_write(
+    response: Response,
+    credentials: HTTPAuthorizationCredentials | None = Security(session_security),
+    db: AsyncSession = Depends(get_db),
+) -> Tenant:
+    """Dual-auth for WRITE endpoints — API key OR (JWT AND role in
+    {ADMIN, MANAGER}).
+
+    The pre-M2 dep (`enforce_rate_limit_or_jwt`) let a VIEWER JWT mutate
+    through `POST /v1/score` and `POST /v1/outcomes` — VIEWER is
+    documented as read-only, and outcomes feed the labelled ML dataset,
+    so a VIEWER-generated outcome silently corrupts training data.
+
+    API-key callers stay trusted (the key represents the tenant, not a
+    specific user role) — same rule as every other dual-auth write in
+    the codebase (weights.py's inline ADMIN check follows this pattern
+    with a stricter role bar).
+    """
+    from app.models.user import UserRole
+
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if credentials.credentials.startswith("pk_"):
+        tenant = await get_current_tenant(credentials, db)
+        _apply_rate_limit(tenant, response)
+        return tenant
+    user = await get_current_user(credentials, db)
+    if user.role not in (UserRole.ADMIN, UserRole.MANAGER):
+        raise HTTPException(
+            status_code=403, detail="Admin or Manager role required"
+        )
     return user.tenant
 
 
