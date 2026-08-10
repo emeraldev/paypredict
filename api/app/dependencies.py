@@ -14,10 +14,20 @@ from app.database import get_db
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.api_key_service import parse_lookup_id
 from app.services.rate_limit_service import (
     check_and_increment,
     headers_for,
 )
+
+
+# A stable, cheap bcrypt hash we run on the auth-miss path so that
+# "unknown lookup_id" (fast SELECT-miss) and "known lookup_id, wrong
+# secret" (slow bcrypt) take the same wall-clock. Without this the
+# auth path leaks whether a lookup_id exists — a prefix-existence
+# oracle an attacker could iterate against. The plaintext is
+# irrelevant; only the cost of the operation matters.
+_DUMMY_BCRYPT_HASH = bcrypt.hashpw(b"never-matches", bcrypt.gensalt()).decode("utf-8")
 
 # One process-wide Redis client; redis-py is thread-safe and pools
 # connections internally.
@@ -31,45 +41,53 @@ async def get_current_tenant(
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
-    """Validate API key and resolve to a tenant."""
-    token = credentials.credentials
+    """Validate an API key and resolve to a tenant.
 
-    # Extract prefix (first 8 chars) for fast lookup
-    if len(token) < 8:
+    Auth path (H2 fix):
+      1. Parse the token into an env prefix + 12-hex `lookup_id` + secret.
+      2. SELECT at most one row `WHERE lookup_id = ?` — enforced by
+         `uq_api_keys_lookup_id`, so the query is structurally single-row.
+      3. Verify the hash. On any miss (bad shape, no row, wrong secret,
+         inactive tenant) spend one bcrypt op against a dummy hash so
+         timing doesn't leak whether the lookup_id exists.
+
+    Contrast with the pre-H2 loop that bcrypt-checked every active key
+    on the platform whose `key_prefix` matched the constant "pk_live_".
+    """
+    token = credentials.credentials
+    lookup_id = parse_lookup_id(token)
+
+    if lookup_id is None:
+        # Malformed token — spend a bcrypt op anyway so the timing of a
+        # rejected shape matches a rejected secret.
+        bcrypt.checkpw(b"never-matches", _DUMMY_BCRYPT_HASH.encode("utf-8"))
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    key_prefix = token[:8]
-
-    # Look up candidate keys by prefix
     result = await db.execute(
         select(ApiKey)
         .options(selectinload(ApiKey.tenant))
-        .where(ApiKey.key_prefix == key_prefix, ApiKey.is_active.is_(True))
+        .where(ApiKey.lookup_id == lookup_id, ApiKey.is_active.is_(True))
     )
-    candidates = result.scalars().all()
+    api_key = result.scalar_one_or_none()
 
-    if not candidates:
+    if api_key is None:
+        # Unknown lookup_id — dummy bcrypt to keep timing constant.
+        bcrypt.checkpw(b"never-matches", _DUMMY_BCRYPT_HASH.encode("utf-8"))
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    # Verify hash against each candidate (usually just one)
-    matched_key: ApiKey | None = None
-    for api_key in candidates:
-        if bcrypt.checkpw(token.encode("utf-8"), api_key.key_hash.encode("utf-8")):
-            matched_key = api_key
-            break
-
-    if matched_key is None:
+    if not bcrypt.checkpw(token.encode("utf-8"), api_key.key_hash.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    # Check tenant is active
-    tenant = matched_key.tenant
+    tenant = api_key.tenant
     if not tenant.is_active:
         raise HTTPException(status_code=401, detail="Tenant is deactivated")
 
-    # Update last_used_at (fire-and-forget, don't fail the request)
+    # Update last_used_at. Same-request update — will be rolled back if
+    # the endpoint later raises 4xx/5xx. Documented as L1 in the audit;
+    # out of scope for this PR (PR B territory) but noting it here.
     await db.execute(
         update(ApiKey)
-        .where(ApiKey.id == matched_key.id)
+        .where(ApiKey.id == api_key.id)
         .values(last_used_at=datetime.now(timezone.utc))
     )
 

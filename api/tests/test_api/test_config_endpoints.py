@@ -499,3 +499,43 @@ async def test_add_method_requires_admin_on_jwt(
     assert (await async_client.post("/v1/config/weights/methods", headers=_auth(manager), json=body)).status_code == 403
     assert (await async_client.post("/v1/config/weights/methods", headers=_auth(viewer), json=body)).status_code == 403
     assert (await async_client.post("/v1/config/weights/methods", headers=_auth(admin), json=body)).status_code == 200
+
+
+
+
+# ==================== API key auth path (H2) ====================
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_rejects_malformed_token(async_client, sa_tenant):
+    """Tokens that don't match the fixed shape return 401 without
+    fanning out to the DB."""
+    for bad in (
+        "not-a-key",
+        "pk_live_",              # only env prefix
+        "pk_live_short",         # too short
+        "pk_live_xxxxxxxxxxxx",  # missing separator + secret
+        "pk_live_xxxxxxxxxxxx_", # missing secret
+        "pk_live_ZZZZZZZZZZZZ_secret",  # non-hex lookup_id
+        "pk_bad_0123456789ab_secret",   # wrong env prefix
+    ):
+        r = await async_client.post(
+            "/v1/score",
+            headers={"Authorization": f"Bearer {bad}"},
+            json={},
+        )
+        assert r.status_code == 401, f"expected 401 for {bad!r}, got {r.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_unknown_lookup_id_returns_401(async_client, sa_tenant):
+    """A well-formed but unknown lookup_id returns 401. This confirms the
+    single-row SELECT path — a hit for zero rows takes the miss branch
+    rather than fanning out."""
+    unknown = "pk_test_ffffffffffff_secret_bytes_that_dont_matter_here_xxx"
+    r = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {unknown}"},
+        json={},
+    )
+    assert r.status_code == 401

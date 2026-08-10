@@ -18,8 +18,17 @@ class ApiKey(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
     )
+    # `lookup_id` is the indexed identifier the auth path uses to find
+    # this key in one query. It is public (part of the key string given
+    # to the customer) and NOT a secret — the secret is bcrypt-hashed
+    # into `key_hash`. Structural cross-tenant safety comes from the
+    # UNIQUE constraint: at most one row exists for any lookup_id, so
+    # `SELECT ... WHERE lookup_id = ?` cannot fan out.
+    lookup_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
     key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    key_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Display prefix shown in the dashboard's API-keys list (e.g.
+    # `pk_live_a1b2c3d4e5f6`). Not used by auth — that's `lookup_id`.
+    key_prefix: Mapped[str] = mapped_column(String(32), nullable=False)
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(
@@ -33,6 +42,5 @@ class ApiKey(Base):
     tenant: Mapped["Tenant"] = relationship(back_populates="api_keys")  # noqa: F821
 
     __table_args__ = (
-        Index("ix_api_keys_key_prefix", "key_prefix"),
         Index("ix_api_keys_tenant_active", "tenant_id", "is_active"),
     )

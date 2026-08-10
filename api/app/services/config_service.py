@@ -11,7 +11,10 @@ from datetime import datetime, timezone
 import bcrypt
 from fastapi import HTTPException
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.api_key_service import mint_key
 
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
@@ -58,29 +61,51 @@ async def list_api_keys(
     )
 
 
+_MINT_MAX_ATTEMPTS = 3
+
+
 async def create_api_key(
     db: AsyncSession, tenant_id: uuid.UUID, req: ApiKeyCreateRequest
 ) -> ApiKeyCreateResponse:
-    raw_key = "pk_live_" + secrets.token_urlsafe(32)
-    key_hash = bcrypt.hashpw(raw_key.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    prefix = raw_key[:8]
+    """Mint a new API key in the format described in `api_key_service`.
 
-    api_key = ApiKey(
-        tenant_id=tenant_id,
-        key_hash=key_hash,
-        key_prefix=prefix,
-        label=req.label,
-        is_active=True,
-    )
-    db.add(api_key)
-    await db.flush()
+    Retries on IntegrityError against `uq_api_keys_lookup_id` — a 48-bit
+    collision is astronomically unlikely (~2^-24 at a billion active
+    keys), but "astronomical" isn't "never" and the alternative is a
+    500 to the customer. Cap the loop so a stuck DB doesn't spin.
+    """
+    for attempt in range(_MINT_MAX_ATTEMPTS):
+        raw_key, lookup_id, display_prefix = mint_key("pk_live_")
+        key_hash = bcrypt.hashpw(raw_key.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-    return ApiKeyCreateResponse(
-        id=api_key.id,
-        key=raw_key,
-        prefix=prefix,
-        label=req.label,
-    )
+        api_key = ApiKey(
+            tenant_id=tenant_id,
+            lookup_id=lookup_id,
+            key_hash=key_hash,
+            key_prefix=display_prefix,
+            label=req.label,
+            is_active=True,
+        )
+        db.add(api_key)
+        try:
+            await db.flush()
+        except IntegrityError:
+            # lookup_id collision — retry with a fresh id. Roll back
+            # the failed row so the session is usable again.
+            await db.rollback()
+            if attempt == _MINT_MAX_ATTEMPTS - 1:
+                raise
+            continue
+
+        return ApiKeyCreateResponse(
+            id=api_key.id,
+            key=raw_key,
+            prefix=display_prefix,
+            label=req.label,
+        )
+
+    # Unreachable — the loop either returns or re-raises.
+    raise RuntimeError("mint_key retry loop exited without a result")
 
 
 async def toggle_api_key(

@@ -35,14 +35,20 @@ from app.models.user import User, UserRole
 from app.scoring.engine import ScoringEngine
 from app.scoring.registry import get_default_weights, get_default_weights_for_method
 from app.scoring.timing_optimiser import optimise_collection_date
+from app.services.api_key_service import mint_key
 from app.services.auth_service import hash_password
 
 
-def generate_api_key(prefix: str) -> tuple[str, str]:
-    """Generate an API key and return (raw_key, hashed_key)."""
-    raw = prefix + secrets.token_urlsafe(32)
+def generate_api_key(env_prefix: str) -> tuple[str, str, str, str]:
+    """Generate an API key and return (raw_key, hashed_key, lookup_id, display_prefix).
+
+    Uses the shared `mint_key` so seed keys have the same shape the
+    dashboard mints — an integration test smoke against a seeded key
+    exercises the real auth path.
+    """
+    raw, lookup_id, display_prefix = mint_key(env_prefix)
     hashed = bcrypt.hashpw(raw.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    return raw, hashed
+    return raw, hashed, lookup_id, display_prefix
 
 
 # ---- Customer data templates ----
@@ -272,19 +278,24 @@ async def seed(reseed: bool = False) -> None:
         db.add_all([sa_tenant, zm_tenant, fresh_tenant, payroll_tenant])
 
         # ---- API Keys ----
-        sa_raw, sa_hash = generate_api_key("pk_test_")
+        # New format: pk_test_<12-hex lookup_id>_<43-char secret>.
+        # `lookup_id` is the DB's UNIQUE indexed column the auth path
+        # uses; `key_prefix` is the display form for the dashboard.
+        sa_raw, sa_hash, sa_lookup, sa_prefix = generate_api_key("pk_test_")
         db.add(ApiKey(
             tenant_id=sa_tenant.id,
+            lookup_id=sa_lookup,
             key_hash=sa_hash,
-            key_prefix=sa_raw[:8],
+            key_prefix=sa_prefix,
             label="Test Key",
             is_active=True,
         ))
-        zm_raw, zm_hash = generate_api_key("pk_test_")
+        zm_raw, zm_hash, zm_lookup, zm_prefix = generate_api_key("pk_test_")
         db.add(ApiKey(
             tenant_id=zm_tenant.id,
+            lookup_id=zm_lookup,
             key_hash=zm_hash,
-            key_prefix=zm_raw[:8],
+            key_prefix=zm_prefix,
             label="Test Key",
             is_active=True,
         ))
@@ -292,19 +303,21 @@ async def seed(reseed: bool = False) -> None:
         # one from onboarding. Withholding it would make the "API Keys" tab
         # look broken and force the tester to create one before they can even
         # walk through the empty states.
-        fresh_raw, fresh_hash = generate_api_key("pk_test_")
+        fresh_raw, fresh_hash, fresh_lookup, fresh_prefix = generate_api_key("pk_test_")
         db.add(ApiKey(
             tenant_id=fresh_tenant.id,
+            lookup_id=fresh_lookup,
             key_hash=fresh_hash,
-            key_prefix=fresh_raw[:8],
+            key_prefix=fresh_prefix,
             label="Default Key",
             is_active=True,
         ))
-        payroll_raw, payroll_hash = generate_api_key("pk_test_")
+        payroll_raw, payroll_hash, payroll_lookup, payroll_prefix = generate_api_key("pk_test_")
         db.add(ApiKey(
             tenant_id=payroll_tenant.id,
+            lookup_id=payroll_lookup,
             key_hash=payroll_hash,
-            key_prefix=payroll_raw[:8],
+            key_prefix=payroll_prefix,
             label="Test Key",
             is_active=True,
         ))
