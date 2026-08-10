@@ -272,3 +272,105 @@ async def test_read_endpoints_open_to_every_role(
     ):
         r = await async_client.get(path, headers=_h(viewer))
         assert r.status_code == 200, f"GET {path} → {r.status_code}: {r.text}"
+
+
+# ---- Dual-auth writes (M2 fix): POST /v1/score + POST /v1/outcomes ----
+
+
+def _score_body() -> dict:
+    return {
+        "customer_id": "role_test_cust",
+        "collection_id": "role_test_col",
+        "collection_amount": 500,
+        "collection_currency": "ZAR",
+        "collection_due_date": "2026-09-15",
+        "collection_method": "CARD",
+        "customer_data": {"total_payments": 10, "successful_payments": 8},
+    }
+
+
+@pytest.mark.asyncio
+async def test_score_via_jwt_requires_admin_or_manager(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """M2 regression. Pre-fix, `POST /v1/score` via a VIEWER JWT
+    succeeded — VIEWER is documented read-only, but the dual-auth
+    dep skipped the role check. Now blocks 403."""
+    admin = await _token(async_client, TEST_USER_EMAIL)
+    manager = await _token(async_client, TEST_MANAGER_EMAIL)
+    viewer = await _token(async_client, TEST_VIEWER_EMAIL)
+
+    body = _score_body()
+    assert (await async_client.post("/v1/score", headers=_h(admin), json=body)).status_code == 200
+    assert (await async_client.post("/v1/score", headers=_h(manager), json=body)).status_code == 200
+    assert (await async_client.post("/v1/score", headers=_h(viewer), json=body)).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_score_via_api_key_still_works(async_client, sa_tenant):
+    """The API-key branch of the dual-auth dep is unchanged — no role
+    check for lender integrations (a key represents the tenant, not a
+    dashboard user)."""
+    r = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_score_body(),
+    )
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_outcomes_via_jwt_requires_admin_or_manager(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """Same fix, outcomes side. Extra stakes: outcomes feed the
+    labelled ML dataset — a VIEWER-generated outcome silently
+    corrupts training data."""
+    admin = await _token(async_client, TEST_USER_EMAIL)
+    manager = await _token(async_client, TEST_MANAGER_EMAIL)
+    viewer = await _token(async_client, TEST_VIEWER_EMAIL)
+
+    # Score once as admin to get a score_id we can attach outcomes to.
+    r = await async_client.post("/v1/score", headers=_h(admin), json=_score_body())
+    score_id = r.json()["score_id"]
+
+    def _body(cid: str) -> dict:
+        return {
+            "score_id": score_id,
+            "collection_id": cid,
+            "outcome": "SUCCESS",
+            "attempted_at": "2026-09-15T10:00:00Z",
+        }
+
+    assert (await async_client.post("/v1/outcomes", headers=_h(admin), json=_body("m2_a"))).status_code == 201
+    # Manager can outcome a DIFFERENT collection (score_id is 1:1 with outcomes).
+    r2 = await async_client.post("/v1/score", headers=_h(admin), json={**_score_body(), "collection_id": "role_test_col2"})
+    body_m = {**_body("m2_m"), "score_id": r2.json()["score_id"]}
+    assert (await async_client.post("/v1/outcomes", headers=_h(manager), json=body_m)).status_code == 201
+    # Viewer blocked.
+    r3 = await async_client.post("/v1/score", headers=_h(admin), json={**_score_body(), "collection_id": "role_test_col3"})
+    body_v = {**_body("m2_v"), "score_id": r3.json()["score_id"]}
+    assert (await async_client.post("/v1/outcomes", headers=_h(viewer), json=body_v)).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_outcomes_via_api_key_still_works(async_client, sa_tenant):
+    """API-key branch unchanged for /v1/outcomes."""
+    # Score first to have a target.
+    r = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_score_body(),
+    )
+    score_id = r.json()["score_id"]
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={
+            "score_id": score_id,
+            "collection_id": "role_test_col_apikey",
+            "outcome": "SUCCESS",
+            "attempted_at": "2026-09-15T10:00:00Z",
+        },
+    )
+    assert r.status_code == 201

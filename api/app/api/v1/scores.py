@@ -18,6 +18,7 @@ from app.api.docs_config import (
 from app.database import get_db
 from app.dependencies import (
     enforce_rate_limit_or_jwt,
+    enforce_rate_limit_or_jwt_write,
     get_current_user,
     require_admin_or_manager,
 )
@@ -73,10 +74,12 @@ SCORING_CSV_TEMPLATE = (
 )
 async def score_single_collection(
     request: ScoreRequest,
-    # Dual-auth: API key (rate-limited, same as before) OR dashboard JWT
-    # (rate-limit-bypassed, used by the single-collection form on
-    # /dashboard/score). Same pattern as /v1/analytics/* and /v1/config/weights.
-    tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
+    # Dual-auth WRITE: API key (rate-limited, same as before) OR dashboard
+    # JWT restricted to ADMIN or MANAGER (rate-limit-bypassed, used by the
+    # single-collection form on /dashboard/score). Pre-M2 this used
+    # `enforce_rate_limit_or_jwt` and any VIEWER JWT could persist score
+    # rows — VIEWERs are documented read-only.
+    tenant: Tenant = Depends(enforce_rate_limit_or_jwt_write),
     db: AsyncSession = Depends(get_db),
 ) -> ScoreResponse:
     """Score a single upcoming collection. Returns risk score, level, and factor breakdown."""
