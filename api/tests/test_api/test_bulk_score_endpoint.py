@@ -150,3 +150,38 @@ async def test_bulk_score_validation_error(async_client, sa_tenant):
         },
     )
     assert r.status_code == 422
+
+
+# ==================== H1: bulk-job cross-tenant leak ====================
+
+@pytest.mark.asyncio
+async def test_bulk_job_poll_scoped_by_tenant(async_client, sa_tenant, zm_tenant):
+    """Regression for H1. Tenant A queues a job; tenant B polling that
+    job_id must get 404 (identical shape to "not found or expired" —
+    do NOT differentiate or existence leaks). The Redis key namespace
+    `bulk_job:{tenant_id}:{job_id}` makes this a structural guarantee
+    rather than a runtime check."""
+    from app.services.bulk_scoring_service import queue_bulk_job, get_job_status
+
+    # Tenant A queues a job — we only need the job_id, not real Celery.
+    weights_by_method: dict[str, dict[str, float]] = {}
+    job = queue_bulk_job(
+        tenant_id=str(sa_tenant.id),
+        collections=_sample_items(1),
+        weights_by_method=weights_by_method,
+    )
+    job_id = job["job_id"]
+
+    # Same tenant sees status.
+    same_tenant = get_job_status(str(sa_tenant.id), job_id)
+    assert same_tenant is not None, "owner must see their own job"
+    assert same_tenant["status"] == "processing"
+
+    # Different tenant sees nothing — indistinguishable from "not found".
+    other_tenant = get_job_status(str(zm_tenant.id), job_id)
+    assert other_tenant is None, "cross-tenant poll must return None"
+
+    # Cleanup so the fake Redis job doesn't hang around for another test.
+    from app.services.bulk_scoring_service import _redis, _job_key
+    for suffix in ("status", "total", "completed", "results"):
+        _redis.delete(_job_key(str(sa_tenant.id), job_id, suffix))
