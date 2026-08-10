@@ -8,6 +8,7 @@ Uses the SAME ScoringEngine as single scoring. No duplicate logic.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -15,6 +16,9 @@ from decimal import Decimal
 import redis
 
 from app.config import settings
+
+_logger = logging.getLogger(__name__)
+
 from app.models.score_request import CollectionCurrency, CollectionMethod, ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
 from app.models.tenant import Tenant
@@ -239,9 +243,22 @@ async def score_bulk_sync(
 
     await db.flush()
 
-    # Evaluate alert threshold after scoring
+    # SAVEPOINT around alert evaluation so a failure inside — Python
+    # exception OR a DB error that marks the outer txn for rollback —
+    # doesn't cascade into losing every scored row. A plain try/except
+    # would catch the exception but leave the session unusable, and the
+    # endpoint's `db.commit()` would then raise `PendingRollbackError`.
+    # Alert loss becomes silent by design; the WARNING is the only
+    # observable signal that a compliance-critical alert didn't fire.
     from app.services.alert_service import evaluate_alerts
-    await evaluate_alerts(tenant, summary, db)
+    try:
+        async with db.begin_nested():
+            await evaluate_alerts(tenant, summary, db)
+    except Exception:
+        _logger.exception(
+            "alert evaluation failed for tenant %s (scoring rows retained)",
+            tenant.id,
+        )
 
     return {
         "status": "completed",

@@ -6,9 +6,12 @@ content (title, message format, severity, link) in one place.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
+
+_logger = logging.getLogger(__name__)
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -178,17 +181,29 @@ async def create_notification(
     that creates notifications — all services call this."""
     template = _TEMPLATES[event_type]
 
+    # Templates in `_TEMPLATES` are hardcoded module constants — a raw
+    # fallback string never carries cross-tenant data. Broad `except`
+    # covers every way `.format()` can raise (missing keys, wrong types
+    # in `.0%` specs, bad attribute access) without spreading the
+    # failure to the caller's transaction.
     try:
         message = template["message"].format(**metadata)
-    except KeyError:
-        message = template["message"]  # Fallback: raw template
+    except Exception:
+        _logger.warning(
+            "notification template format failed for event %s; using raw template",
+            event_type.value,
+        )
+        message = template["message"]
 
     link_to = template.get("link_to")
     if link_to:
         try:
             link_to = link_to.format(**metadata)
-        except KeyError:
-            pass
+        except Exception:
+            _logger.warning(
+                "notification link_to format failed for event %s; leaving raw",
+                event_type.value,
+            )
 
     notification = Notification(
         id=uuid.uuid4(),

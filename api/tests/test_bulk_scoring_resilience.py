@@ -1,14 +1,16 @@
-"""Regression tests for the Celery task resilience fixes (H3, H4).
+"""Regression tests for the bulk resilience fixes (H3, H4, H5).
 
-Kept in a dedicated file because they exercise task internals
-(`_ScoreBulkTask.on_failure`, retry gating) that don't fit cleanly
-into the endpoint-level test files.
+Kept in a dedicated file because they exercise Celery task internals
+(`_ScoreBulkTask.on_failure`, retry gating) and the notification
+template-formatter, none of which fit cleanly into the existing
+endpoint-level test files.
 """
 from __future__ import annotations
 
 import pytest
 
 from app.services.bulk_scoring_service import _job_key, _redis, get_job_status
+from app.services.notification_service import EventType, _TEMPLATES
 
 
 # ---------------------------------------------------------------------------
@@ -138,3 +140,67 @@ def test_get_job_status_surfaces_failed_and_error():
     finally:
         for suffix in ("status", "total", "completed", "error"):
             _redis.delete(_job_key(tenant_id, job_id, suffix))
+
+
+# ---------------------------------------------------------------------------
+# H5 — notification template formatter tolerates broken templates
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_notification_swallows_format_typeerror(db_session, sa_tenant):
+    """Templates like `{percentage:.0%}` raise TypeError (not KeyError)
+    when the metadata carries a non-numeric value. Pre-fix this bubbled
+    out of `create_notification` and would abort the caller's
+    transaction — for bulk scoring, wiping every scored row (H5).
+    """
+    from app.services.notification_service import create_notification
+
+    # HIGH_RISK_BATCH template uses `{percentage:.0%}`. Handing it a
+    # string triggers TypeError inside `.format()`.
+    notif = await create_notification(
+        db_session,
+        sa_tenant.id,
+        EventType.HIGH_RISK_BATCH,
+        metadata={
+            "high_risk_count": 5,
+            "total_count": 10,
+            "percentage": "not-a-number",  # would blow up .0% formatting
+            "threshold": 0.2,
+        },
+    )
+
+    # Notification was still created, message fell back to the raw template.
+    assert notif is not None
+    assert notif.message == _TEMPLATES[EventType.HIGH_RISK_BATCH]["message"]
+
+
+@pytest.mark.asyncio
+async def test_create_notification_swallows_link_format_error(
+    db_session, sa_tenant, monkeypatch
+):
+    """Same defense for `link_to`. No shipped template contains a
+    placeholder in `link_to` today, so we inject one temporarily to
+    keep the branch exercised — the defense needs to survive the day
+    someone adds a templated link and forgets the missing-metadata
+    case."""
+    from app.services import notification_service
+    from app.services.notification_service import create_notification
+
+    injected = dict(notification_service._TEMPLATES[EventType.BACKTEST_COMPLETE])
+    injected["link_to"] = "/dashboard/backtest/{backtest_id}"
+    monkeypatch.setitem(
+        notification_service._TEMPLATES, EventType.BACKTEST_COMPLETE, injected
+    )
+
+    # backtest_id deliberately omitted from metadata.
+    notif = await create_notification(
+        db_session,
+        sa_tenant.id,
+        EventType.BACKTEST_COMPLETE,
+        metadata={"total_collections": 100, "accuracy": 0.85},
+    )
+
+    assert notif is not None
+    # Link fell back to the raw template — placeholder still literal.
+    assert notif.link_to == "/dashboard/backtest/{backtest_id}"
