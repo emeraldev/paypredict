@@ -13,6 +13,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from app.migration_guards import require_downgrade_ack
+
 
 revision: str = "66d275afe3ed"
 down_revision: Union[str, None] = "af259bfe8cfa"
@@ -79,6 +81,20 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text("SELECT count(*) FROM backtest_runs")
+        ).scalar_one(),
+        description=(
+            "Dropping backtest_runs and backtest_items destroys the "
+            "entire backtest history for every tenant. Backtests can be "
+            "re-run against current data, but the historical record of "
+            "which weights configuration produced which prediction "
+            "accuracy is unrecoverable."
+        ),
+    )
+
     op.drop_index("ix_backtest_items_run_id", table_name="backtest_items")
     op.drop_table("backtest_items")
     op.drop_index("ix_backtest_runs_tenant_created", table_name="backtest_runs")

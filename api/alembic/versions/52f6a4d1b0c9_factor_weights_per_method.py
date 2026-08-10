@@ -21,16 +21,16 @@ they'd violate the new unique constraint otherwise.
 Downgrade is destructive by design: it collapses two rows-per-CARD_DEBIT
 tenant back into one (keeping the CARD sibling, dropping DEBIT_ORDER).
 Any DEBIT_ORDER-only customisations made through the new UI would be
-lost. To prevent that surprise in production, the downgrade REFUSES if
-data would be dropped unless the operator sets
-`FORCE_DESTRUCTIVE_DOWNGRADE=1` in the environment — a deliberate
-opt-in that documents intent in the shell history.
+lost. Guarded via `require_downgrade_ack` — refuses unless the operator
+names this revision in `FORCE_DESTRUCTIVE_DOWNGRADE` (see
+`alembic/guards.py`).
 """
-import os
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+
+from app.migration_guards import require_downgrade_ack
 
 
 revision: str = "52f6a4d1b0c9"
@@ -107,27 +107,21 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Refuse to drop customer-visible data unless the operator has opted
-    # in via FORCE_DESTRUCTIVE_DOWNGRADE=1. The check counts BOTH DEBIT_ORDER
-    # rows (which the constraint restore forces us to drop) and non-CARD
-    # variants that would violate the restored unique(tenant_id, factor_name)
-    # constraint. CI sets FORCE=1 so round-trip tests work; a human on a
-    # production shell has to type it deliberately.
-    bind = op.get_bind()
-    at_risk = bind.execute(
-        sa.text(
-            "SELECT count(*) FROM factor_weights "
-            "WHERE collection_method IN ('DEBIT_ORDER', 'MOBILE_MONEY', 'PAYROLL')"
-        )
-    ).scalar_one()
-
-    if at_risk > 0 and os.environ.get("FORCE_DESTRUCTIVE_DOWNGRADE") != "1":
-        raise RuntimeError(
-            f"Refusing to downgrade: {at_risk} factor_weight row(s) would be "
-            "silently deleted (DEBIT_ORDER / MOBILE_MONEY / PAYROLL rows have "
-            "no home in the old schema). Set FORCE_DESTRUCTIVE_DOWNGRADE=1 in "
-            "the environment to acknowledge and proceed."
-        )
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text(
+                "SELECT count(*) FROM factor_weights "
+                "WHERE collection_method IN ('DEBIT_ORDER', 'MOBILE_MONEY', 'PAYROLL')"
+            )
+        ).scalar_one(),
+        description=(
+            "DEBIT_ORDER / MOBILE_MONEY / PAYROLL factor_weight rows have no "
+            "home in the old schema (unique(tenant_id, factor_name) restore "
+            "would collide). These rows will be deleted; tenants' per-method "
+            "tuning for those methods is lost."
+        ),
+    )
 
     # 1. Restore the old unique constraint. Non-CARD rows would collide with
     #    their CARD sibling (or be orphaned entirely), so drop them first.

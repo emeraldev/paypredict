@@ -19,6 +19,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from app.migration_guards import require_downgrade_ack
+
 
 # revision identifiers, used by Alembic.
 revision: str = "af259bfe8cfa"
@@ -72,6 +74,22 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text(
+                "SELECT count(*) FROM tenants "
+                "WHERE email_recipients IS NOT NULL "
+                "AND array_length(email_recipients, 1) > 0"
+            )
+        ).scalar_one(),
+        description=(
+            "Dropping tenants.email_recipients loses every tenant's "
+            "configured recipient list — email digest routing will "
+            "silently stop working after a re-upgrade."
+        ),
+    )
+
     # 4. Drop Outcome composite index
     op.drop_index("ix_outcomes_tenant_outcome_created", table_name="outcomes")
 
