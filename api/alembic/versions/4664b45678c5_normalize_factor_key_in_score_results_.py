@@ -57,6 +57,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Round-trip invariant: the upgrade's WHERE clause fires on every
+    # row whose `evaluated` entries have `factor` and NOT `factor_name`.
+    # Post-downgrade that's every row. So a subsequent re-upgrade
+    # renormalises the whole set, making down + up a no-op regardless
+    # of when a given factor name was introduced (the migration moves
+    # the string value between two JSON keys; it never maps values).
+    #
+    # Do NOT add a WHERE clause to this downgrade — old code reads
+    # `factor` on every row, so every row must be converted.
+    #
     # Reverse: rename factor_name back to factor on every evaluated entry.
     op.execute(
         """
