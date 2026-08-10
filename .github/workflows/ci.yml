@@ -115,13 +115,16 @@ jobs:
       # rollback scenario for a real customer, plus the nuclear reset
       # case where prod is rebuilt from scratch.
       #
-      # FORCE_DESTRUCTIVE_DOWNGRADE=1 is set so the guard in migration
-      # 52f6a4d1b0c9 (and any future destructive downgrade) allows this
-      # CI check to complete; production operators must set it themselves.
+      # `all` is the sentinel that disarms every per-revision guard in
+      # the codebase — see `app/migration_guards.py`. Empty CI DB means
+      # most guards no-op anyway, but this covers guards that fire on
+      # bootstrap rows. Production operators name specific revisions
+      # per operation (`FORCE_DESTRUCTIVE_DOWNGRADE=<rev>`), never `all`.
       - name: Round-trip full migration stack (up → down base → up)
         env:
           DATABASE_URL: postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev
-          FORCE_DESTRUCTIVE_DOWNGRADE: "1"
+          FORCE_DESTRUCTIVE_UPGRADE: "all"
+          FORCE_DESTRUCTIVE_DOWNGRADE: "all"
         run: |
           alembic upgrade head
           alembic downgrade base

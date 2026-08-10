@@ -25,18 +25,19 @@ recovered from bcrypt(). This migration DELETEs all rows. Pre-customer
 that's exactly zero customer keys — verified by
 `SELECT count(*) FROM api_keys WHERE is_active=true` at PR time (4 rows,
 all seed defaults, last_used_at NULL). If a real customer key ever
-exists at migration time, the destructive step is gated by
-`FORCE_DESTRUCTIVE_UPGRADE=1` — same pattern as the destructive
-downgrade guard in `52f6a4d1b0c9`.
+exists at migration time, `require_upgrade_ack` (see
+`app/migration_guards.py`) refuses unless the operator names this
+revision in `FORCE_DESTRUCTIVE_UPGRADE`.
 
 After running: re-seed with `python -m app.seed --reseed` (dev) or
 re-mint each tenant's key via the dashboard (prod).
 """
-import os
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+
+from app.migration_guards import require_downgrade_ack, require_upgrade_ack
 
 
 revision: str = "7e2c8ab391f5"
@@ -46,22 +47,18 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-
-    # Guard: refuse to wipe api_keys rows unless the operator has
-    # explicitly acknowledged the destruction. Empty CI DBs pass
-    # through untouched.
-    active_keys = bind.execute(
-        sa.text("SELECT count(*) FROM api_keys WHERE is_active = true")
-    ).scalar_one()
-    if active_keys > 0 and os.environ.get("FORCE_DESTRUCTIVE_UPGRADE") != "1":
-        raise RuntimeError(
-            f"Refusing to upgrade: {active_keys} active api_keys row(s) "
-            "would be wiped (existing keys cannot be migrated to the new "
-            "schema because bcrypt hashes are one-way). Set "
-            "FORCE_DESTRUCTIVE_UPGRADE=1 in the environment to acknowledge, "
-            "and re-mint each tenant's key after the migration."
-        )
+    require_upgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text("SELECT count(*) FROM api_keys WHERE is_active = true")
+        ).scalar_one(),
+        description=(
+            "Existing api_keys rows can't be migrated to the new "
+            "lookup_id + secret format — bcrypt hashes are one-way, so "
+            "the pre-migration keys must be re-minted after this "
+            "upgrade. Every customer's current API key stops working."
+        ),
+    )
 
     # Wipe existing rows — they don't fit the new schema.
     op.execute("DELETE FROM api_keys")
@@ -94,21 +91,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-
-    # Same destruction guard as upgrade — downgrading here loses every
-    # key that was minted post-upgrade (the old shape can't hold the
-    # new lookup_id + full key structure).
-    active_keys = bind.execute(
-        sa.text("SELECT count(*) FROM api_keys WHERE is_active = true")
-    ).scalar_one()
-    if active_keys > 0 and os.environ.get("FORCE_DESTRUCTIVE_DOWNGRADE") != "1":
-        raise RuntimeError(
-            f"Refusing to downgrade: {active_keys} active api_keys row(s) "
-            "would be wiped (the pre-migration schema cannot represent "
-            "new-format keys). Set FORCE_DESTRUCTIVE_DOWNGRADE=1 to "
-            "acknowledge, and re-mint each tenant's key after."
-        )
+    require_downgrade_ack(
+        revision=revision,
+        at_risk_count=lambda bind: bind.execute(
+            sa.text("SELECT count(*) FROM api_keys WHERE is_active = true")
+        ).scalar_one(),
+        description=(
+            "New-format api_keys can't be represented by the old schema "
+            "(no lookup_id column). These rows will be deleted and each "
+            "tenant will need to re-mint their key after."
+        ),
+    )
 
     op.execute("DELETE FROM api_keys")
 
