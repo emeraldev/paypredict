@@ -53,8 +53,13 @@ async def poll_bulk_job(
     job_id: str,
     tenant: Tenant = Depends(enforce_rate_limit),
 ) -> dict:
-    """Poll the status of an async bulk scoring job."""
-    result = get_job_status(job_id)
+    """Poll the status of an async bulk scoring job.
+
+    Scoped by the authenticated tenant — polling another tenant's
+    job_id returns 404 (identical shape to "not found or expired";
+    never differentiate or existence leaks).
+    """
+    result = get_job_status(str(tenant.id), job_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Job not found or expired")
     return result

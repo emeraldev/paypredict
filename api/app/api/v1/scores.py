@@ -19,6 +19,7 @@ from app.database import get_db
 from app.dependencies import (
     enforce_rate_limit_or_jwt,
     get_current_user,
+    require_admin_or_manager,
 )
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -145,7 +146,9 @@ async def scores_list(
 )
 async def upload_and_score(
     file: UploadFile,
-    user: User = Depends(get_current_user),
+    # Mirrors POST /v1/backtest/upload — VIEWER may not create scoring
+    # rows or trigger alerts by uploading a CSV (M1 fix).
+    user: User = Depends(require_admin_or_manager),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Upload a CSV of upcoming collections and score each row.

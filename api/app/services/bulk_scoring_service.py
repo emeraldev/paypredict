@@ -252,6 +252,20 @@ async def score_bulk_sync(
     }
 
 
+def _job_key(tenant_id: str, job_id: str, suffix: str) -> str:
+    """Build a per-tenant, per-job Redis key.
+
+    Namespacing by tenant_id makes cross-tenant reads structurally
+    impossible: a caller with tenant B's credentials cannot construct
+    the key for tenant A's job. A miss looks identical to
+    "job not found or expired" (indistinguishable by design — never
+    leak existence). Contrast with the previous scheme
+    `bulk_job:{job_id}:{suffix}` which was tenant-independent and let
+    any authed caller poll any job by UUID.
+    """
+    return f"bulk_job:{tenant_id}:{job_id}:{suffix}"
+
+
 def queue_bulk_job(
     tenant_id: str,
     collections: list[dict],
@@ -264,10 +278,10 @@ def queue_bulk_job(
     """
     job_id = str(uuid.uuid4())
 
-    # Store initial status in Redis
-    _redis.setex(f"bulk_job:{job_id}:status", JOB_TTL, "processing")
-    _redis.setex(f"bulk_job:{job_id}:total", JOB_TTL, str(len(collections)))
-    _redis.setex(f"bulk_job:{job_id}:completed", JOB_TTL, "0")
+    # Store initial status in Redis, namespaced by tenant_id.
+    _redis.setex(_job_key(tenant_id, job_id, "status"), JOB_TTL, "processing")
+    _redis.setex(_job_key(tenant_id, job_id, "total"), JOB_TTL, str(len(collections)))
+    _redis.setex(_job_key(tenant_id, job_id, "completed"), JOB_TTL, "0")
 
     # Queue the Celery task
     from app.tasks.bulk_scoring import score_bulk_task
@@ -281,14 +295,19 @@ def queue_bulk_job(
     }
 
 
-def get_job_status(job_id: str) -> dict | None:
-    """Get the status of a bulk scoring job from Redis."""
-    status = _redis.get(f"bulk_job:{job_id}:status")
+def get_job_status(tenant_id: str, job_id: str) -> dict | None:
+    """Get the status of a bulk scoring job from Redis.
+
+    Scoped by tenant_id — a call for another tenant's job returns None
+    (identical to "not found or expired"). This is the boundary that
+    prevents H1 (cross-tenant polling).
+    """
+    status = _redis.get(_job_key(tenant_id, job_id, "status"))
     if status is None:
         return None
 
-    total = int(_redis.get(f"bulk_job:{job_id}:total") or "0")
-    completed = int(_redis.get(f"bulk_job:{job_id}:completed") or "0")
+    total = int(_redis.get(_job_key(tenant_id, job_id, "total")) or "0")
+    completed = int(_redis.get(_job_key(tenant_id, job_id, "completed")) or "0")
 
     result: dict = {
         "job_id": job_id,
@@ -298,7 +317,7 @@ def get_job_status(job_id: str) -> dict | None:
     }
 
     if status == "completed":
-        raw = _redis.get(f"bulk_job:{job_id}:results")
+        raw = _redis.get(_job_key(tenant_id, job_id, "results"))
         if raw:
             data = json.loads(raw)
             result["summary"] = data.get("summary")

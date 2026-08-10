@@ -12,7 +12,13 @@ from app.config import settings
 from app.models.score_request import CollectionCurrency, CollectionMethod, ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
 from app.scoring.engine import ScoringEngine
-from app.services.bulk_scoring_service import _factor_to_db_shape, _score_one, _to_json_safe, JOB_TTL
+from app.services.bulk_scoring_service import (
+    JOB_TTL,
+    _factor_to_db_shape,
+    _job_key,
+    _score_one,
+    _to_json_safe,
+)
 from app.tasks.celery_app import celery_app
 
 _engine = ScoringEngine()
@@ -113,8 +119,9 @@ def score_bulk_task(
         else:
             summary["low_risk"] += 1
 
-        # Update progress for the polling endpoint
-        _redis.setex(f"bulk_job:{job_id}:completed", JOB_TTL, str(i + 1))
+        # Update progress for the polling endpoint (per-tenant key so the
+        # poller can only see its own tenant's job — H1 fix).
+        _redis.setex(_job_key(tenant_id, job_id, "completed"), JOB_TTL, str(i + 1))
 
     # Persist all rows to the DB in a single transaction
     score_ids = asyncio.run(
@@ -126,10 +133,10 @@ def score_bulk_task(
     for result_row, score_id in zip(results, score_ids):
         result_row["score_id"] = score_id
 
-    # Store final results
+    # Store final results (per-tenant namespaced — H1 fix)
     _redis.setex(
-        f"bulk_job:{job_id}:results",
+        _job_key(tenant_id, job_id, "results"),
         JOB_TTL,
         json.dumps({"summary": summary, "results": results}),
     )
-    _redis.setex(f"bulk_job:{job_id}:status", JOB_TTL, "completed")
+    _redis.setex(_job_key(tenant_id, job_id, "status"), JOB_TTL, "completed")

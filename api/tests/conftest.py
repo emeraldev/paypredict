@@ -31,10 +31,17 @@ from app.models.user import User, UserRole
 from app.scoring.registry import get_default_weights_for_method
 from app.services.auth_service import hash_password
 
-TEST_API_KEY = "pk_test_unit_test_key_1234567890abcdef"
+# Hand-crafted deterministic key in the new format:
+#   pk_test_<12-hex lookup_id>_<43-char secret>
+# lookup_id and secret are fixed so tests reference the same value
+# every run; test_role_enforcement and rate-limit tests all authenticate
+# against this exact key. Change with care.
+TEST_API_KEY_LOOKUP_ID = "0123456789ab"
+TEST_API_KEY = f"pk_test_{TEST_API_KEY_LOOKUP_ID}_unit_test_secret_abcdefghij0123456789"
 TEST_API_KEY_HASH = bcrypt.hashpw(
     TEST_API_KEY.encode("utf-8"), bcrypt.gensalt()
 ).decode("utf-8")
+TEST_API_KEY_PREFIX = f"pk_test_{TEST_API_KEY_LOOKUP_ID}"
 
 TEST_USER_EMAIL = "demo@paypredict.test"
 TEST_USER_PASSWORD = "demo-password-1234"
@@ -100,8 +107,9 @@ async def sa_tenant(db_session: AsyncSession) -> Tenant:
 
     db_session.add(ApiKey(
         tenant_id=tenant.id,
+        lookup_id=TEST_API_KEY_LOOKUP_ID,
         key_hash=TEST_API_KEY_HASH,
-        key_prefix=TEST_API_KEY[:8],
+        key_prefix=TEST_API_KEY_PREFIX,
         label="Test Key",
         is_active=True,
     ))
