@@ -272,6 +272,21 @@ _CASES = [
         lambda db: _seed_tenant(db, extra={"factor_set": "'PAYROLL'"}),
         None,  # None → unbypassable
     ),
+    (
+        "c9a7f10e5b28",  # bulk_scoring_jobs table
+        "bulk-scoring history",
+        "c9a7f10e5b28",
+        lambda db: (
+            _seed_tenant(db, extra={"id": "'99999999-9999-9999-9999-999999999999'::uuid"}),
+            _sql(db, [
+                "INSERT INTO bulk_scoring_jobs (id, tenant_id, job_id, "
+                "status, total_items, completed_items) VALUES "
+                "(gen_random_uuid(), '99999999-9999-9999-9999-999999999999'::uuid, "
+                "gen_random_uuid(), 'completed', 5, 5)"
+            ]),
+        ),
+        "FORCE_DESTRUCTIVE_DOWNGRADE",
+    ),
 ]
 
 
