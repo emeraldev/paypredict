@@ -12,6 +12,7 @@ import { ScoredRowsTable } from "@/components/score/scored-rows-table";
 import { SingleCollectionForm } from "@/components/score/single-collection-form";
 import { SingleScoreResult } from "@/components/score/single-score-result";
 import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -65,11 +66,10 @@ export default function ScoreUploadPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        <strong className="text-foreground">Score Collections.</strong>{" "}
-        Check whether an upcoming collection is likely to succeed. Score one
-        at a time using the form, or upload a CSV to score a batch.
-      </div>
+      <PageHeader
+        title="Score Collections"
+        subtitle="Check whether an upcoming collection is likely to succeed. One at a time, or a CSV batch."
+      />
 
       <Tabs defaultValue="one">
         <TabsList variant="line">

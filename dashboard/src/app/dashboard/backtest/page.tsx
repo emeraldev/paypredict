@@ -13,6 +13,7 @@ import { CsvUploadZone } from "@/components/shared/csv-upload-zone";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { StatCard } from "@/components/shared/stat-card";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { PageHeader } from "@/components/shared/page-header";
 import { useApi } from "@/hooks/use-api";
 import { useAuth } from "@/hooks/use-auth";
 import { backtestApi } from "@/lib/api/backtest";
@@ -59,15 +60,25 @@ export default function BacktestPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        <strong className="text-foreground">What is a backtest?</strong>{" "}
-        Upload a CSV of past collections + outcomes; we re-score each row
-        against the current model so you can see how the predictions would
-        have performed. Useful for validating weight changes before saving
-        them, or for proving the model&apos;s accuracy to stakeholders.
-      </div>
+      <PageHeader
+        title="Backtest"
+        subtitle="Re-score past collections to validate model changes"
+        titleHelp={
+          <HelpPopover title="What is a backtest?">
+            <p>
+              Upload a CSV of past collections and outcomes. We re-score each
+              row against the current model so you can see how the predictions
+              would have performed.
+            </p>
+            <p>
+              Useful for validating weight changes before saving them, or for
+              proving the model&apos;s accuracy to stakeholders.
+            </p>
+          </HelpPopover>
+        }
+      />
 
-      {/* Upload section . only Admins and Managers can start new backtests.
+      {/* Upload section: only Admins and Managers can start new backtests.
           Viewers see past backtest results below but cannot run new ones. */}
       {!result && canManage && (
         <CsvUploadZone

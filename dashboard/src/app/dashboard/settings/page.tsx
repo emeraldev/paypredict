@@ -6,6 +6,7 @@ import { AlertsTab } from "@/components/settings/alerts-tab";
 import { ApiKeysTab } from "@/components/settings/api-keys-tab";
 import { TeamTab } from "@/components/settings/team-tab";
 import { WeightsTab } from "@/components/settings/weights-tab";
+import { PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/hooks/use-auth";
 
 const VALID_TABS = ["weights", "api-keys", "alerts", "team"] as const;
@@ -35,6 +36,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Settings"
+        subtitle="Configure scoring weights, API keys, alerts, and team access"
+      />
+
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList variant="line">
           <TabsTrigger value="weights">Weights</TabsTrigger>

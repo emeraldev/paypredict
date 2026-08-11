@@ -19,6 +19,7 @@ import { OutcomesStats } from "@/components/outcomes/outcomes-stats";
 import { OutcomesTable } from "@/components/outcomes/outcomes-table";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { PageHeader } from "@/components/shared/page-header";
 import { useApi } from "@/hooks/use-api";
 import { outcomesApi } from "@/lib/api/outcomes";
 import type { OutcomeFilter, OutcomesListParams } from "@/lib/api/types";
@@ -97,13 +98,22 @@ export default function OutcomesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        After you attempt a collection, record what happened (succeeded or
-        failed) so we can compare it against what we predicted. Report
-        outcomes here, from the score detail drawer on the main dashboard,
-        or via{" "}
-        <code className="rounded bg-muted px-1 text-xs">POST /v1/outcomes</code>.
-      </div>
+      <PageHeader
+        title="Outcomes"
+        subtitle="Collection results reported back to compare against what we predicted"
+        action={
+          <>
+            <Button variant="outline" className="gap-1.5" onClick={handleExport}>
+              <DownloadIcon className="h-4 w-4" />
+              Export
+            </Button>
+            <Button className="gap-1.5" onClick={() => setReportOpen(true)}>
+              <PlusIcon className="h-4 w-4" />
+              Report outcome
+            </Button>
+          </>
+        }
+      />
 
       {loading && !data ? (
         <LoadingSkeleton variant="cards" count={4} />
@@ -111,29 +121,13 @@ export default function OutcomesPage() {
         <OutcomesStats stats={data.stats} />
       ) : null}
 
-      <div className="flex items-center justify-between gap-3">
-        <OutcomesFilterTabs
-          value={filter}
-          onChange={(v) => {
-            setFilter(v);
-            setPage(1);
-          }}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setReportOpen(true)}
-          >
-            <PlusIcon className="h-4 w-4" />
-            Report outcome
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
-            <DownloadIcon className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
-      </div>
+      <OutcomesFilterTabs
+        value={filter}
+        onChange={(v) => {
+          setFilter(v);
+          setPage(1);
+        }}
+      />
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent>

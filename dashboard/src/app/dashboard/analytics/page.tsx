@@ -10,6 +10,7 @@ import { PredictionAccuracyChart } from "@/components/analytics/prediction-accur
 import { RiskDistributionChart } from "@/components/analytics/risk-distribution-chart";
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   Select,
   SelectContent,
@@ -53,20 +54,24 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <Select value={period} onValueChange={(v) => setPeriod(v as AnalyticsPeriod)}>
-          <SelectTrigger className="h-9 w-[160px] text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <PageHeader
+        title="Analytics"
+        subtitle="Collection performance and prediction accuracy"
+        action={
+          <Select value={period} onValueChange={(v) => setPeriod(v as AnalyticsPeriod)}>
+            <SelectTrigger className="w-[160px] text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       {summaryError ? (
         <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
