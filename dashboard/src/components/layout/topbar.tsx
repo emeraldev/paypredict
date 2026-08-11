@@ -39,7 +39,7 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-brand-foreground hover:bg-white/10 hover:text-brand-foreground md:hidden"
+          className="text-brand-foreground hover:bg-white/10 hover:text-brand-foreground focus-visible:border-white/60 focus-visible:ring-white/40 md:hidden"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
         >
@@ -52,7 +52,7 @@ export function Topbar() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="relative hidden h-9 w-56 items-center gap-2 rounded-md bg-white/10 pl-3 pr-2 text-left text-sm text-brand-foreground/80 transition-colors hover:bg-white/15 hover:text-brand-foreground md:flex"
+            className="relative hidden h-9 w-56 items-center gap-2 rounded-md bg-white/10 pl-3 pr-2 text-left text-sm text-brand-foreground/80 outline-none transition-colors hover:bg-white/15 hover:text-brand-foreground focus-visible:ring-2 focus-visible:ring-white/50 md:flex"
             aria-label="Open command palette"
           >
             <SearchIcon className="h-4 w-4 shrink-0" />
@@ -62,11 +62,11 @@ export function Topbar() {
             </kbd>
           </button>
 
-          <div className="[&_button]:text-brand-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-brand-foreground">
+          <div className="[&_button]:text-brand-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-brand-foreground [&_button]:focus-visible:border-white/60 [&_button]:focus-visible:ring-white/40">
             <NotificationBell />
           </div>
 
-          <div className="[&_button]:text-brand-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-brand-foreground">
+          <div className="[&_button]:text-brand-foreground [&_button]:hover:bg-white/10 [&_button]:hover:text-brand-foreground [&_button]:focus-visible:border-white/60 [&_button]:focus-visible:ring-white/40">
             <ThemeToggle />
           </div>
 
@@ -82,7 +82,7 @@ export function Topbar() {
             onClick={logout}
             aria-label="Sign out"
             title="Sign out"
-            className="text-brand-foreground hover:bg-white/10 hover:text-brand-foreground"
+            className="text-brand-foreground hover:bg-white/10 hover:text-brand-foreground focus-visible:border-white/60 focus-visible:ring-white/40"
           >
             <LogOutIcon className="h-4 w-4" />
           </Button>
