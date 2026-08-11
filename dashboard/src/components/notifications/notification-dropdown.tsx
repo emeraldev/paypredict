@@ -28,7 +28,7 @@ export function NotificationDropdown({
           <button
             type="button"
             onClick={onMarkAllRead}
-            className="text-xs text-blue-500 hover:text-blue-400"
+            className="text-xs text-primary hover:text-primary/80"
           >
             Mark all as read
           </button>

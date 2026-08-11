@@ -109,7 +109,7 @@ export function ReportOutcomeForm({
         </div>
       )}
 
-      {/* collection_id input — only shown when not pre-filled */}
+      {/* collection_id input . only shown when not pre-filled */}
       {collectionIdProp === undefined && (
         <div>
           <Label htmlFor="collection_id" className="text-xs">
@@ -166,7 +166,7 @@ export function ReportOutcomeForm({
         <div>
           <Label htmlFor="amount_collected" className="text-xs">
             Amount collected {currency ? `(${currency})` : ""}{" "}
-            <span className="font-normal text-muted-foreground">— optional</span>
+            <span className="font-normal text-muted-foreground">(optional)</span>
           </Label>
           <Input
             id="amount_collected"
@@ -229,8 +229,8 @@ function OutcomeButton({
     "flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors";
   const selectedClass =
     tone === "emerald"
-      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-400"
-      : "border-red-500/60 bg-red-500/10 text-red-400";
+      ? "border-risk-low/60 bg-risk-low-bg text-risk-low-fg"
+      : "border-risk-high/60 bg-risk-high-bg text-risk-high-fg";
   const idleClass =
     "border-border bg-card text-muted-foreground hover:bg-accent/50";
   return (

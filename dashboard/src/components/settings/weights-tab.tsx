@@ -270,8 +270,8 @@ export function WeightsTab() {
           Each collection method has its own weights. Changes on one tab only
           affect scoring for that method&apos;s collections.
           {isAdmin
-            ? " Verify your changes with a backtest before saving — the Backtest tool re-scores past collections against the current weights."
-            : " Read-only — only Admins can edit weights."}
+            ? " Verify your changes with a backtest before saving. The Backtest tool re-scores past collections against the current weights."
+            : " Read-only. Only Admins can edit weights."}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -290,7 +290,7 @@ export function WeightsTab() {
                       {dirty && (
                         <span
                           aria-hidden
-                          className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500"
+                          className="inline-block h-1.5 w-1.5 rounded-full bg-risk-med"
                           title="Unsaved changes on this tab"
                         />
                       )}
@@ -301,7 +301,7 @@ export function WeightsTab() {
             </TabsList>
             <HelpPopover title="Why these tabs?">
               <p>
-                A tab appears for every collection method your tenant uses —
+                A tab appears for every collection method your tenant uses:
                 either you&apos;ve scored at least one collection with that
                 method, or you&apos;ve saved custom weights for it.
               </p>
@@ -371,15 +371,15 @@ export function WeightsTab() {
                 <div className="flex items-center justify-between border-t border-border pt-4">
                   <div className="flex items-center gap-2 text-sm">
                     {valid ? (
-                      <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />
+                      <CheckCircle2Icon className="h-4 w-4 text-risk-low" />
                     ) : (
-                      <AlertCircleIcon className="h-4 w-4 text-amber-400" />
+                      <AlertCircleIcon className="h-4 w-4 text-risk-med" />
                     )}
                     <span className="text-muted-foreground">Total:</span>
                     <span
                       className={cn(
                         "font-mono tabular-nums font-medium",
-                        !valid && "text-amber-400",
+                        !valid && "text-risk-med-fg",
                       )}
                     >
                       {total}%
@@ -394,7 +394,7 @@ export function WeightsTab() {
                         If a factor doesn&apos;t apply to a given row (e.g.
                         card health on a debit-order collection), the engine
                         skips it and re-normalises the remaining weights for
-                        that score — but the base configuration here must
+                        that score, but the base configuration here must
                         still sum to 100%.
                       </p>
                     </HelpPopover>
@@ -403,14 +403,12 @@ export function WeightsTab() {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        size="sm"
                         onClick={() => handleReset(entry.collection_method)}
                         disabled={!dirty || saving}
                       >
                         Discard changes
                       </Button>
                       <Button
-                        size="sm"
                         onClick={() => handleSave(entry.collection_method, entry)}
                         disabled={!valid || !dirty || saving}
                       >
@@ -429,9 +427,9 @@ export function WeightsTab() {
             the summary is intentionally local per tab to avoid confusion
             about "what am I actually saving." */}
         {currentTotal !== 0 && !currentValid && !currentDirty && (
-          <p className="text-xs text-amber-500">
-            Warning: {currentEntry.method_label} weights do not sum to 100% —
-            re-normalise before saving.
+          <p className="text-xs text-risk-med-fg">
+            Warning: {currentEntry.method_label} weights do not sum to 100%.
+            Re-normalise before saving.
           </p>
         )}
       </CardContent>

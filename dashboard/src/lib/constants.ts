@@ -1,34 +1,35 @@
 // Risk level configuration — SINGLE SOURCE OF TRUTH
-// Uses alpha-style backgrounds so colors work in both light and dark modes.
+// Class values reference the semantic tokens defined in globals.css so
+// light/dark theming happens at the CSS layer, not here.
 export const RISK_CONFIG = {
   HIGH: {
     label: "High",
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    dot: "bg-red-500",
-    bar: "bg-red-500",
-    barColor: "#ef4444",
+    color: "text-risk-high-fg",
+    bg: "bg-risk-high-bg",
+    border: "border-risk-high/30",
+    dot: "bg-risk-high",
+    bar: "bg-risk-high",
+    barColor: "var(--color-risk-high)",
     range: [61, 100],
   },
   MEDIUM: {
     label: "Medium",
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
-    dot: "bg-amber-500",
-    bar: "bg-amber-500",
-    barColor: "#f59e0b",
+    color: "text-risk-med-fg",
+    bg: "bg-risk-med-bg",
+    border: "border-risk-med/30",
+    dot: "bg-risk-med",
+    bar: "bg-risk-med",
+    barColor: "var(--color-risk-med)",
     range: [31, 60],
   },
   LOW: {
     label: "Low",
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-    dot: "bg-emerald-500",
-    bar: "bg-emerald-500",
-    barColor: "#10b981",
+    color: "text-risk-low-fg",
+    bg: "bg-risk-low-bg",
+    border: "border-risk-low/30",
+    dot: "bg-risk-low",
+    bar: "bg-risk-low",
+    barColor: "var(--color-risk-low)",
     range: [0, 30],
   },
 } as const;
@@ -41,73 +42,90 @@ export const RISK_THRESHOLDS = {
 } as const;
 
 // Collection method configuration — SINGLE SOURCE OF TRUTH
+// New look: neutral pill (bg-muted, text-foreground) with a small
+// colored dot for method identity. The saturated per-method fills
+// were dropped to reduce visual noise on data-dense tables.
 export const METHOD_CONFIG = {
   CARD: {
     label: "Card",
     icon: "CreditCard",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-method-card",
+    dotColor: "var(--color-method-card)",
   },
   DEBIT_ORDER: {
     label: "Debit Order",
     icon: "Building",
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-method-debit",
+    dotColor: "var(--color-method-debit)",
   },
   MOBILE_MONEY: {
     label: "Mobile Money",
     icon: "Smartphone",
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
-    border: "border-orange-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-method-mobile",
+    dotColor: "var(--color-method-mobile)",
   },
   PAYROLL: {
     label: "Payroll",
     icon: "Landmark",
-    color: "text-cyan-400",
-    bg: "bg-cyan-500/10",
-    border: "border-cyan-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-method-payroll",
+    dotColor: "var(--color-method-payroll)",
   },
 } as const;
 
 // Role badge configuration — SINGLE SOURCE OF TRUTH
+// Neutral pill with a small colored dot, same pattern as METHOD_CONFIG.
 export const ROLE_CONFIG = {
   ADMIN: {
     label: "Admin",
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-risk-high",
   },
   MANAGER: {
     label: "Manager",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-primary",
   },
   VIEWER: {
     label: "Viewer",
-    color: "text-zinc-400",
-    bg: "bg-zinc-500/10",
-    border: "border-zinc-500/30",
+    color: "text-foreground",
+    bg: "bg-muted",
+    border: "border-border",
+    dot: "bg-muted-foreground",
   },
 } as const;
 
 // Recharts theme — SINGLE SOURCE OF TRUTH
-// All chart components must reference these — never hardcode colors in charts.
+// All chart components must reference these; never hardcode colors in charts.
+// Values point at CSS variables so a theme flip re-tints charts too, as long
+// as Recharts renders the SVG in the same document (it does — no shadow DOM).
 export const CHART_THEME = {
-  grid: "rgba(161, 161, 170, 0.15)", // zinc-400 at 15%
-  axis: "rgb(161, 161, 170)", // zinc-400
-  tooltipBg: "rgb(24, 24, 27)", // zinc-900
-  tooltipBorder: "rgb(63, 63, 70)", // zinc-700
-  tooltipText: "rgb(244, 244, 245)", // zinc-100
-  high: "#ef4444", // red-500
-  medium: "#f59e0b", // amber-500
-  low: "#10b981", // emerald-500
-  primary: "#10b981", // emerald-500 — default line/bar
-  secondary: "#6366f1", // indigo-500 — second series
-  muted: "rgba(161, 161, 170, 0.3)", // zinc-400 at 30%
+  grid: "var(--color-border)",
+  axis: "var(--color-muted-foreground)",
+  tooltipBg: "var(--color-popover)",
+  tooltipBorder: "var(--color-border)",
+  tooltipText: "var(--color-popover-foreground)",
+  high: "var(--color-risk-high)",
+  medium: "var(--color-risk-med)",
+  low: "var(--color-risk-low)",
+  primary: "var(--color-chart-1)",
+  secondary: "var(--color-chart-2)",
+  muted: "var(--color-muted-foreground)",
 } as const;
 
 // Factor descriptions for the settings page

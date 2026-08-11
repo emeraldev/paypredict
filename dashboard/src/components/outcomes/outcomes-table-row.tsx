@@ -19,22 +19,22 @@ interface OutcomesTableRowProps {
 const OUTCOME_BADGE: Record<string, { label: string; className: string }> = {
   SUCCESS: {
     label: "Success",
-    className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    className: "text-risk-low-fg",
   },
   FAILED: {
     label: "Failed",
-    className: "bg-red-500/10 text-red-400 border-red-500/30",
+    className: "text-risk-high-fg",
   },
 };
 
 function MatchCell({ matched }: { matched: boolean | null }) {
   if (matched === true) {
-    return <CheckCircle2Icon className="mx-auto h-4 w-4 text-emerald-400" />;
+    return <CheckCircle2Icon className="mx-auto h-4 w-4 text-risk-low" />;
   }
   if (matched === false) {
-    return <XCircleIcon className="mx-auto h-4 w-4 text-red-400" />;
+    return <XCircleIcon className="mx-auto h-4 w-4 text-risk-high" />;
   }
-  return <span className="text-xs text-muted-foreground">—</span>;
+  return <span className="text-xs text-muted-foreground">–</span>;
 }
 
 export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) {
@@ -72,13 +72,13 @@ export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) 
             showBar={false}
           />
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">–</span>
         )}
       </TableCell>
       <TableCell className="py-3">
         <span
           className={cn(
-            "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+            "inline-flex items-center text-sm font-medium",
             badge.className,
           )}
         >
@@ -86,12 +86,12 @@ export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) 
         </span>
       </TableCell>
       <TableCell className="py-3 text-sm text-muted-foreground">
-        {outcome.failure_reason ?? "—"}
+        {outcome.failure_reason ?? "–"}
       </TableCell>
       <TableCell className="py-3 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
         {outcome.collection_amount && outcome.collection_currency
           ? formatCurrency(outcome.collection_amount, outcome.collection_currency)
-          : "—"}
+          : "–"}
       </TableCell>
       <TableCell className="py-3 text-sm text-muted-foreground">
         {formatDateTime(outcome.attempted_at)}
@@ -109,7 +109,7 @@ export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) 
           disabled={removing}
           aria-label={`Remove outcome for ${outcome.collection_id}`}
           title="Remove this outcome (use when the entry was wrong)"
-          className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-red-400 disabled:opacity-50"
+          className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-risk-high disabled:opacity-50"
         >
           <Trash2Icon className="h-3.5 w-3.5" />
         </button>

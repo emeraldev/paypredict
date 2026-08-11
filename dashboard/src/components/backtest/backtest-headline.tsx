@@ -8,19 +8,19 @@ interface BacktestHeadlineProps {
 
 export function BacktestHeadline({ summary }: BacktestHeadlineProps) {
   return (
-    <Card className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/30">
+    <Card className="border-risk-low/30 bg-risk-low-bg">
       <CardContent className="p-6 text-center">
-        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        <p className="text-sm font-medium text-risk-low-fg">
           Backtest Result
         </p>
-        <p className="mt-2 text-3xl font-bold text-emerald-800 dark:text-emerald-300">
+        <p className="mt-2 text-3xl font-semibold text-risk-low-fg">
           We would have predicted{" "}
           <span className="text-4xl">{Math.round(summary.overall_accuracy * 100)}%</span>{" "}
           of your failures in advance
         </p>
-        <p className="mt-2 text-lg text-emerald-700 dark:text-emerald-400">
+        <p className="mt-2 text-lg text-risk-low-fg">
           Estimated recovery:{" "}
-          <span className="font-bold">
+          <span className="font-semibold">
             {formatCompactCurrency(summary.estimated_annual_recovery, "ZAR")}
           </span>
           {summary.estimated_annual_recovery > summary.flagged_in_advance_value && " annually"}

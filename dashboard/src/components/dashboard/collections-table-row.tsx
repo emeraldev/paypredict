@@ -29,10 +29,20 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
     ? Math.min(100, Math.round((instalmentNumber! / totalInstalments!) * 100))
     : 0;
 
+  const rowTint =
+    collection.risk_level === "HIGH"
+      ? "bg-risk-high-bg hover:bg-risk-high-bg/80"
+      : collection.risk_level === "MEDIUM"
+        ? "bg-risk-med-bg hover:bg-risk-med-bg/80"
+        : "hover:bg-muted";
+
   return (
     <TableRow
       onClick={onClick}
-      className="cursor-pointer border-b border-border/50 transition-colors hover:bg-accent/40"
+      className={cn(
+        "cursor-pointer border-b border-border/60 transition-colors",
+        rowTint,
+      )}
     >
       <TableCell className="py-3">
         <RiskScoreDisplay score={collection.score} riskLevel={collection.risk_level} />
@@ -56,9 +66,9 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
           className={cn(
             "mt-0.5 block text-xs",
             isOverdue
-              ? "font-medium text-red-400"
+              ? "font-medium text-risk-high"
               : due.urgent
-                ? "font-medium text-amber-400"
+                ? "font-medium text-risk-med"
                 : "text-muted-foreground",
           )}
         >
@@ -73,13 +83,13 @@ export function CollectionsTableRow({ collection, onClick }: CollectionsTableRow
             </span>
             <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-emerald-500"
+                className="h-full rounded-full bg-primary"
                 style={{ width: `${instalmentPct}%` }}
               />
             </div>
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-xs text-muted-foreground">–</span>
         )}
       </TableCell>
       <TableCell className="py-3">

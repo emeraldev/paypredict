@@ -98,8 +98,8 @@ export default function OutcomesPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        After you attempt a collection, record what happened — succeeded or
-        failed — so we can compare it against what we predicted. Report
+        After you attempt a collection, record what happened (succeeded or
+        failed) so we can compare it against what we predicted. Report
         outcomes here, from the score detail drawer on the main dashboard,
         or via{" "}
         <code className="rounded bg-muted px-1 text-xs">POST /v1/outcomes</code>.

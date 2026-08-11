@@ -57,7 +57,7 @@ export function NotificationItem({ notification, onRead, onClose }: Notification
           {notification.message}
         </p>
         {notification.link_to && notification.link_label && (
-          <p className="mt-1 text-xs text-blue-500">{notification.link_label} &rarr;</p>
+          <p className="mt-1 text-xs text-primary">{notification.link_label} &rarr;</p>
         )}
       </div>
       <span className="shrink-0 text-[11px] text-muted-foreground/60">

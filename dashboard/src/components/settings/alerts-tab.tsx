@@ -111,7 +111,7 @@ export function AlertsTab() {
           />
           {isAdmin && (
             <div className="flex justify-end pt-2">
-              <Button size="sm" onClick={handleSaveThreshold}>
+              <Button onClick={handleSaveThreshold}>
                 Save threshold
               </Button>
             </div>
@@ -151,7 +151,7 @@ export function AlertsTab() {
           </div>
           {isAdmin && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={handleSaveWebhooks}>
+              <Button onClick={handleSaveWebhooks}>
                 Save webhook URLs
               </Button>
             </div>
@@ -219,8 +219,8 @@ export function AlertsTab() {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-50 p-3 dark:bg-amber-950/20">
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-risk-med/30 bg-risk-med-bg p-3">
+              <p className="text-xs text-risk-med-fg">
                 Rotate the secret? Update your receiver immediately or webhook
                 deliveries will fail signature verification.
               </p>
@@ -237,7 +237,7 @@ export function AlertsTab() {
                   size="sm"
                   onClick={handleRotate}
                   disabled={rotating}
-                  className="bg-amber-500 text-white hover:bg-amber-600"
+                  className="bg-risk-med text-white hover:bg-risk-med/90"
                 >
                   {rotating ? "Rotating..." : "Rotate"}
                 </Button>

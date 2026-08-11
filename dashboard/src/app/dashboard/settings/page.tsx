@@ -36,7 +36,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="weights">Weights</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>

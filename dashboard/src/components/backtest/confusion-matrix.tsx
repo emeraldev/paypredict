@@ -20,9 +20,7 @@ function Cell({
     <div
       className={cn(
         "rounded-lg p-4 text-center",
-        correct
-          ? "bg-emerald-50 dark:bg-emerald-950/40"
-          : "bg-red-50 dark:bg-red-950/40",
+        correct ? "bg-risk-low-bg" : "bg-risk-high-bg",
       )}
     >
       <p className="text-2xl font-bold tabular-nums text-foreground">{count}</p>
@@ -53,7 +51,7 @@ export function ConfusionMatrix({ data }: ConfusionMatrixProps) {
           </p>
 
           {/* HIGH row */}
-          <p className="flex items-center text-xs font-semibold text-red-500">
+          <p className="flex items-center text-xs font-semibold text-risk-high-fg">
             Predicted HIGH
           </p>
           <Cell
@@ -68,7 +66,7 @@ export function ConfusionMatrix({ data }: ConfusionMatrixProps) {
           />
 
           {/* MEDIUM row */}
-          <p className="flex items-center text-xs font-semibold text-amber-500">
+          <p className="flex items-center text-xs font-semibold text-risk-med-fg">
             Predicted MEDIUM
           </p>
           <Cell
@@ -83,7 +81,7 @@ export function ConfusionMatrix({ data }: ConfusionMatrixProps) {
           />
 
           {/* LOW row */}
-          <p className="flex items-center text-xs font-semibold text-emerald-500">
+          <p className="flex items-center text-xs font-semibold text-risk-low-fg">
             Predicted LOW
           </p>
           <Cell
