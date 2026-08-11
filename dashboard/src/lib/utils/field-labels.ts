@@ -40,7 +40,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   collection_method: {
     label: "Collection method",
-    help: "How will the money be pulled — card on file, debit order, or mobile money.",
+    help: "How will the money be pulled: card on file, debit order, or mobile money.",
   },
 
   // ---- Common optional fields ----
@@ -101,7 +101,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   regular_inflow_day: {
     label: "Regular pay-in day of the week",
-    help: "Lowercase day name — monday, tuesday, etc.",
+    help: "Lowercase day name (monday, tuesday, etc.).",
   },
   active_loan_count: {
     label: "Active loans the customer has",
@@ -117,7 +117,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   new_loan_within_repayment_period: {
     label: "Took a new loan during this loan's repayment?",
-    help: "true / false — loan cycling is a strong default predictor.",
+    help: "true / false. Loan cycling is a strong default predictor.",
   },
   loans_taken_last_90d: {
     label: "Loans taken in the last 90 days",
@@ -146,7 +146,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   borrower_segment: {
     label: "Employment segment",
-    help: "Coarse prior on income stability — government / mining / private / contract / informal.",
+    help: "Coarse prior on income stability: government / mining / private / contract / informal.",
   },
 };
 

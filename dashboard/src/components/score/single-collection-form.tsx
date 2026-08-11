@@ -250,7 +250,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
               className="flex w-full items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
             >
               <span>
-                Optional data — sharpens the score
+                Optional data. Sharpens the score.
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
                   (leave any cell blank if you don&apos;t have it)
                 </span>
@@ -331,7 +331,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                               onValueChange={(v) => setCardType(v as "debit" | "credit")}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="—" />
+                                <SelectValue placeholder="–" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="debit">Debit</SelectItem>
@@ -416,7 +416,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                           onValueChange={(v) => setRegularInflowDay(v ?? "")}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="—" />
+                            <SelectValue placeholder="–" />
                           </SelectTrigger>
                           <SelectContent>
                             {DAY_OF_WEEK_OPTIONS.map((day) => (
@@ -473,7 +473,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                           onValueChange={(v) => setNewLoanCycling(v as "true" | "false")}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="—" />
+                            <SelectValue placeholder="–" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="false">No</SelectItem>
@@ -548,7 +548,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                           onValueChange={(v) => setBorrowerSegment(v ?? "")}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="—" />
+                            <SelectValue placeholder="–" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="government">Government</SelectItem>

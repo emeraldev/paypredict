@@ -69,9 +69,9 @@ export function BacktestResultsTable({ backtest }: BacktestResultsTableProps) {
             <TableCell className="text-right">
               <span className="inline-flex items-center gap-1.5">
                 {row.accuracy >= 0.7 ? (
-                  <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />
+                  <CheckCircle2Icon className="h-4 w-4 text-risk-low" />
                 ) : (
-                  <XCircleIcon className="h-4 w-4 text-amber-400" />
+                  <XCircleIcon className="h-4 w-4 text-risk-med" />
                 )}
                 <span className="font-mono tabular-nums">
                   {Math.round(row.accuracy * 100)}%

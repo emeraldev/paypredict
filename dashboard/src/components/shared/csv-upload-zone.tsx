@@ -120,7 +120,7 @@ export function CsvUploadZone({
             {optionalColumns && optionalColumns.length > 0 && (
               <p className="mt-2">
                 <span className="font-medium text-muted-foreground">Optional</span>{" "}
-                — leave blank if you don&apos;t have the data:
+                (leave blank if you don&apos;t have the data):
               </p>
             )}
             {optionalColumns && optionalColumns.length > 0 && (

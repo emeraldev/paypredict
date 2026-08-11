@@ -47,9 +47,9 @@ export function StatCard({
         {trend && (
           <div className="mt-4 flex items-center gap-1.5 text-xs">
             <TrendIcon
-              className={cn("h-3 w-3", trendUp ? "text-emerald-400" : "text-red-400")}
+              className={cn("h-3 w-3", trendUp ? "text-risk-low" : "text-risk-high")}
             />
-            <span className={trendUp ? "text-emerald-400" : "text-red-400"}>
+            <span className={trendUp ? "text-risk-low-fg" : "text-risk-high-fg"}>
               {Math.abs(trend.value)}%
             </span>
             {trend.label && <span className="text-muted-foreground">{trend.label}</span>}

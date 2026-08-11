@@ -49,33 +49,33 @@ export function SingleScoreResult({ result, onReset }: SingleScoreResultProps) {
         </div>
 
         {/* Recommended action */}
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+        <div className="rounded-lg border border-risk-med/30 bg-risk-med-bg p-4">
           <div className="flex items-center gap-2">
-            <ZapIcon className="h-4 w-4 text-amber-400" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
+            <ZapIcon className="h-4 w-4 text-risk-med" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-risk-med">
               Recommended Action
             </span>
             <HelpPopover title="How to act on this">
               <p>
-                Four possible actions. None are enforced — they&apos;re guidance
+                Four possible actions. None are enforced. They&apos;re guidance
                 for your collections workflow.
               </p>
               <ul className="space-y-1.5">
                 <li>
-                  <span className="font-medium text-foreground">Collect normally</span>
-                  {" "}— attempt as planned.
+                  <span className="font-medium text-foreground">Collect normally.</span>
+                  {" "}Attempt as planned.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Send pre-collection SMS</span>
-                  {" "}— nudge the customer before charging.
+                  <span className="font-medium text-foreground">Send pre-collection SMS.</span>
+                  {" "}Nudge the customer before charging.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Flag for manual review</span>
-                  {" "}— pause and have a human decide.
+                  <span className="font-medium text-foreground">Flag for manual review.</span>
+                  {" "}Pause and have a human decide.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Shift collection date</span>
-                  {" "}— retry on the suggested date for better odds.
+                  <span className="font-medium text-foreground">Shift collection date.</span>
+                  {" "}Retry on the suggested date for better odds.
                 </li>
               </ul>
             </HelpPopover>
@@ -86,15 +86,15 @@ export function SingleScoreResult({ result, onReset }: SingleScoreResultProps) {
           {result.recommended_action === "shift_date" &&
             result.recommended_collection_date &&
             result.score_improvement != null && (
-              <div className="mt-3 space-y-1 border-t border-amber-500/20 pt-3">
+              <div className="mt-3 space-y-1 border-t border-risk-med/20 pt-3">
                 <p className="flex items-center gap-1.5 text-xs text-foreground">
-                  <CalendarIcon className="h-3.5 w-3.5 text-amber-400" />
+                  <CalendarIcon className="h-3.5 w-3.5 text-risk-med" />
                   Shift to{" "}
                   <span className="font-semibold">
                     {formatDate(result.recommended_collection_date)}
                   </span>
                 </p>
-                <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <p className="flex items-center gap-1.5 text-xs text-risk-low-fg">
                   <TrendingDownIcon className="h-3.5 w-3.5" />
                   Risk drops by{" "}
                   <span className="font-semibold tabular-nums">

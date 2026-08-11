@@ -62,7 +62,7 @@ export function CreateKeyDialog({ onCreated }: CreateKeyDialogProps) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button onClick={() => setOpen(true)}>
         Create new key
       </Button>
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : handleClose())}>
@@ -71,7 +71,7 @@ export function CreateKeyDialog({ onCreated }: CreateKeyDialogProps) {
           <DialogTitle>Create API Key</DialogTitle>
           <DialogDescription>
             {generatedKey
-              ? "Copy your key now — it won't be shown again."
+              ? "Copy your key now. It won't be shown again."
               : "Give your key a descriptive label."}
           </DialogDescription>
         </DialogHeader>
@@ -88,16 +88,21 @@ export function CreateKeyDialog({ onCreated }: CreateKeyDialogProps) {
           </div>
         ) : (
           <div className="space-y-2 py-4">
-            <Label>Your API key</Label>
+            <Label htmlFor="generated-key">Your API key</Label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-md border border-border bg-muted p-3 text-xs font-mono">
-                {generatedKey}
-              </code>
+              <Input
+                id="generated-key"
+                readOnly
+                value={generatedKey}
+                onFocus={(e) => e.currentTarget.select()}
+                onClick={(e) => e.currentTarget.select()}
+                className="flex-1 font-mono text-xs"
+              />
               <Button size="icon" variant="outline" onClick={handleCopy}>
                 <CopyIcon className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-risk-med-fg">
               Store this key securely. You will not be able to see it again.
             </p>
           </div>

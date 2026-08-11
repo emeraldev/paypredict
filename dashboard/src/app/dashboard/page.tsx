@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TrendingDownIcon } from "lucide-react";
+import { TrendingDownIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import {
@@ -169,6 +169,25 @@ export default function DashboardPage() {
         />
       ) : null}
 
+      {riskFilter && (
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter(null);
+              setPage(1);
+            }}
+            className="inline-flex items-center gap-2 rounded-full bg-sidebar-accent px-3 py-1 text-sm text-sidebar-accent-foreground transition-colors hover:bg-primary/15"
+          >
+            <span>Showing: {riskFilter[0] + riskFilter.slice(1).toLowerCase()} risk only</span>
+            <span className="flex items-center gap-1 font-medium">
+              <XIcon className="h-3.5 w-3.5" />
+              Clear
+            </span>
+          </button>
+        </div>
+      )}
+
       {data && data.summary.shift_recommended > 0 && (
         <button
           type="button"
@@ -179,11 +198,11 @@ export default function DashboardPage() {
           className={cn(
             "flex w-full items-center gap-2 rounded-lg border px-4 py-2.5 text-left text-sm transition-colors",
             actionFilter === "shift_date"
-              ? "border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/40"
-              : "border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10",
+              ? "border-risk-low/60 bg-risk-low-bg ring-1 ring-risk-low/40"
+              : "border-risk-low/30 bg-risk-low-bg/60 hover:bg-risk-low-bg",
           )}
         >
-          <TrendingDownIcon className="h-4 w-4 shrink-0 text-emerald-400" />
+          <TrendingDownIcon className="h-4 w-4 shrink-0 text-risk-low" />
           <span className="flex-1 text-foreground">
             <strong className="font-semibold">
               {data.summary.shift_recommended}
@@ -191,7 +210,7 @@ export default function DashboardPage() {
             {data.summary.shift_recommended === 1
               ? "collection has"
               : "collections have"}{" "}
-            a recommended shift date —{" "}
+            a recommended shift date.{" "}
             {actionFilter === "shift_date"
               ? "showing only these. Click to clear filter."
               : "click to filter the table to just these rows."}

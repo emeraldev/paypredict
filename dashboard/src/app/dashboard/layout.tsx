@@ -13,11 +13,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <AuthGuard>
     <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <Sidebar />
-        <MobileSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Topbar />
+      <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
+        <Topbar />
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />
+          <MobileSidebar />
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
         </div>
       </div>

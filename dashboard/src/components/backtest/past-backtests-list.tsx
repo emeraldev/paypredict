@@ -19,9 +19,9 @@ interface PastBacktestsListProps {
 }
 
 const STATUS_ICON = {
-  COMPLETED: <CheckCircle2Icon className="h-4 w-4 text-emerald-400" />,
-  PROCESSING: <ClockIcon className="h-4 w-4 text-amber-400" />,
-  FAILED: <XCircleIcon className="h-4 w-4 text-red-400" />,
+  COMPLETED: <CheckCircle2Icon className="h-4 w-4 text-risk-low" />,
+  PROCESSING: <ClockIcon className="h-4 w-4 text-risk-med" />,
+  FAILED: <XCircleIcon className="h-4 w-4 text-risk-high" />,
 };
 
 export function PastBacktestsList({ items, onSelect }: PastBacktestsListProps) {
@@ -62,7 +62,7 @@ export function PastBacktestsList({ items, onSelect }: PastBacktestsListProps) {
                 <TableCell className="text-right font-mono tabular-nums">
                   {item.overall_accuracy != null
                     ? `${Math.round(item.overall_accuracy * 100)}%`
-                    : "—"}
+                    : "–"}
                 </TableCell>
                 <TableCell className="text-center">
                   {STATUS_ICON[item.status as keyof typeof STATUS_ICON] ??

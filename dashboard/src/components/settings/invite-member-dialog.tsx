@@ -69,7 +69,7 @@ export function InviteMemberDialog({ onInvited }: InviteMemberDialogProps) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button onClick={() => setOpen(true)}>
         Invite member
       </Button>
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : handleClose())}>

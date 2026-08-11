@@ -207,7 +207,7 @@ const EXAMPLES: ExampleRow[] = [
     expectedRisk: "HIGH",
     method: "PAYROLL",
     rationale:
-      "Existing deductions consume 90% of the 40% cap — our deduction alone exceeds the remaining headroom. Volatile mining segment, three prior resubmissions signal ongoing threshold pressure.",
+      "Existing deductions consume 90% of the 40% cap. Our deduction alone exceeds the remaining headroom. Volatile mining segment, three prior resubmissions signal ongoing threshold pressure.",
     fields: {
       customer_id: "EXAMPLE_MIN_001",
       collection_id: "EXAMPLE_DED_702",
@@ -244,11 +244,11 @@ export function ExampleDataCard() {
         >
           <div>
             <p className="text-sm font-medium text-foreground">
-              Example data — what realistic values look like
+              Example data. What realistic values look like.
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Six reference rows that exercise each factor across both factor
-              sets. Display-only — these are not uploaded.
+              sets. Display-only. These are not uploaded.
             </p>
           </div>
           {open ? (

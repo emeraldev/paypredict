@@ -107,7 +107,7 @@ export function ManageMemberDialog({ member, onUpdated }: ManageMemberDialogProp
                   variant="ghost"
                   size="sm"
                   onClick={() => setConfirmingRemove(true)}
-                  className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  className="text-risk-high hover:bg-risk-high-bg hover:text-risk-high-fg"
                 >
                   Remove from team
                 </Button>
@@ -146,7 +146,7 @@ export function ManageMemberDialog({ member, onUpdated }: ManageMemberDialogProp
                 <Button
                   onClick={handleRemove}
                   disabled={submitting}
-                  className="bg-red-500 text-white hover:bg-red-600"
+                  variant="destructive"
                 >
                   {submitting ? "Removing..." : "Remove"}
                 </Button>

@@ -31,8 +31,9 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Default to dark — matches the inline script in the root layout.
-  const [theme, setThemeState] = useState<Theme>("dark");
+  // Default to light. Matches the inline script's fallback. Users who set
+  // a preference (localStorage) are unaffected; only fresh visitors flip.
+  const [theme, setThemeState] = useState<Theme>("light");
 
   // Sync with whatever the inline script set on first mount.
   useEffect(() => {
@@ -75,7 +76,7 @@ export const themeNoFlashScript = `
 (function() {
   try {
     var stored = localStorage.getItem('${STORAGE_KEY}');
-    var theme = stored === 'light' ? 'light' : 'dark';
+    var theme = stored === 'dark' ? 'dark' : 'light';
     if (theme === 'light') {
       document.documentElement.classList.remove('dark');
     } else {

@@ -67,7 +67,7 @@ export default function BacktestPage() {
         them, or for proving the model&apos;s accuracy to stakeholders.
       </div>
 
-      {/* Upload section — only Admins and Managers can start new backtests.
+      {/* Upload section . only Admins and Managers can start new backtests.
           Viewers see past backtest results below but cannot run new ones. */}
       {!result && canManage && (
         <CsvUploadZone
@@ -100,21 +100,21 @@ export default function BacktestPage() {
         <Card>
           <CardContent className="p-4 text-sm text-muted-foreground">
             Only Admins and Managers can run new backtests. Browse past
-            backtests below — click any row to view its results.
+            backtests below. Click any row to view its results.
           </CardContent>
         </Card>
       )}
 
       {/* CSV validation errors */}
       {csvErrors.length > 0 && (
-        <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20">
+        <Card className="border-risk-high/30 bg-risk-high-bg">
           <CardContent className="p-4">
-            <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">
+            <p className="mb-2 text-sm font-medium text-risk-high-fg">
               {csvErrors.length} validation error{csvErrors.length > 1 ? "s" : ""} found:
             </p>
             <div className="max-h-48 overflow-y-auto space-y-1">
               {csvErrors.map((err, i) => (
-                <p key={i} className="text-xs text-red-600 dark:text-red-400/80 font-mono">
+                <p key={i} className="font-mono text-xs text-risk-high-fg/80">
                   Row {err.row}{err.field ? `, ${err.field}` : ""}: {err.message}
                 </p>
               ))}
@@ -167,7 +167,7 @@ export default function BacktestPage() {
                 <HelpPopover title="Est. Annual Recovery">
                   <p>
                     A projection of the value you could recover per year by
-                    acting on High-risk predictions — extrapolated from the
+                    acting on High-risk predictions, extrapolated from the
                     flagged-in-advance value in this backtest.
                   </p>
                   <p>
@@ -209,7 +209,7 @@ export default function BacktestPage() {
             </CardContent>
           </Card>
 
-          {/* Run another — only managers/admins can start new backtests */}
+          {/* Run another . only managers/admins can start new backtests */}
           {canManage && (
             <div className="flex justify-center">
               <button

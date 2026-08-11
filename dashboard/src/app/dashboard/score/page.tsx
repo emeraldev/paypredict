@@ -72,7 +72,7 @@ export default function ScoreUploadPage() {
       </div>
 
       <Tabs defaultValue="one">
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="one">Score one</TabsTrigger>
           <TabsTrigger value="csv">Score from CSV</TabsTrigger>
         </TabsList>
@@ -135,9 +135,9 @@ export default function ScoreUploadPage() {
           {!bulkResult && <ExampleDataCard />}
 
           {csvErrors.length > 0 && (
-            <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20">
+            <Card className="border-risk-high/30 bg-risk-high-bg">
               <CardContent className="p-4">
-                <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">
+                <p className="mb-2 text-sm font-medium text-risk-high-fg">
                   {csvErrors.length} validation error
                   {csvErrors.length > 1 ? "s" : ""} found:
                 </p>
@@ -145,7 +145,7 @@ export default function ScoreUploadPage() {
                   {csvErrors.map((err, i) => (
                     <p
                       key={i}
-                      className="text-xs text-red-600 dark:text-red-400/80 font-mono"
+                      className="font-mono text-xs text-risk-high-fg/80"
                     >
                       Row {err.row}
                       {err.field ? `, ${err.field}` : ""}: {err.message}
@@ -242,21 +242,21 @@ function LimitedDataBanner({ rows }: { rows: ScoredUploadRow[] }) {
   if (thin.length / rows.length < THIN_UPLOAD_RATIO) return null;
 
   return (
-    <Card className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/20">
+    <Card className="border-risk-med/40 bg-risk-med-bg">
       <CardContent className="flex gap-3 p-4">
-        <AlertCircleIcon className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <AlertCircleIcon className="h-5 w-5 shrink-0 text-risk-med" />
         <div className="space-y-1">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+          <p className="text-sm font-medium text-risk-med-fg">
             {thin.length} of {rows.length} rows scored with limited customer data.
           </p>
-          <p className="text-xs text-amber-700/90 dark:text-amber-200/80">
+          <p className="text-xs text-risk-med-fg/80">
             These rows fall back to moderate defaults for most factors, so the
             score reflects {"“"}unknown{"“"} more than risk. Add fields like{" "}
             <span className="font-mono">total_payments</span>,{" "}
             <span className="font-mono">successful_payments</span>,{" "}
             <span className="font-mono">card_expiry</span>, and{" "}
             <span className="font-mono">known_salary_day</span> to your CSV to
-            sharpen the prediction — see the Example data card for realistic
+            sharpen the prediction. See the Example data card for realistic
             values.
           </p>
         </div>

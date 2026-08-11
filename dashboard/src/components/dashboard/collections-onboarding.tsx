@@ -52,19 +52,19 @@ export function CollectionsOnboarding() {
       toast.success("curl command copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Could not copy — try selecting the text manually");
+      toast.error("Could not copy. Try selecting the text manually.");
     }
   };
 
   return (
     <div className="space-y-8 px-4 py-8">
-      {/* Hero — no jargon, no assumption of a developer team */}
+      {/* Hero . no jargon, no assumption of a developer team */}
       <div className="space-y-2 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground ring-1 ring-border/60">
           <RocketIcon className="h-6 w-6" />
         </div>
         <h2 className="text-lg font-semibold text-foreground">
-          Nothing here yet — let&apos;s get started
+          Nothing here yet. Let&apos;s get started
         </h2>
         <p className="mx-auto max-w-xl text-sm text-muted-foreground">
           Scored collections will show up here ranked by risk. Two things to
@@ -72,7 +72,7 @@ export function CollectionsOnboarding() {
         </p>
       </div>
 
-      {/* Clerk-facing actions — the primary path for a non-technical lender */}
+      {/* Clerk-facing actions . the primary path for a non-technical lender */}
       <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="space-y-3 p-5">
@@ -83,7 +83,7 @@ export function CollectionsOnboarding() {
               </h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Type in one customer&apos;s details or upload a spreadsheet — we
+              Type in one customer&apos;s details or upload a spreadsheet. We
               tell you the risk and what to do next.
             </p>
             <Link href="/dashboard/score" className={LINK_BUTTON_CLS}>
@@ -114,7 +114,7 @@ export function CollectionsOnboarding() {
         </Card>
       </div>
 
-      {/* Developer path — collapsed by default, present but not intimidating */}
+      {/* Developer path . collapsed by default, present but not intimidating */}
       <details className="group mx-auto max-w-3xl rounded-lg border border-border bg-muted/30">
         <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
           <span>Have a developer? Set up the API integration</span>
@@ -165,8 +165,8 @@ export function CollectionsOnboarding() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Send a collection to{" "}
-                  <code className="rounded bg-muted px-1 text-xs">POST /v1/score</code>{" "}
-                  — risk score + factor breakdown returns in under 30ms.
+                  <code className="rounded bg-muted px-1 text-xs">POST /v1/score</code>.
+                  Risk score + factor breakdown returns in under 30ms.
                 </p>
                 <a
                   href={`${API_URL}/docs`}
@@ -194,7 +194,7 @@ export function CollectionsOnboarding() {
               >
                 {copied ? (
                   <>
-                    <CheckIcon className="h-3 w-3 text-emerald-500" />
+                    <CheckIcon className="h-3 w-3 text-risk-low" />
                     Copied
                   </>
                 ) : (

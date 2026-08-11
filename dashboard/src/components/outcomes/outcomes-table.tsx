@@ -32,7 +32,7 @@ export function OutcomesTable({
   if (outcomes.length === 0) {
     if (filter && filter !== "ALL") {
       const label =
-        filter === "MATCHED" ? "matched predictions" : "mismatched predictions";
+        filter === "MATCHED" ? "matched outcomes" : "mismatched outcomes";
       return (
         <EmptyState
           icon={<FilterXIcon className="h-6 w-6" />}
