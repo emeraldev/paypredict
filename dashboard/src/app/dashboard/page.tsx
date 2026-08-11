@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TrendingDownIcon, XIcon } from "lucide-react";
+import { TrendingDownIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import {
@@ -17,8 +17,10 @@ import {
 import { RiskDetailDrawer } from "@/components/dashboard/risk-detail-drawer";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
+import { FilterChip, FilterChipBar } from "@/components/shared/filter-chip";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
+import { METHOD_CONFIG } from "@/lib/constants";
 import { useApi } from "@/hooks/use-api";
 import { scoresApi } from "@/lib/api/scores";
 import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
@@ -36,6 +38,28 @@ const DATE_RANGE_DAYS: Record<DateRangeFilter, number> = {
   "7d": 7,
   "14d": 14,
   "30d": 30,
+};
+
+// Chip labels for the active-filter bar. Kept human, not backend-verbatim.
+const DATE_RANGE_LABEL: Record<DateRangeFilter, string> = {
+  today: "Today",
+  "3d": "Next 3 days",
+  "7d": "Next 7 days",
+  "14d": "Next 14 days",
+  "30d": "Next 30 days",
+};
+
+const RISK_LABEL: Record<RiskLevel, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  shift_date: "Shift date recommended",
+  send_pre_collection_sms: "Send SMS",
+  flag_for_manual_review: "Flag for review",
+  collect_normally: "Collect normally",
 };
 
 // Map CollectionsSortField to API sort_by
@@ -113,6 +137,22 @@ export default function DashboardPage() {
     setSelectedId(item.score_id);
   }, []);
 
+  const handleClearAllFilters = () => {
+    setRiskFilter(null);
+    setMethodFilter("ALL");
+    setActionFilter(null);
+    setDateRange("30d");
+    setSearch("");
+    setPage(1);
+  };
+
+  const activeFilterCount =
+    (riskFilter ? 1 : 0) +
+    (methodFilter !== "ALL" ? 1 : 0) +
+    (actionFilter ? 1 : 0) +
+    (dateRange !== "30d" ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
   const handleExport = async () => {
     try {
       // Fetch ALL pages of the filtered set (capped at 5000 rows for safety)
@@ -175,23 +215,56 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {riskFilter && (
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              setRiskFilter(null);
-              setPage(1);
-            }}
-            className="inline-flex items-center gap-2 rounded-full bg-sidebar-accent px-3 py-1 text-sm text-sidebar-accent-foreground transition-colors hover:bg-primary/15"
-          >
-            <span>Showing: {riskFilter[0] + riskFilter.slice(1).toLowerCase()} risk only</span>
-            <span className="flex items-center gap-1 font-medium">
-              <XIcon className="h-3.5 w-3.5" />
-              Clear
-            </span>
-          </button>
-        </div>
+      {activeFilterCount > 0 && (
+        <FilterChipBar
+          onClearAll={activeFilterCount >= 2 ? handleClearAllFilters : undefined}
+        >
+          {riskFilter && (
+            <FilterChip
+              label={`Risk: ${RISK_LABEL[riskFilter]}`}
+              onClear={() => {
+                setRiskFilter(null);
+                setPage(1);
+              }}
+            />
+          )}
+          {methodFilter !== "ALL" && (
+            <FilterChip
+              label={`Method: ${METHOD_CONFIG[methodFilter].label}`}
+              onClear={() => {
+                setMethodFilter("ALL");
+                setPage(1);
+              }}
+            />
+          )}
+          {actionFilter && (
+            <FilterChip
+              label={`Action: ${ACTION_LABEL[actionFilter] ?? actionFilter}`}
+              onClear={() => {
+                setActionFilter(null);
+                setPage(1);
+              }}
+            />
+          )}
+          {dateRange !== "30d" && (
+            <FilterChip
+              label={`Date: ${DATE_RANGE_LABEL[dateRange]}`}
+              onClear={() => {
+                setDateRange("30d");
+                setPage(1);
+              }}
+            />
+          )}
+          {search.trim() && (
+            <FilterChip
+              label={`Search: "${search.trim()}"`}
+              onClear={() => {
+                setSearch("");
+                setPage(1);
+              }}
+            />
+          )}
+        </FilterChipBar>
       )}
 
       {data && data.summary.shift_recommended > 0 && (
@@ -254,21 +327,8 @@ export default function DashboardPage() {
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
-              hasActiveFilters={
-                riskFilter !== null ||
-                methodFilter !== "ALL" ||
-                actionFilter !== null ||
-                dateRange !== "30d" ||
-                search.trim().length > 0
-              }
-              onClearFilters={() => {
-                setRiskFilter(null);
-                setMethodFilter("ALL");
-                setActionFilter(null);
-                setDateRange("30d");
-                setSearch("");
-                setPage(1);
-              }}
+              hasActiveFilters={activeFilterCount > 0}
+              onClearFilters={handleClearAllFilters}
             />
             {data && (
               <div className="border-t border-border">
