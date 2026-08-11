@@ -63,6 +63,8 @@ def upgrade() -> None:
         # Drop the preservation table so a second down+up cycle would
         # not restore stale secrets (only the most-recent rollback's
         # values are valid).
+        # migration-guard: ok — internal preservation table cleanup,
+        # secrets were just restored to tenants.webhook_secret above.
         op.execute(f"DROP TABLE {_PRESERVATION_TABLE}")
 
     # 2b. Backfill any tenant still without a secret (fresh installs,
@@ -90,4 +92,6 @@ def downgrade() -> None:
         f"SELECT id AS tenant_id, webhook_secret "
         f"FROM tenants WHERE webhook_secret IS NOT NULL"
     )
+    # migration-guard: ok — H8 preservation pattern, secrets stashed
+    # in _preserved_webhook_secrets above and restored on re-upgrade.
     op.drop_column("tenants", "webhook_secret")
