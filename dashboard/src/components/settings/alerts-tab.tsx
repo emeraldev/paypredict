@@ -235,9 +235,9 @@ export function AlertsTab() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="destructive"
                   onClick={handleRotate}
                   disabled={rotating}
-                  className="bg-risk-med text-white hover:bg-risk-med/90"
                 >
                   {rotating ? "Rotating..." : "Rotate"}
                 </Button>
