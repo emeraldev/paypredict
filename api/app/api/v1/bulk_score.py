@@ -39,27 +39,35 @@ async def score_bulk(
         await db.commit()
         return result
 
-    # Async path: queue to Celery
+    # Async path: queue to Celery. The `bulk_scoring_jobs` row is our
+    # source of truth for job state (previously Redis-only; see the
+    # H4 limitation the roadmap tracked as Stage 2 #18).
     weights_by_method = await load_all_weights_by_method(db, tenant.id)
-    return queue_bulk_job(
+    result = await queue_bulk_job(
+        db,
         tenant_id=str(tenant.id),
         collections=collections,
         weights_by_method=weights_by_method,
     )
+    await db.commit()
+    return result
 
 
 @router.get("/score/bulk/{job_id}")
 async def poll_bulk_job(
     job_id: str,
     tenant: Tenant = Depends(enforce_rate_limit),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Poll the status of an async bulk scoring job.
 
     Scoped by the authenticated tenant — polling another tenant's
     job_id returns 404 (identical shape to "not found or expired";
-    never differentiate or existence leaks).
+    never differentiate or existence leaks). The UNIQUE constraint
+    on (tenant_id, job_id) makes cross-tenant reads structurally
+    impossible.
     """
-    result = get_job_status(str(tenant.id), job_id)
+    result = await get_job_status(db, str(tenant.id), job_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Job not found or expired")
     return result
