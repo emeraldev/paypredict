@@ -35,9 +35,15 @@ from app.config import APP_VERSION, settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
-    yield
     from app.database import engine
+    from app.startup_checks import assert_db_at_head
 
+    # Refuse to serve traffic when the DB is behind (or ahead of) the
+    # code's expected migration head. Raising here crashes uvicorn
+    # before it binds, which is the correct behaviour — a partially-
+    # migrated DB serving live requests would 500 on missing columns.
+    await assert_db_at_head(engine)
+    yield
     await engine.dispose()
 
 
