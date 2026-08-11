@@ -13,9 +13,6 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-import redis
-
-from app.config import settings
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +26,6 @@ from app.services.weights_service import load_all_weights_by_method
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _engine = ScoringEngine()
-_redis = redis.from_url(settings.redis_url, decode_responses=True)
 
 
 def _to_json_safe(obj: dict) -> dict:
@@ -46,7 +42,6 @@ def _to_json_safe(obj: dict) -> dict:
     return json.loads(json.dumps(obj, default=_default))
 
 SYNC_THRESHOLD = 50
-JOB_TTL = 3600  # 1 hour
 
 
 def _factor_to_db_shape(f: dict) -> dict:
@@ -269,54 +264,59 @@ async def score_bulk_sync(
     }
 
 
-def _job_key(tenant_id: str, job_id: str, suffix: str) -> str:
-    """Per-tenant, per-job Redis key.
-
-    Namespacing by tenant_id is a structural guarantee against
-    cross-tenant polling: a caller cannot construct another tenant's
-    key from their own credentials. A miss is indistinguishable from
-    "not found or expired" — never differentiate or existence leaks.
-    """
-    return f"bulk_job:{tenant_id}:{job_id}:{suffix}"
-
-
-def queue_bulk_job(
+async def queue_bulk_job(
+    db: AsyncSession,
     tenant_id: str,
     collections: list[dict],
     weights_by_method: dict[str, dict[str, float]],
 ) -> dict:
-    """Queue a bulk scoring job to Celery and return the job_id.
+    """Queue a bulk scoring job to Celery, return the job_id.
+
+    Writes a `bulk_scoring_jobs` row as the source of truth for job
+    state (Postgres survives Redis outages that would otherwise leave
+    a polling client stuck on `processing` — see the H4 limitation
+    the roadmap tracked as Stage 2 #18).
 
     `weights_by_method` is a nested dict: collection_method value ->
     factor_name -> weight. The worker picks the right sub-dict per row.
     """
-    job_id = str(uuid.uuid4())
+    from app.models.bulk_scoring_job import BulkScoringJob, BulkScoringJobStatus
 
-    _redis.setex(_job_key(tenant_id, job_id, "status"), JOB_TTL, "processing")
-    _redis.setex(_job_key(tenant_id, job_id, "total"), JOB_TTL, str(len(collections)))
-    _redis.setex(_job_key(tenant_id, job_id, "completed"), JOB_TTL, "0")
+    job_id = uuid.uuid4()
+    job_row = BulkScoringJob(
+        tenant_id=uuid.UUID(tenant_id),
+        job_id=job_id,
+        status=BulkScoringJobStatus.PROCESSING,
+        total_items=len(collections),
+        completed_items=0,
+    )
+    db.add(job_row)
+    await db.flush()
 
     from app.tasks.bulk_scoring import score_bulk_task
     score_bulk_task.delay(
-        job_id=job_id,
+        job_id=str(job_id),
         tenant_id=tenant_id,
         collections=collections,
         weights_by_method=weights_by_method,
     )
 
     return {
-        "job_id": job_id,
+        "job_id": str(job_id),
         "status": "processing",
         "total_items": len(collections),
         "estimated_completion_seconds": max(1, len(collections) // 20),
     }
 
 
-def get_job_status(tenant_id: str, job_id: str) -> dict | None:
-    """Get the status of a bulk scoring job from Redis.
+async def get_job_status(
+    db: AsyncSession, tenant_id: str, job_id: str
+) -> dict | None:
+    """Look up a bulk-scoring job by (tenant_id, job_id).
 
-    Scoped by tenant_id — a call for another tenant's job returns None
-    (identical shape to "not found or expired").
+    Returns None when the pair doesn't exist — indistinguishable from
+    "not found or expired". The `(tenant_id, job_id)` unique constraint
+    on the table makes cross-tenant reads structurally impossible.
 
     Status values:
       - `processing`  — task queued/running
@@ -325,31 +325,33 @@ def get_job_status(tenant_id: str, job_id: str) -> dict | None:
                         short sanitized message (full traceback is in
                         the worker log, not returned here)
     """
-    status = _redis.get(_job_key(tenant_id, job_id, "status"))
-    if status is None:
+    from sqlalchemy import select
+
+    from app.models.bulk_scoring_job import BulkScoringJob
+
+    result = await db.execute(
+        select(BulkScoringJob).where(
+            BulkScoringJob.tenant_id == uuid.UUID(tenant_id),
+            BulkScoringJob.job_id == uuid.UUID(job_id),
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
         return None
 
-    total = int(_redis.get(_job_key(tenant_id, job_id, "total")) or "0")
-    completed = int(_redis.get(_job_key(tenant_id, job_id, "completed")) or "0")
-
-    result: dict = {
+    response: dict = {
         "job_id": job_id,
-        "status": status,
-        "total_items": total,
-        "completed_items": completed,
+        "status": row.status.value,
+        "total_items": row.total_items,
+        "completed_items": row.completed_items,
     }
-
-    if status == "completed":
-        raw = _redis.get(_job_key(tenant_id, job_id, "results"))
-        if raw:
-            data = json.loads(raw)
-            result["summary"] = data.get("summary")
-            result["results"] = data.get("results")
-    elif status == "failed":
-        error = _redis.get(_job_key(tenant_id, job_id, "error"))
-        if error is not None:
-            result["error"] = error
-
-    return result
+    if row.status.value == "completed":
+        if row.summary is not None:
+            response["summary"] = row.summary
+        if row.results is not None:
+            response["results"] = row.results
+    elif row.status.value == "failed" and row.error is not None:
+        response["error"] = row.error
+    return response
 
 
