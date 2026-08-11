@@ -88,6 +88,8 @@ def upgrade() -> None:
     )
 
     # 4. Delete the pre-migration rows (their content was just expanded).
+    # migration-guard: ok — backfill cleanup, rows were copied to
+    # per-method siblings by the INSERT above; no customer data lost.
     op.execute("DELETE FROM factor_weights WHERE collection_method IS NULL")
 
     # 5. NOT NULL now that every row has a method.
