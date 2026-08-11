@@ -18,6 +18,7 @@ import { RiskDetailDrawer } from "@/components/dashboard/risk-detail-drawer";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { DataTablePagination } from "@/components/shared/data-table-pagination";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { PageHeader } from "@/components/shared/page-header";
 import { useApi } from "@/hooks/use-api";
 import { scoresApi } from "@/lib/api/scores";
 import type { CollectionsListParams, ScoreDetailResponse, ScoreListItem } from "@/lib/api/types";
@@ -156,6 +157,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Upcoming collections, ranked by risk"
+      />
+
       {loading && !data ? (
         <LoadingSkeleton variant="cards" count={4} />
       ) : data ? (
