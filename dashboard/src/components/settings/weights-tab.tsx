@@ -284,7 +284,11 @@ export function WeightsTab() {
               {methods.map((m) => {
                 const dirty = isDirty(drafts[m.collection_method]);
                 return (
-                  <TabsTrigger key={m.collection_method} value={m.collection_method}>
+                  <TabsTrigger
+                    key={m.collection_method}
+                    value={m.collection_method}
+                    className="data-active:bg-primary data-active:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground dark:data-active:border-transparent"
+                  >
                     <span className="inline-flex items-center gap-1.5">
                       {m.method_label}
                       {dirty && (
