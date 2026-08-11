@@ -5,6 +5,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { outcomesApi } from "@/lib/api/outcomes";
 import { cn } from "@/lib/utils";
@@ -165,21 +171,40 @@ export function ReportOutcomeForm({
       {outcome === "SUCCESS" && (
         <div>
           <Label htmlFor="amount_collected" className="text-xs">
-            Amount collected {currency ? `(${currency})` : ""}{" "}
+            Amount collected{" "}
             <span className="font-normal text-muted-foreground">(optional)</span>
           </Label>
-          <Input
-            id="amount_collected"
-            type="number"
-            step="0.01"
-            min="0"
-            value={amountCollected}
-            onChange={(e) => setAmountCollected(e.target.value)}
-            placeholder={
-              suggestedAmount != null ? String(suggestedAmount) : "e.g. 833.33"
-            }
-            className="mt-1"
-          />
+          {currency ? (
+            <InputGroup className="mt-1">
+              <InputGroupAddon>
+                <InputGroupText>{currency === "ZAR" ? "R" : currency}</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                id="amount_collected"
+                type="number"
+                step="0.01"
+                min="0"
+                value={amountCollected}
+                onChange={(e) => setAmountCollected(e.target.value)}
+                placeholder={
+                  suggestedAmount != null ? String(suggestedAmount) : "e.g. 833.33"
+                }
+              />
+            </InputGroup>
+          ) : (
+            <Input
+              id="amount_collected"
+              type="number"
+              step="0.01"
+              min="0"
+              value={amountCollected}
+              onChange={(e) => setAmountCollected(e.target.value)}
+              placeholder={
+                suggestedAmount != null ? String(suggestedAmount) : "e.g. 833.33"
+              }
+              className="mt-1"
+            />
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             Leave blank if the full amount was collected. Only fill in for
             partial payments (more common on mobile wallet).

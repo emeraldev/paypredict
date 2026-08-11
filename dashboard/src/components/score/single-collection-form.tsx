@@ -6,6 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -195,16 +201,20 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
             </Field>
             <Field name="collection_amount" required>
               <div className="flex gap-2">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="833.33"
-                  required
-                  className="flex-1"
-                />
+                <InputGroup className="flex-1">
+                  <InputGroupAddon>
+                    <InputGroupText>{currency === "ZAR" ? "R" : "ZMW"}</InputGroupText>
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="833.33"
+                    required
+                  />
+                </InputGroup>
                 <Select
                   value={currency}
                   onValueChange={(v) => setCurrency(v as "ZAR" | "ZMW")}
@@ -290,13 +300,18 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                     />
                   </Field>
                   <Field name="average_collection_amount">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={averageCollectionAmount}
-                      onChange={(e) => setAverageCollectionAmount(e.target.value)}
-                    />
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <InputGroupText>{currency === "ZAR" ? "R" : "ZMW"}</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={averageCollectionAmount}
+                        onChange={(e) => setAverageCollectionAmount(e.target.value)}
+                      />
+                    </InputGroup>
                   </Field>
                   <Field name="instalment_number">
                     <Input
@@ -493,34 +508,49 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                     </p>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <Field name="gross_salary">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={grossSalary}
-                          onChange={(e) => setGrossSalary(e.target.value)}
-                          placeholder="10000"
-                        />
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <InputGroupText>{currency === "ZAR" ? "R" : "ZMW"}</InputGroupText>
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={grossSalary}
+                            onChange={(e) => setGrossSalary(e.target.value)}
+                            placeholder="10000"
+                          />
+                        </InputGroup>
                       </Field>
                       <Field name="net_pay">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={netPay}
-                          onChange={(e) => setNetPay(e.target.value)}
-                          placeholder="5500"
-                        />
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <InputGroupText>{currency === "ZAR" ? "R" : "ZMW"}</InputGroupText>
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={netPay}
+                            onChange={(e) => setNetPay(e.target.value)}
+                            placeholder="5500"
+                          />
+                        </InputGroup>
                       </Field>
                       <Field name="current_total_deductions">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={currentTotalDeductions}
-                          onChange={(e) => setCurrentTotalDeductions(e.target.value)}
-                          placeholder="2400"
-                        />
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <InputGroupText>{currency === "ZAR" ? "R" : "ZMW"}</InputGroupText>
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={currentTotalDeductions}
+                            onChange={(e) => setCurrentTotalDeductions(e.target.value)}
+                            placeholder="2400"
+                          />
+                        </InputGroup>
                       </Field>
                       <Field name="deduction_threshold_pct">
                         <Input
