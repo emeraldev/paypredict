@@ -179,6 +179,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: No em-dashes in user-visible copy
+        # See scripts/check-emdashes.sh for the rule and rationale.
+        run: bash scripts/check-emdashes.sh
+
       - name: Build
         # Production build validates types and surfaces config errors.
         run: npm run build
