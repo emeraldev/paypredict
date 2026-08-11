@@ -1,6 +1,7 @@
 import { CalendarIcon, TrendingDownIcon, ZapIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FactorBreakdown } from "@/components/shared/factor-breakdown";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { MethodBadge } from "@/components/shared/method-badge";
@@ -37,17 +38,10 @@ export function RiskDetailContent({
 }: RiskDetailContentProps) {
   const riskConfig = getRiskConfig(detail.risk_level);
   const ctx = detail.customer_context;
-  const [removingOutcome, setRemovingOutcome] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
 
   const handleRemoveOutcome = async () => {
     if (!detail.outcome) return;
-    if (
-      !window.confirm(
-        "Remove this outcome? You can record a new one in its place.",
-      )
-    )
-      return;
-    setRemovingOutcome(true);
     try {
       await outcomesApi.remove(detail.outcome.outcome_id);
       toast.success("Outcome removed");
@@ -56,8 +50,7 @@ export function RiskDetailContent({
       toast.error(
         err instanceof Error ? err.message : "Failed to remove outcome",
       );
-    } finally {
-      setRemovingOutcome(false);
+      throw err;
     }
   };
 
@@ -259,12 +252,20 @@ export function RiskDetailContent({
             )}
             <button
               type="button"
-              onClick={handleRemoveOutcome}
-              disabled={removingOutcome}
-              className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+              onClick={() => setConfirmRemoveOpen(true)}
+              className="mt-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
-              {removingOutcome ? "Removing…" : "Wrong entry? Remove and re-record"}
+              Wrong entry? Remove and re-record
             </button>
+            <ConfirmDialog
+              open={confirmRemoveOpen}
+              onOpenChange={setConfirmRemoveOpen}
+              title="Remove outcome"
+              description="You can record a new one in its place."
+              confirmLabel="Remove"
+              variant="destructive"
+              onConfirm={handleRemoveOutcome}
+            />
           </div>
         </div>
       ) : (

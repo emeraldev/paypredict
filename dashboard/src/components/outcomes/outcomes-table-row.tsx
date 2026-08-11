@@ -4,6 +4,7 @@ import { CheckCircle2Icon, Trash2Icon, XCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { RiskScoreDisplay } from "@/components/shared/risk-score-display";
 import { outcomesApi } from "@/lib/api/outcomes";
 import type { OutcomeListItem } from "@/lib/api/types";
@@ -39,23 +40,16 @@ function MatchCell({ matched }: { matched: boolean | null }) {
 
 export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) {
   const badge = OUTCOME_BADGE[outcome.outcome] ?? OUTCOME_BADGE.FAILED;
-  const [removing, setRemoving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleRemove = async () => {
-    if (
-      !window.confirm(
-        `Remove this ${outcome.outcome.toLowerCase()} outcome for ${outcome.collection_id}?`,
-      )
-    )
-      return;
-    setRemoving(true);
     try {
       await outcomesApi.remove(outcome.outcome_id);
       toast.success("Outcome removed");
       onRemoved?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove outcome");
-      setRemoving(false);
+      throw err;
     }
   };
 
@@ -105,14 +99,22 @@ export function OutcomesTableRow({ outcome, onRemoved }: OutcomesTableRowProps) 
       <TableCell className="py-3 text-right">
         <button
           type="button"
-          onClick={handleRemove}
-          disabled={removing}
+          onClick={() => setConfirmOpen(true)}
           aria-label={`Remove outcome for ${outcome.collection_id}`}
           title="Remove this outcome (use when the entry was wrong)"
           className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-risk-high disabled:opacity-50"
         >
           <Trash2Icon className="h-3.5 w-3.5" />
         </button>
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Remove outcome"
+          description={`Remove this ${outcome.outcome.toLowerCase()} outcome for ${outcome.collection_id}? You can record a new one in its place.`}
+          confirmLabel="Remove"
+          variant="destructive"
+          onConfirm={handleRemove}
+        />
       </TableCell>
     </TableRow>
   );
