@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.docs import get_internal_openapi_schema, get_public_openapi_schema
 from app.api.v1 import (
+    activity,
     alerts,
     alerts_config,
     analytics,
@@ -75,6 +76,7 @@ app.include_router(outcomes.router, prefix="/v1")
 app.include_router(analytics.router, prefix="/v1")
 app.include_router(weights.router, prefix="/v1")
 app.include_router(weights.history_router, prefix="/v1")
+app.include_router(activity.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1")
 app.include_router(notifications.router, prefix="/v1")
 app.include_router(backtest.router, prefix="/v1")

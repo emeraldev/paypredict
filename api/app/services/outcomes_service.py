@@ -57,7 +57,13 @@ def _base_query(tenant_id: uuid.UUID) -> Select:
         )
         .outerjoin(ScoreResult, ScoreResult.id == Outcome.score_result_id)
         .outerjoin(ScoreRequest, ScoreRequest.id == ScoreResult.score_request_id)
-        .where(Outcome.tenant_id == tenant_id)
+        .where(
+            Outcome.tenant_id == tenant_id,
+            # Soft-deleted outcomes stay in the table (labelled training
+            # data) but hide from lender-facing list views. Migration
+            # f3b7d92a1c8e added the tombstone columns.
+            Outcome.deleted_at.is_(None),
+        )
     )
 
 

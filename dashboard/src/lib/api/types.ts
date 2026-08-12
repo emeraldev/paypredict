@@ -374,6 +374,35 @@ export interface WeightChangeLogResponse {
   offset: number;
 }
 
+// Activity audit log — generic tenant audit trail covering team,
+// API keys, alert config, webhook-secret rotation, and outcome
+// soft-deletes. Weight-tuning has its own dedicated audit surface
+// (WeightChangeLogEntry above).
+export type ActivityActorType = "user" | "api_key" | "system";
+
+export interface ActivityLogEntry {
+  id: string;
+  entity_type: string;
+  entity_id: string | null;
+  action: string;
+  // `before` and `after` are small dicts of the fields that
+  // meaningfully changed. Untyped because the shape varies per
+  // entity_type; renderers should be defensive.
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  actor_type: ActivityActorType;
+  actor_name: string | null;
+  context: string | null;
+  created_at: string;
+}
+
+export interface ActivityLogResponse {
+  items: ActivityLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ApiKeyListItem {
   id: string;
   prefix: string;

@@ -1,7 +1,8 @@
 """Dashboard team management endpoints (admin-only)."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.docs_config import DASHBOARD_ADMIN_RESPONSES, NOT_FOUND_RESPONSES
@@ -13,6 +14,10 @@ from app.schemas.config import (
     TeamListResponse,
     TeamMemberItem,
     TeamUpdateRequest,
+)
+from app.services.activity_audit_service import (
+    actor_from_user,
+    log_activity,
 )
 from app.services.config_service import (
     invite_member,
@@ -43,6 +48,17 @@ async def invite(
     db: AsyncSession = Depends(get_db),
 ) -> TeamMemberItem:
     result = await invite_member(db, user.tenant_id, req)
+    await log_activity(
+        db,
+        tenant_id=user.tenant_id,
+        entity_type="user",
+        entity_id=result.id,
+        action="create",
+        before=None,
+        after={"name": result.name, "email": result.email, "role": result.role.value},
+        actor=actor_from_user(user),
+        context="team_invite",
+    )
     from app.services.notification_service import EventType, create_notification
     await create_notification(
         db, user.tenant_id, EventType.TEAM_MEMBER_INVITED,
@@ -60,7 +76,28 @@ async def update_role(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> TeamMemberItem:
+    # Capture the old role BEFORE the mutation so the audit shows the
+    # actual diff, not just "role: NEW".
+    target = (await db.execute(
+        select(User).where(User.id == user_id, User.tenant_id == user.tenant_id)
+    )).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    old_role = target.role.value
+
     result = await update_member_role(db, user.tenant_id, user_id, req)
+    if old_role != result.role.value:
+        await log_activity(
+            db,
+            tenant_id=user.tenant_id,
+            entity_type="user",
+            entity_id=result.id,
+            action="update",
+            before={"role": old_role},
+            after={"role": result.role.value},
+            actor=actor_from_user(user),
+            context="role_change",
+        )
     await db.commit()
     return result
 
@@ -71,5 +108,28 @@ async def remove(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    # Snapshot BEFORE the delete so the log preserves who was removed.
+    target = (await db.execute(
+        select(User).where(User.id == user_id, User.tenant_id == user.tenant_id)
+    )).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    before = {
+        "name": target.name,
+        "email": target.email,
+        "role": target.role.value,
+    }
+
     await remove_member(db, user.tenant_id, user_id)
+    await log_activity(
+        db,
+        tenant_id=user.tenant_id,
+        entity_type="user",
+        entity_id=user_id,
+        action="delete",
+        before=before,
+        after=None,
+        actor=actor_from_user(user),
+        context="team_remove",
+    )
     await db.commit()

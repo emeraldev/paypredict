@@ -1,6 +1,7 @@
 import type { CollectionMethod } from "@/lib/utils/format-method";
 import { api } from "./client";
 import type {
+  ActivityLogResponse,
   AlertSettings,
   ApiKeyCreateResponse,
   ApiKeyListItem,
@@ -72,4 +73,24 @@ export const configApi = {
     api.put<AlertSettings>("/v1/config/alerts", settings),
   rotateWebhookSecret: () =>
     api.post<AlertSettings>("/v1/config/alerts/regenerate-secret", {}),
+
+  // Activity audit log — generic tenant trail (team / api_keys /
+  // alerts / webhook-secret rotation / outcome soft-deletes).
+  // Admin-only. Weight-tuning uses `getWeightsHistory` above instead.
+  getActivity: (params: {
+    limit?: number;
+    offset?: number;
+    entity_type?: string;
+    action?: string;
+  } = {}) => {
+    const search = new URLSearchParams();
+    if (params.limit !== undefined) search.set("limit", String(params.limit));
+    if (params.offset !== undefined) search.set("offset", String(params.offset));
+    if (params.entity_type) search.set("entity_type", params.entity_type);
+    if (params.action) search.set("action", params.action);
+    const qs = search.toString();
+    return api.get<ActivityLogResponse>(
+      `/v1/config/activity${qs ? `?${qs}` : ""}`,
+    );
+  },
 };

@@ -297,3 +297,81 @@ async def test_delete_outcome_rejects_api_key(async_client, sa_tenant):
     )
     # 401 because get_current_user only accepts JWTs, not API keys.
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_preserves_row_in_db(
+    async_client, sa_admin_user, db_session
+):
+    """Soft-delete: the DELETE endpoint hides the outcome from lists but
+    the row survives with `deleted_at NOT NULL` so the labelled ML
+    training set is preserved."""
+    from sqlalchemy import select
+    from app.models.outcome import Outcome
+
+    token = await _login_jwt(async_client)
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "collection_id": "col_soft_del",
+            "outcome": "FAILED",
+            "attempted_at": "2026-08-16T08:00:00Z",
+        },
+    )
+    outcome_id = r.json()["outcome_id"]
+
+    r = await async_client.delete(
+        f"/v1/outcomes/{outcome_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 204
+
+    # The row still exists — just with the tombstone set.
+    row = (await db_session.execute(
+        select(Outcome).where(Outcome.id == outcome_id)
+    )).scalar_one_or_none()
+    assert row is not None, "soft-delete should keep the row"
+    assert row.deleted_at is not None
+    assert row.deleted_by == sa_admin_user.id
+
+
+@pytest.mark.asyncio
+async def test_delete_outcome_writes_activity_log(
+    async_client, sa_admin_user
+):
+    """Deletion emits one activity_log entry with `before` snapshot."""
+    token = await _login_jwt(async_client)
+
+    r = await async_client.post(
+        "/v1/outcomes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "collection_id": "col_audit_del",
+            "outcome": "FAILED",
+            "failure_reason": "insufficient_funds",
+            "attempted_at": "2026-08-16T08:00:00Z",
+        },
+    )
+    outcome_id = r.json()["outcome_id"]
+
+    await async_client.delete(
+        f"/v1/outcomes/{outcome_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    hist = (await async_client.get(
+        "/v1/config/activity?entity_type=outcome",
+        headers={"Authorization": f"Bearer {token}"},
+    )).json()
+    entry = hist["items"][0]
+    assert entry["action"] == "delete"
+    assert entry["entity_id"] == outcome_id
+    assert entry["before"] == {
+        "outcome": "FAILED",
+        "collection_id": "col_audit_del",
+        "failure_reason": "insufficient_funds",
+    }
+    assert entry["after"] is None
+
+
