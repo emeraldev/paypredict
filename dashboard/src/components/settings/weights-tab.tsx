@@ -316,6 +316,12 @@ export function WeightsTab() {
                 <span className="font-medium">Add method</span> to pre-configure
                 weights before you start collecting with it.
               </p>
+              <p>
+                Card and Debit Order share the same underlying factor set,
+                so they start with identical defaults. Tune them independently
+                over time as your outcomes data shows which factors matter
+                more per method.
+              </p>
             </HelpPopover>
             {isAdmin && availableToAdd.length > 0 && (
               <DropdownMenu>
