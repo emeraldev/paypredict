@@ -18,6 +18,10 @@ from app.scoring.registry import (
     get_default_weights_for_method,
     get_factors_for_method,
 )
+from app.services.weight_audit_service import (
+    WeightChangeActor,
+    log_weight_change,
+)
 
 
 async def get_custom_weights_for_method(
@@ -79,6 +83,7 @@ async def add_method_with_defaults(
     tenant_id: uuid.UUID,
     method: CollectionMethod,
     updated_by: uuid.UUID | None,
+    actor: WeightChangeActor | None = None,
 ) -> bool:
     """Ensure the tenant has weight rows for `method`, seeded with defaults.
 
@@ -87,6 +92,11 @@ async def add_method_with_defaults(
     "+ Add method" affordance so lenders can pre-configure weights for a
     method they intend to expand into, before their first collection with
     that method arrives.
+
+    Each seeded factor generates one `weight_change_log` entry
+    (old_weight=None) so the audit trail shows the method was opted
+    into and by whom. Callers that skip the audit (backfill scripts,
+    seeding fixtures) can pass `actor=None`.
     """
     existing = await get_custom_weights_for_method(db, tenant_id, method)
     if existing:
@@ -104,6 +114,17 @@ async def add_method_with_defaults(
                 updated_by=updated_by,
             )
         )
+        if actor is not None:
+            await log_weight_change(
+                db,
+                tenant_id=tenant_id,
+                method=method,
+                factor_name=factor_name,
+                old_weight=None,
+                new_weight=weight,
+                actor=actor,
+                context="add_method",
+            )
     await db.flush()
     return True
 
@@ -114,6 +135,7 @@ async def upsert_weights_for_method(
     method: CollectionMethod,
     weights: dict[str, float],
     updated_by: uuid.UUID | None,
+    actor: WeightChangeActor | None = None,
 ) -> None:
     """Replace the tenant's saved weights for `method` with `weights`.
 
@@ -121,6 +143,12 @@ async def upsert_weights_for_method(
     perturbs the tenant's PAYROLL weights. Unknown factor names (not in
     the method's bundle) are rejected loudly rather than silently stored;
     that guarantee is what makes the weights API safe to trust.
+
+    Each factor whose value changes (or is created/deleted) emits one
+    `weight_change_log` entry in the same DB transaction as the actual
+    mutation, so the audit trail can never diverge from the state.
+    Callers that skip the audit (backfill scripts, fixtures) can pass
+    `actor=None` — no log entries will be written.
     """
     valid = set(get_factors_for_method(method).keys())
     unknown = set(weights.keys()) - valid
@@ -150,16 +178,52 @@ async def upsert_weights_for_method(
                     updated_by=updated_by,
                 )
             )
+            if actor is not None:
+                await log_weight_change(
+                    db,
+                    tenant_id=tenant_id,
+                    method=method,
+                    factor_name=name,
+                    old_weight=None,
+                    new_weight=weight,
+                    actor=actor,
+                    context="upsert",
+                )
         else:
+            old_weight = row.weight
             row.weight = weight
             row.updated_at = now
             row.updated_by = updated_by
+            if actor is not None and old_weight != weight:
+                await log_weight_change(
+                    db,
+                    tenant_id=tenant_id,
+                    method=method,
+                    factor_name=name,
+                    old_weight=old_weight,
+                    new_weight=weight,
+                    actor=actor,
+                    context="upsert",
+                )
 
     # Any pre-existing row for a factor not in the PUT is stale — drop it
     # rather than leave a mismatch between the tenant's UI state and the
     # persisted rows.
     for stale in existing_rows.values():
+        old_weight = stale.weight
+        factor_name = stale.factor_name
         await db.delete(stale)
+        if actor is not None:
+            await log_weight_change(
+                db,
+                tenant_id=tenant_id,
+                method=method,
+                factor_name=factor_name,
+                old_weight=old_weight,
+                new_weight=None,
+                actor=actor,
+                context="stale_cleanup",
+            )
 
     await db.flush()
 

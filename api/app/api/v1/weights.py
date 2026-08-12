@@ -15,7 +15,7 @@ every factor name must belong to the method's bundle.
 
 Accepts either an API key (rate-limited) or a JWT (ADMIN only).
 """
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,12 +24,16 @@ from app.database import get_db
 from app.dependencies import (
     enforce_rate_limit_or_jwt,
     get_current_user,
+    require_admin,
     session_security,
 )
 from app.models.score_request import CollectionMethod
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
+from app.models.weight_change_log import WeightChangeActorType
 from app.schemas.config import (
+    WeightChangeLogEntry,
+    WeightChangeLogResponse,
     WeightsAddMethodRequest,
     WeightsFactorEntry,
     WeightsMethodEntry,
@@ -42,6 +46,10 @@ from app.scoring.registry import (
     METHOD_LABELS,
     get_factors_for_method,
 )
+from app.services.weight_audit_service import (
+    WeightChangeActor,
+    list_weight_changes,
+)
 from app.services.weights_service import (
     add_method_with_defaults,
     get_effective_weights_for_method,
@@ -51,8 +59,30 @@ from app.services.weights_service import (
 
 router = APIRouter(prefix="/config", tags=["Configuration"], responses=LENDER_API_RESPONSES)
 
+# Second router for admin-only, dashboard-only endpoints under the same
+# /config prefix. Tagged separately so the compliance audit endpoints
+# stay out of the public Swagger UI (which filters on router tags).
+history_router = APIRouter(prefix="/config", tags=["Weight History"])
+
 
 WEIGHT_SUM_TOLERANCE = 0.01
+
+
+def _actor_from_user(user: User | None) -> WeightChangeActor:
+    """Build the audit-log actor descriptor from the resolved auth.
+
+    JWT path: user is present, log as `user` with denormalized name.
+    API-key path: user is None, log as `api_key` with a generic name
+    (we deliberately do NOT link to the api_keys.id here — the audit
+    should stay readable if the key is later revoked).
+    """
+    if user is not None:
+        return WeightChangeActor(
+            type=WeightChangeActorType.USER, id=user.id, name=user.name
+        )
+    return WeightChangeActor(
+        type=WeightChangeActorType.API_KEY, id=None, name="API key"
+    )
 
 
 async def _build_response(
@@ -162,6 +192,7 @@ async def update_weights(
         method,
         body.weights,
         updated_by=actor_user.id if actor_user else None,
+        actor=_actor_from_user(actor_user),
     )
 
     from app.services.notification_service import EventType, create_notification
@@ -218,6 +249,7 @@ async def add_weights_method(
         tenant.id,
         method,
         updated_by=actor_user.id if actor_user else None,
+        actor=_actor_from_user(actor_user),
     )
 
     if created:
@@ -238,3 +270,60 @@ async def add_weights_method(
 
     await db.commit()
     return await _build_response(db, tenant)
+
+
+@history_router.get(
+    "/weights/history",
+    response_model=WeightChangeLogResponse,
+)
+async def list_weights_history(
+    collection_method: CollectionMethod | None = Query(
+        None,
+        description="Filter to a single collection method (CARD, DEBIT_ORDER, ...).",
+    ),
+    factor_name: str | None = Query(
+        None,
+        description="Filter to a single factor (snake_case name from the bundle).",
+    ),
+    limit: int = Query(25, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> WeightChangeLogResponse:
+    """Paginated audit trail of every weight change on this tenant.
+
+    Admin-only. Answers the compliance question "who changed which
+    factor and when" — the `factor_weights` table itself is
+    upsert-in-place and loses that history. Ordered most-recent-first;
+    filterable by method or factor.
+    """
+    rows, total = await list_weight_changes(
+        db,
+        user.tenant_id,
+        limit=limit,
+        offset=offset,
+        collection_method=collection_method,
+        factor_name=factor_name,
+    )
+
+    items = [
+        WeightChangeLogEntry(
+            id=row.id,
+            collection_method=CollectionMethod(row.collection_method),
+            method_label=METHOD_LABELS.get(
+                CollectionMethod(row.collection_method), row.collection_method
+            ),
+            factor_name=row.factor_name,
+            factor_label=FACTOR_LABELS.get(row.factor_name, row.factor_name),
+            old_weight=row.old_weight,
+            new_weight=row.new_weight,
+            actor_type=row.actor_type.value,
+            actor_name=row.actor_name,
+            context=row.context,
+            changed_at=row.changed_at,
+        )
+        for row in rows
+    ]
+    return WeightChangeLogResponse(
+        items=items, total=total, limit=limit, offset=offset
+    )

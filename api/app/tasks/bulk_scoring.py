@@ -130,6 +130,7 @@ async def _persist_batch_and_finalize(
                     score_improvement=scored.get("score_improvement"),
                     model_version=scored["model_version"],
                     scoring_duration_ms=scored["scoring_duration_ms"],
+                    weights_snapshot=scored.get("weights_snapshot"),
                 )
                 db.add(res)
                 score_ids.append(str(res.id))

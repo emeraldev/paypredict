@@ -98,6 +98,7 @@ async def score_collection(
         score_improvement=timing.score_improvement if timing.should_shift else None,
         model_version=result.model_version,
         scoring_duration_ms=result.scoring_duration_ms,
+        weights_snapshot=result.weights_snapshot,
     )
     db.add(score_result)
     await db.flush()

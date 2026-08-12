@@ -346,6 +346,34 @@ export interface WeightsUpdateRequest {
   weights: Record<string, number>;
 }
 
+// Weight change history — one row per (method, factor) mutation.
+// `old_weight` is null when a factor was newly added (first tune or
+// "+ Add method" seeding defaults). `new_weight` is null when a factor
+// was deleted (stale cleanup during upsert). Both non-null is the
+// ordinary update case.
+export type WeightChangeActorType = "user" | "api_key" | "system";
+
+export interface WeightChangeLogEntry {
+  id: string;
+  collection_method: CollectionMethod;
+  method_label: string;
+  factor_name: string;
+  factor_label: string;
+  old_weight: number | null;
+  new_weight: number | null;
+  actor_type: WeightChangeActorType;
+  actor_name: string | null;
+  context: string | null;
+  changed_at: string;
+}
+
+export interface WeightChangeLogResponse {
+  items: WeightChangeLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ApiKeyListItem {
   id: string;
   prefix: string;

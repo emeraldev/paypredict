@@ -26,6 +26,12 @@ class ScoringResult:
     skipped_factors: list[str]
     model_version: str
     scoring_duration_ms: int
+    # Full effective weight vector at scoring time, BEFORE re-normalisation.
+    # Includes every factor in the bundle (evaluated + skipped) so downstream
+    # storage can reconstruct the exact config that produced this score even
+    # if some factors were skipped. Populated by the engine on every call;
+    # persisted as `ScoreResult.weights_snapshot`.
+    weights_snapshot: dict[str, float] = field(default_factory=dict)
 
 
 class ScoringEngine:
@@ -64,9 +70,14 @@ class ScoringEngine:
         # Separate applicable and skipped factors
         applicable: list[tuple[str, object, float]] = []
         skipped_factors: list[str] = []
+        # Snapshot the pre-normalisation weight for EVERY factor in the
+        # bundle (evaluated + skipped) so the caller can persist the
+        # exact config that produced this score.
+        weights_snapshot: dict[str, float] = {}
 
         for name, (factor, default_weight) in factors.items():
             weight = (custom_weights or {}).get(name, default_weight)
+            weights_snapshot[name] = weight
             if collection_method is not None and not factor.applies_to(collection_method):
                 skipped_factors.append(name)
             else:
@@ -120,6 +131,7 @@ class ScoringEngine:
             skipped_factors=skipped_factors,
             model_version=model_version,
             scoring_duration_ms=max(1, elapsed_ms),
+            weights_snapshot={k: round(v, 4) for k, v in weights_snapshot.items()},
         )
 
     def _map_risk_level(self, score: float) -> str:

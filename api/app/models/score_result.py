@@ -42,6 +42,14 @@ class ScoreResult(Base):
     recommended_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     score_improvement: Mapped[float | None] = mapped_column(Float, nullable=True)
     model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Full effective weight vector at scoring time. `{factor_name: weight}`
+    # for every factor in the method's bundle, including the ones the
+    # engine skipped (their pre-normalisation weight is still recorded).
+    # Nullable so historical rows (pre-migration d4e8c1f95a72) stay valid;
+    # every new score populates it. Unlocks exact-config reproducibility
+    # for the ML training dataset — see WeightChangeLog for the paired
+    # audit trail on how the config got here.
+    weights_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     scoring_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

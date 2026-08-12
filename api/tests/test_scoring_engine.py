@@ -79,6 +79,52 @@ class TestScoringEngineCard:
         assert len(result.factors) == 8
         assert 0.0 <= result.score <= 1.0
 
+    def test_weights_snapshot_captures_full_bundle(
+        self, sa_customer_data, sa_collection_data
+    ):
+        """The engine snapshots every factor's pre-normalisation weight
+        so the caller can persist the exact config each score was
+        produced under — necessary for ML training reproducibility."""
+        from app.models.score_request import CollectionMethod
+
+        result = engine.score(
+            customer_data=sa_customer_data,
+            collection_data=sa_collection_data,
+            collection_method=CollectionMethod.CARD,
+        )
+        snap = result.weights_snapshot
+        # Full CARD_DEBIT bundle regardless of which factors actually fired.
+        assert set(snap.keys()) == {
+            "historical_failure_rate", "day_of_month_vs_payday",
+            "days_since_last_payment", "instalment_position",
+            "order_value_vs_average", "card_health",
+            "card_type", "debit_order_return_history",
+        }
+        # Snapshot is pre-normalisation, so bundle defaults must still sum to 1.
+        assert abs(sum(snap.values()) - 1.0) < 0.01
+
+    def test_weights_snapshot_reflects_custom_overrides(
+        self, sa_customer_data, sa_collection_data
+    ):
+        """When the caller passes custom weights, those override the
+        defaults in the snapshot — not the bundle defaults."""
+        from app.models.score_request import CollectionMethod
+
+        custom = {
+            "historical_failure_rate": 0.40,
+            "day_of_month_vs_payday": 0.05,
+        }
+        result = engine.score(
+            customer_data=sa_customer_data,
+            collection_data=sa_collection_data,
+            collection_method=CollectionMethod.CARD,
+            custom_weights=custom,
+        )
+        assert result.weights_snapshot["historical_failure_rate"] == 0.40
+        assert result.weights_snapshot["day_of_month_vs_payday"] == 0.05
+        # Untouched factors fall back to bundle defaults.
+        assert result.weights_snapshot["card_health"] == 0.10
+
 
 class TestScoringEngineWallet:
     def test_scores_all_8_wallet_factors(self, zm_customer_data, zm_collection_data):

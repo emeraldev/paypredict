@@ -171,6 +171,9 @@ def _score_one(
             for f in result.factors
         ],
         "skipped_factors": result.skipped_factors,
+        # Full effective weight vector (pre-normalisation) — persisted on
+        # ScoreResult for exact-config reproducibility.
+        "weights_snapshot": result.weights_snapshot,
     }
 
 
@@ -220,6 +223,7 @@ async def score_bulk_sync(
             score_improvement=scored.get("score_improvement"),
             model_version=scored["model_version"],
             scoring_duration_ms=scored["scoring_duration_ms"],
+            weights_snapshot=scored.get("weights_snapshot"),
         )
         db.add(res)
 
