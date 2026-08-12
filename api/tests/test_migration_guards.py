@@ -303,6 +303,21 @@ _CASES = [
         ),
         "FORCE_DESTRUCTIVE_DOWNGRADE",
     ),
+    (
+        "f3b7d92a1c8e",  # activity_log + outcomes soft-delete
+        "audit trail for team",
+        "f3b7d92a1c8e",
+        lambda db: (
+            _seed_tenant(db, extra={"id": "'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid"}),
+            _sql(db, [
+                "INSERT INTO activity_log (id, tenant_id, entity_type, "
+                "action, actor_type, actor_name, created_at) VALUES "
+                "(gen_random_uuid(), 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, "
+                "'user', 'update', 'user', 'seed', now())"
+            ]),
+        ),
+        "FORCE_DESTRUCTIVE_DOWNGRADE",
+    ),
 ]
 
 

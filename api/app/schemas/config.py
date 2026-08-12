@@ -170,3 +170,32 @@ class WeightChangeLogResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ---- Activity log (generic tenant audit trail) ----
+
+class ActivityLogEntry(BaseModel):
+    """One row from the activity_log audit table.
+
+    Covers team / API key / alert-config / webhook-secret / outcome
+    mutations. `before` is null on create; `after` is null on delete;
+    both non-null is the ordinary update case. Both are small dicts
+    of the fields that meaningfully changed — not full ORM dumps.
+    """
+    id: UUID
+    entity_type: str
+    entity_id: UUID | None
+    action: str
+    before: dict | None
+    after: dict | None
+    actor_type: str
+    actor_name: str | None
+    context: str | None
+    created_at: datetime
+
+
+class ActivityLogResponse(BaseModel):
+    items: list[ActivityLogEntry]
+    total: int
+    limit: int
+    offset: int

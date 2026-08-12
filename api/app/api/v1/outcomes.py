@@ -23,6 +23,10 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.outcome import OutcomeRequest, OutcomeResponse
 from app.schemas.outcomes_list import OutcomesListResponse
+from app.services.activity_audit_service import (
+    actor_from_user,
+    log_activity,
+)
 from app.services.outcome_service import delete_outcome, record_outcome
 from app.services.outcomes_service import list_outcomes
 
@@ -113,9 +117,26 @@ async def remove_outcome(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete an outcome. Clerks use this to fix a mistaken entry — the
-    correct workflow is delete + re-create, not edit, so the audit trail
-    stays clean (outcomes are part of the labelled dataset for ML)."""
-    deleted = await delete_outcome(db, user.tenant_id, outcome_id)
-    if not deleted:
+    """Soft-delete an outcome. Clerks use this to fix a mistaken entry;
+    the row survives with `deleted_at` set so the labelled ML training
+    dataset stays intact. Read endpoints filter deleted rows out."""
+    outcome = await delete_outcome(db, user.tenant_id, outcome_id, deleted_by=user.id)
+    if outcome is None:
         raise HTTPException(status_code=404, detail="Outcome not found")
+
+    await log_activity(
+        db,
+        tenant_id=user.tenant_id,
+        entity_type="outcome",
+        entity_id=outcome_id,
+        action="delete",
+        before={
+            "outcome": outcome.outcome.value,
+            "collection_id": outcome.external_collection_id,
+            "failure_reason": outcome.failure_reason,
+        },
+        after=None,
+        actor=actor_from_user(user),
+        context="outcome_soft_delete",
+    )
+    await db.commit()

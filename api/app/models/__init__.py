@@ -6,6 +6,7 @@ from app.models.score_result import ScoreResult
 from app.models.outcome import Outcome
 from app.models.user import User
 from app.models.alert import Alert
+from app.models.activity_log import ActivityActorType, ActivityLog
 from app.models.weight_change_log import WeightChangeActorType, WeightChangeLog
 
 __all__ = [
@@ -17,6 +18,8 @@ __all__ = [
     "Outcome",
     "User",
     "Alert",
+    "ActivityActorType",
+    "ActivityLog",
     "WeightChangeActorType",
     "WeightChangeLog",
 ]

@@ -226,9 +226,14 @@ async def get_score_detail(
     req: ScoreRequest = row[0]
     res: ScoreResult = row[1]
 
-    # Load linked outcome
+    # Load linked outcome. Skip soft-deleted rows so the drawer
+    # shows the "no outcome recorded" state (letting the clerk file
+    # a fresh outcome) rather than a phantom deleted one.
     outcome_result = await db.execute(
-        select(Outcome).where(Outcome.score_result_id == res.id)
+        select(Outcome).where(
+            Outcome.score_result_id == res.id,
+            Outcome.deleted_at.is_(None),
+        )
     )
     outcome_row = outcome_result.scalar_one_or_none()
 

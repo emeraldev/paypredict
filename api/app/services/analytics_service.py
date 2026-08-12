@@ -65,7 +65,11 @@ async def get_summary(
             func.count(case((Outcome.outcome == OutcomeStatus.SUCCESS, 1))).label("success"),
             func.count(case((Outcome.outcome == OutcomeStatus.FAILED, 1))).label("failed"),
         )
-        .where(Outcome.tenant_id == tenant_id, Outcome.created_at >= cutoff)
+        .where(
+            Outcome.tenant_id == tenant_id,
+            Outcome.created_at >= cutoff,
+            Outcome.deleted_at.is_(None),
+        )
     )
     orow = (await db.execute(outcomes_q)).one()
 
@@ -88,7 +92,11 @@ async def get_summary(
         )
         .select_from(Outcome)
         .join(ScoreResult, ScoreResult.id == Outcome.score_result_id)
-        .where(Outcome.tenant_id == tenant_id, Outcome.created_at >= cutoff)
+        .where(
+            Outcome.tenant_id == tenant_id,
+            Outcome.created_at >= cutoff,
+            Outcome.deleted_at.is_(None),
+        )
     )
     arow = (await db.execute(acc_q)).one()
 
@@ -113,6 +121,7 @@ async def get_summary(
             Outcome.tenant_id == tenant_id,
             Outcome.created_at >= prev_cutoff,
             Outcome.created_at < cutoff,
+            Outcome.deleted_at.is_(None),
         )
     )
     prev = (await db.execute(prev_outcomes_q)).one()
@@ -157,7 +166,11 @@ async def get_collection_rate(
             func.count().label("scored_count"),
             func.count(case((Outcome.outcome == OutcomeStatus.FAILED, 1))).label("failed_count"),
         )
-        .where(Outcome.tenant_id == tenant_id, Outcome.attempted_at >= cutoff)
+        .where(
+            Outcome.tenant_id == tenant_id,
+            Outcome.attempted_at >= cutoff,
+            Outcome.deleted_at.is_(None),
+        )
         .group_by(text("1"))
         .order_by(text("1"))
     )
@@ -271,7 +284,11 @@ async def get_accuracy(
         )
         .select_from(Outcome)
         .join(ScoreResult, ScoreResult.id == Outcome.score_result_id)
-        .where(Outcome.tenant_id == tenant_id, Outcome.created_at >= cutoff)
+        .where(
+            Outcome.tenant_id == tenant_id,
+            Outcome.created_at >= cutoff,
+            Outcome.deleted_at.is_(None),
+        )
     )
     row = (await db.execute(q)).one()
 

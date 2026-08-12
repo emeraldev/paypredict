@@ -101,7 +101,14 @@ async def _lookup_unmatched_score(
     stmt = (
         select(ScoreResult.id)
         .join(ScoreRequest, ScoreRequest.id == ScoreResult.score_request_id)
-        .outerjoin(Outcome, Outcome.score_result_id == ScoreResult.id)
+        # Only live outcomes count as "already linked" — a soft-deleted
+        # outcome must NOT block re-linking. Filter on the join so a
+        # score whose outcome was soft-deleted still surfaces here.
+        .outerjoin(
+            Outcome,
+            (Outcome.score_result_id == ScoreResult.id)
+            & (Outcome.deleted_at.is_(None)),
+        )
         .where(
             ScoreRequest.tenant_id == tenant_id,
             ScoreRequest.external_collection_id == collection_id,
@@ -118,19 +125,30 @@ async def delete_outcome(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     outcome_id: uuid.UUID,
-) -> bool:
-    """Delete an outcome for the given tenant. Returns True if deleted, False
-    if no row matched (404 path). The tenant filter prevents cross-tenant
-    deletion via id-guessing."""
+    deleted_by: uuid.UUID | None = None,
+) -> Outcome | None:
+    """Soft-delete an outcome. Returns the row (post-mutation) when a
+    matching un-deleted row was found, or None (404 path). The tenant
+    filter prevents cross-tenant deletion via id-guessing.
+
+    Soft-delete rather than hard-delete: outcomes are the labelled
+    dataset for future ML training. A clerk correcting a mistaken
+    entry shouldn't silently erase training data — the row stays,
+    marked deleted, and read paths filter it out.
+    """
+    from datetime import datetime, timezone
+
     result = await db.execute(
         select(Outcome).where(
             Outcome.id == outcome_id,
             Outcome.tenant_id == tenant_id,
+            Outcome.deleted_at.is_(None),
         )
     )
     outcome = result.scalar_one_or_none()
     if outcome is None:
-        return False
-    await db.delete(outcome)
+        return None
+    outcome.deleted_at = datetime.now(timezone.utc)
+    outcome.deleted_by = deleted_by
     await db.flush()
-    return True
+    return outcome

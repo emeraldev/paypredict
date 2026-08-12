@@ -737,3 +737,157 @@ async def test_alerts_null_clears_slack_and_email_but_not_omitted(async_client, 
         json={"email_recipients": []},
     )
     assert r.json()["email_recipients"] == []
+
+
+# ==================== Activity log ====================
+
+
+@pytest.mark.asyncio
+async def test_team_role_change_writes_activity(
+    async_client, sa_admin_user, sa_viewer_user
+):
+    """Promoting a Viewer to Manager appends one activity_log entry
+    with the actor, entity, and role diff."""
+    from tests.conftest import TEST_VIEWER_EMAIL
+
+    token = await _login(async_client)
+    # Find the viewer's id.
+    team = (await async_client.get("/v1/config/team", headers=_auth(token))).json()
+    viewer = next(m for m in team["items"] if m["email"] == TEST_VIEWER_EMAIL)
+
+    r = await async_client.patch(
+        f"/v1/config/team/{viewer['id']}",
+        headers=_auth(token),
+        json={"role": "MANAGER"},
+    )
+    assert r.status_code == 200
+
+    hist = (await async_client.get(
+        "/v1/config/activity?entity_type=user", headers=_auth(token)
+    )).json()
+    role_entries = [i for i in hist["items"] if i["context"] == "role_change"]
+    assert len(role_entries) >= 1
+    entry = role_entries[0]
+    assert entry["action"] == "update"
+    assert entry["before"] == {"role": "VIEWER"}
+    assert entry["after"] == {"role": "MANAGER"}
+    assert entry["actor_name"] == "Test Admin"
+
+
+@pytest.mark.asyncio
+async def test_api_key_toggle_writes_activate_or_deactivate(async_client, sa_admin_user):
+    """Toggling is_active fires an `activate` or `deactivate` action,
+    not a generic `update`, so filters can pull just deactivations."""
+    token = await _login(async_client)
+
+    # Create a key first.
+    r = await async_client.post(
+        "/v1/config/api-keys", headers=_auth(token), json={"label": "test-toggle"}
+    )
+    key_id = r.json()["id"]
+
+    # Deactivate.
+    r = await async_client.patch(
+        f"/v1/config/api-keys/{key_id}",
+        headers=_auth(token),
+        json={"is_active": False},
+    )
+    assert r.status_code == 200
+
+    hist = (await async_client.get(
+        "/v1/config/activity?entity_type=api_key", headers=_auth(token)
+    )).json()
+    deact = [i for i in hist["items"] if i["action"] == "deactivate"]
+    assert len(deact) >= 1
+    assert deact[0]["before"]["is_active"] is True
+    assert deact[0]["after"]["is_active"] is False
+    # Never persist the raw key value.
+    assert "key" not in deact[0]["after"]
+    assert "key" not in (deact[0]["before"] or {})
+
+
+@pytest.mark.asyncio
+async def test_webhook_secret_rotation_writes_activity_without_secret_value(
+    async_client, sa_admin_user
+):
+    """Rotation logs the EVENT but never the secret (old or new)."""
+    token = await _login(async_client)
+
+    r = await async_client.post(
+        "/v1/config/alerts/regenerate-secret", headers=_auth(token)
+    )
+    assert r.status_code == 200
+
+    hist = (await async_client.get(
+        "/v1/config/activity?entity_type=webhook_secret", headers=_auth(token)
+    )).json()
+    rotations = [i for i in hist["items"] if i["action"] == "rotate"]
+    assert len(rotations) >= 1
+    entry = rotations[0]
+    assert entry["before"] is None
+    assert entry["after"] is None
+
+
+@pytest.mark.asyncio
+async def test_alerts_config_update_writes_field_diff(async_client, sa_admin_user):
+    """Only fields that changed appear in before/after."""
+    token = await _login(async_client)
+
+    # Baseline: set slack webhook to a known value.
+    await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"slack_webhook_url": "https://hooks.slack.com/services/OLD"},
+    )
+    # Now change only slack_webhook_url.
+    r = await async_client.put(
+        "/v1/config/alerts",
+        headers=_auth(token),
+        json={"slack_webhook_url": "https://hooks.slack.com/services/NEW"},
+    )
+    assert r.status_code == 200
+
+    hist = (await async_client.get(
+        "/v1/config/activity?entity_type=alert_config", headers=_auth(token)
+    )).json()
+    entry = hist["items"][0]  # most recent
+    assert entry["before"] == {"slack_webhook_url": "https://hooks.slack.com/services/OLD"}
+    assert entry["after"] == {"slack_webhook_url": "https://hooks.slack.com/services/NEW"}
+    # No unchanged fields leak into the diff.
+    assert "high_risk_threshold" not in entry["before"]
+
+
+@pytest.mark.asyncio
+async def test_activity_endpoint_admin_only(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """Compliance audit — Manager and Viewer get 403."""
+    from tests.conftest import TEST_MANAGER_EMAIL, TEST_VIEWER_EMAIL
+
+    admin = await _login(async_client, email=TEST_USER_EMAIL)
+    manager = await _login(async_client, email=TEST_MANAGER_EMAIL)
+    viewer = await _login(async_client, email=TEST_VIEWER_EMAIL)
+
+    assert (await async_client.get("/v1/config/activity", headers=_auth(admin))).status_code == 200
+    assert (await async_client.get("/v1/config/activity", headers=_auth(manager))).status_code == 403
+    assert (await async_client.get("/v1/config/activity", headers=_auth(viewer))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_activity_endpoint_filters_by_entity_type(async_client, sa_admin_user):
+    """`?entity_type=X` returns only rows for that entity."""
+    token = await _login(async_client)
+
+    # Fire two different entity types.
+    await async_client.post(
+        "/v1/config/api-keys", headers=_auth(token), json={"label": "filter-test"}
+    )
+    await async_client.post(
+        "/v1/config/alerts/regenerate-secret", headers=_auth(token)
+    )
+
+    only_keys = (await async_client.get(
+        "/v1/config/activity?entity_type=api_key", headers=_auth(token)
+    )).json()
+    assert all(i["entity_type"] == "api_key" for i in only_keys["items"])
+    assert only_keys["total"] >= 1
