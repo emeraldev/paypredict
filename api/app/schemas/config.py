@@ -140,3 +140,33 @@ class WeightsAddMethodRequest(BaseModel):
     weights is a no-op that still returns the current state.
     """
     collection_method: CollectionMethod
+
+
+# ---- Weight change history (audit log) ----
+
+class WeightChangeLogEntry(BaseModel):
+    """One row from the weight_change_log audit table.
+
+    `old_weight` is null when the factor was newly added (first tune,
+    or "+ Add method" seeding defaults). `new_weight` is null when the
+    factor row was deleted (stale cleanup during upsert). Both
+    non-null is the ordinary update case.
+    """
+    id: UUID
+    collection_method: CollectionMethod
+    method_label: str
+    factor_name: str
+    factor_label: str
+    old_weight: float | None
+    new_weight: float | None
+    actor_type: str
+    actor_name: str | None
+    context: str | None
+    changed_at: datetime
+
+
+class WeightChangeLogResponse(BaseModel):
+    items: list[WeightChangeLogEntry]
+    total: int
+    limit: int
+    offset: int

@@ -501,6 +501,139 @@ async def test_add_method_requires_admin_on_jwt(
     assert (await async_client.post("/v1/config/weights/methods", headers=_auth(admin), json=body)).status_code == 200
 
 
+# ==================== Weight change history (audit log) ====================
+
+
+@pytest.mark.asyncio
+async def test_put_weights_writes_audit_log(async_client, sa_admin_user):
+    """One PUT that changes two factor values produces two log entries
+    with correct old/new/actor/method/context."""
+    token = await _login(async_client)
+
+    skewed = {**CARD_WEIGHTS, "historical_failure_rate": 0.40, "day_of_month_vs_payday": 0.05}
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": skewed},
+    )
+    assert r.status_code == 200
+
+    hist = await async_client.get("/v1/config/weights/history", headers=_auth(token))
+    assert hist.status_code == 200
+    items = hist.json()["items"]
+
+    # Two factors changed -> two entries. Everything else was unchanged
+    # and is skipped by the no-op guard.
+    changes = {
+        i["factor_name"]: i
+        for i in items
+        if i["collection_method"] == "CARD" and i["context"] == "upsert"
+    }
+    assert "historical_failure_rate" in changes
+    assert "day_of_month_vs_payday" in changes
+    hfr = changes["historical_failure_rate"]
+    assert hfr["old_weight"] == 0.25
+    assert hfr["new_weight"] == 0.40
+    assert hfr["actor_type"] == "user"
+    assert hfr["actor_name"] == "Test Admin"
+    assert hfr["method_label"] == "Card"
+    assert hfr["factor_label"] == "Past failure rate"
+
+
+@pytest.mark.asyncio
+async def test_put_weights_history_no_op_writes_nothing(async_client, sa_admin_user):
+    """Saving the same weights again writes zero log entries — the
+    audit trail only records real diffs."""
+    token = await _login(async_client)
+
+    baseline_count_r = await async_client.get(
+        "/v1/config/weights/history", headers=_auth(token)
+    )
+    baseline_total = baseline_count_r.json()["total"]
+
+    # PUT the same values that were already there.
+    r = await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": CARD_WEIGHTS},
+    )
+    assert r.status_code == 200
+
+    after_r = await async_client.get(
+        "/v1/config/weights/history", headers=_auth(token)
+    )
+    assert after_r.json()["total"] == baseline_total, (
+        "No-op PUT should not pollute the audit log"
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_method_logs_new_factors(async_client, sa_admin_user):
+    """POST /v1/config/weights/methods with a NEW method should write
+    one audit entry per seeded factor with old_weight=None."""
+    token = await _login(async_client)
+
+    r = await async_client.post(
+        "/v1/config/weights/methods",
+        headers=_auth(token),
+        json={"collection_method": "PAYROLL"},
+    )
+    assert r.status_code == 200
+
+    hist = (await async_client.get(
+        "/v1/config/weights/history?collection_method=PAYROLL",
+        headers=_auth(token),
+    )).json()
+    add_entries = [i for i in hist["items"] if i["context"] == "add_method"]
+    assert len(add_entries) >= 6, (
+        "PAYROLL bundle has ~8 factors; each seeded factor is one log entry"
+    )
+    for entry in add_entries:
+        assert entry["old_weight"] is None
+        assert entry["new_weight"] is not None
+        assert entry["actor_type"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_history_endpoint_admin_only(
+    async_client, sa_admin_user, sa_manager_user, sa_viewer_user
+):
+    """History is compliance data — Manager and Viewer cannot see it."""
+    from tests.conftest import TEST_MANAGER_EMAIL, TEST_VIEWER_EMAIL
+
+    admin = await _login(async_client, email=TEST_USER_EMAIL)
+    manager = await _login(async_client, email=TEST_MANAGER_EMAIL)
+    viewer = await _login(async_client, email=TEST_VIEWER_EMAIL)
+
+    assert (await async_client.get("/v1/config/weights/history", headers=_auth(admin))).status_code == 200
+    assert (await async_client.get("/v1/config/weights/history", headers=_auth(manager))).status_code == 403
+    assert (await async_client.get("/v1/config/weights/history", headers=_auth(viewer))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_history_filters_by_method(async_client, sa_admin_user):
+    """`?collection_method=CARD` returns CARD-only rows."""
+    token = await _login(async_client)
+
+    # Produce one CARD change and one DEBIT_ORDER change.
+    skewed_card = {**CARD_WEIGHTS, "historical_failure_rate": 0.40, "day_of_month_vs_payday": 0.05}
+    await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "CARD", "weights": skewed_card},
+    )
+    await async_client.put(
+        "/v1/config/weights",
+        headers=_auth(token),
+        json={"collection_method": "DEBIT_ORDER", "weights": skewed_card},
+    )
+
+    only_card = (await async_client.get(
+        "/v1/config/weights/history?collection_method=CARD",
+        headers=_auth(token),
+    )).json()
+    assert all(i["collection_method"] == "CARD" for i in only_card["items"])
+    assert only_card["total"] >= 1
 
 
 # ==================== API key auth path (H2) ====================

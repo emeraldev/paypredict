@@ -287,6 +287,22 @@ _CASES = [
         ),
         "FORCE_DESTRUCTIVE_DOWNGRADE",
     ),
+    (
+        "d4e8c1f95a72",  # weight_change_log + score_results.weights_snapshot
+        "weight-tuning audit trail",
+        "d4e8c1f95a72",
+        lambda db: (
+            _seed_tenant(db, extra={"id": "'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid"}),
+            _sql(db, [
+                "INSERT INTO weight_change_log (id, tenant_id, "
+                "collection_method, factor_name, old_weight, new_weight, "
+                "actor_type, actor_name, changed_at) VALUES "
+                "(gen_random_uuid(), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, "
+                "'CARD', 'card_health', 0.10, 0.15, 'user', 'seed', now())"
+            ]),
+        ),
+        "FORCE_DESTRUCTIVE_DOWNGRADE",
+    ),
 ]
 
 

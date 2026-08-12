@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
+import { WeightHistoryTable } from "./weight-history-table";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/use-api";
 import { useAuth } from "@/hooks/use-auth";
@@ -263,6 +264,7 @@ export function WeightsTab() {
   const currentDirty = isDirty(currentDraft);
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Factor Weights</CardTitle>
@@ -444,5 +446,25 @@ export function WeightsTab() {
         )}
       </CardContent>
     </Card>
+
+    {/* Change history — admin-only compliance audit. Rendered as a
+        separate card below the sliders so the change log doesn't
+        compete with the primary tuning surface. */}
+    {isAdmin && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Change history</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Every weight change on this tenant. Who tuned which factor
+            and when, plus the old and new values. Useful for compliance
+            and for reproducing a specific score under its exact config.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <WeightHistoryTable />
+        </CardContent>
+      </Card>
+    )}
+    </div>
   );
 }

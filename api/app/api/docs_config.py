@@ -36,6 +36,7 @@ INTERNAL_TAGS = [
     "Team",
     "Alert Settings",
     "Alerts (legacy)",
+    "Weight History",
 ]
 
 ALL_TAGS = PUBLIC_TAGS + INTERNAL_TAGS

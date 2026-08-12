@@ -7,6 +7,7 @@ import type {
   ApiKeyListResponse,
   TeamListResponse,
   TeamMember,
+  WeightChangeLogResponse,
   WeightsResponse,
 } from "./types";
 
@@ -29,6 +30,25 @@ export const configApi = {
     api.post<WeightsResponse>("/v1/config/weights/methods", {
       collection_method,
     }),
+  // Weight change history — admin-only compliance audit trail.
+  // Every mutation of factor_weights writes one row per changed
+  // (method, factor) pair. Ordered most-recent-first.
+  getWeightsHistory: (params: {
+    limit?: number;
+    offset?: number;
+    collection_method?: CollectionMethod;
+    factor_name?: string;
+  } = {}) => {
+    const search = new URLSearchParams();
+    if (params.limit !== undefined) search.set("limit", String(params.limit));
+    if (params.offset !== undefined) search.set("offset", String(params.offset));
+    if (params.collection_method) search.set("collection_method", params.collection_method);
+    if (params.factor_name) search.set("factor_name", params.factor_name);
+    const qs = search.toString();
+    return api.get<WeightChangeLogResponse>(
+      `/v1/config/weights/history${qs ? `?${qs}` : ""}`,
+    );
+  },
 
   // API Keys
   getApiKeys: () => api.get<ApiKeyListResponse>("/v1/config/api-keys"),
