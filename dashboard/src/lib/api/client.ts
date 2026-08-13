@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from "./types";
+import type { ApiErrorBody, FastApiValidationError } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 const TOKEN_KEY = "paypredict_token";
@@ -29,6 +29,30 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/**
+ * Turn FastAPI's `detail` into a human-readable string.
+ *
+ * Plain `HTTPException` sends `detail: "some message"` — pass through.
+ * Pydantic validation (422) sends `detail: [{loc, msg, ...}, ...]` —
+ * flatten each item to `field.path: msg` and join. Without this the
+ * default `String()` cast surfaces `[object Object]` in the toast.
+ */
+function formatDetail(
+  detail: string | FastApiValidationError[] | undefined,
+): string | undefined {
+  if (!detail) return undefined;
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return undefined;
+  return detail
+    .map((err) => {
+      // Drop the leading `body` / `query` / `path` segment; the rest is
+      // the field path the caller actually cares about.
+      const path = err.loc.slice(1).join(".") || err.loc.join(".");
+      return path ? `${path}: ${err.msg}` : err.msg;
+    })
+    .join("; ");
 }
 
 // ---- Request ----
@@ -66,7 +90,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!res.ok) {
     const body: ApiErrorBody = await res.json().catch(() => ({}));
     const code = body?.error?.code || "UNKNOWN";
-    const message = body?.error?.message || body?.detail || res.statusText;
+    const message =
+      body?.error?.message || formatDetail(body?.detail) || res.statusText;
     throw new ApiError(res.status, code, message);
   }
 

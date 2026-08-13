@@ -480,13 +480,26 @@ export interface Tenant {
 
 // ==================== Errors ====================
 
+/** FastAPI validation-error item (from `HTTPException(422)` / Pydantic). */
+export interface FastApiValidationError {
+  type: string;
+  loc: (string | number)[];
+  msg: string;
+  input?: unknown;
+  ctx?: Record<string, unknown>;
+}
+
 export interface ApiErrorBody {
   error?: {
     code: string;
     message: string;
     details?: Record<string, unknown>;
   };
-  detail?: string;
+  /**
+   * FastAPI's standard error payload. A plain HTTPException sends a
+   * string; Pydantic validation (422) sends a list of error items.
+   */
+  detail?: string | FastApiValidationError[];
 }
 
 // ==================== Backtest ====================
