@@ -237,6 +237,7 @@ async def _seed_journey_customer(
     rng: random.Random,
     now: datetime,
     per_instalment_override: dict[int, dict] | None = None,
+    active: bool = True,
 ) -> None:
     """Emit `loan_size` scored collections + outcomes for one customer,
     forming a coherent loan journey.
@@ -253,8 +254,20 @@ async def _seed_journey_customer(
     "government worker whose deduction breached the 40% cap")
     inject scenario-specific customer_data on the target instalment
     without disturbing the default template.
+
+    `active` (default True) makes the loan surface on the dashboard's
+    "upcoming" view: the last instalment's outcome is forced to
+    pending (regardless of `pattern`) and its `due_date` lands in
+    the near future so the row appears in the default 30-day window.
+    Prior instalments follow the pattern as usual. Set `active=False`
+    only for pure historical loans (populate Outcomes + Analytics
+    but never surface on the dashboard).
     """
     outcomes_plan = _pattern_outcomes(pattern, loan_size, rng)
+    if active:
+        # Force the last instalment pending so a demo user can find
+        # this customer via the dashboard and click into their journey.
+        outcomes_plan[-1] = None
     days_between = 30
 
     last_success_date: date | None = None
@@ -262,10 +275,21 @@ async def _seed_journey_customer(
     resubs_so_far = 0
 
     for k in range(1, loan_size + 1):
-        scored_at = now - timedelta(
-            days=(loan_size - k + 1) * days_between + rng.randint(-3, 3)
-        )
-        due_date = (scored_at + timedelta(days=rng.randint(3, 7))).date()
+        if active and k == loan_size:
+            # Anchor the last instalment near-future so it lands in
+            # the dashboard's default upcoming window.
+            scored_at = now - timedelta(days=rng.randint(1, 5))
+            due_date = (now + timedelta(days=rng.randint(3, 20))).date()
+        else:
+            # Historical spread. For active loans, instalment N-1 is
+            # ~1 month ago, N-2 ~2 months ago, etc. For historical
+            # loans, instalment N is ~1 month ago.
+            months_ago = (loan_size - k) if active else (loan_size - k + 1)
+            months_ago = max(1, months_ago)
+            scored_at = now - timedelta(
+                days=months_ago * days_between + rng.randint(-3, 3)
+            )
+            due_date = (scored_at + timedelta(days=rng.randint(3, 7))).date()
 
         customer_data = customer_template_fn(rng, **template_kwargs)
 
