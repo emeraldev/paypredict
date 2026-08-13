@@ -124,6 +124,41 @@ decisions.
 - Per-item bulk rate-limit weighting — defer until evidence of abuse (Stage 3+)
 - ML model training — needs >6 months of labelled data (Stage 4)
 
+### Compliance backlog (survey outputs, not yet scheduled)
+
+Findings from the mid-session compliance survey. Weight-change and
+generic activity audit trails shipped as PRs #51 + #53 (linked from
+item #12 above). The rest of the survey is captured here so nothing
+gets forgotten — each item needs its own PR before we onboard a
+serious bank customer.
+
+- **PII enforcement** — `CustomerData` schema uses Pydantic's default
+  `extra="ignore"` (silently drops unknown keys), and `customer_id` /
+  `collection_id` have no pattern check. A lender who accidentally
+  sends a phone number in either field lands it in `score_requests`
+  forever. Fix: reject known-PII-shaped values at the schema layer;
+  document the boundary in the OpenAPI description.
+- **Auth hardening** — password minimum is 6 chars (no complexity /
+  MFA / lockout); JWT is 24h with client-side-only logout; no
+  password-change or forgot-password flow. Below any SA/Zambian
+  bank's minimum. Fix: password policy, change + reset endpoints,
+  failed-login lockout on `/auth/login`, server-side JWT revocation.
+- **Data retention + tenant purge** — nothing deletes anything; no
+  auto-purge, no TTL, no offboarding path. POPIA §14 + DPA 2021 §24
+  exposure and a blocker for tenant offboarding. Fix: per-tenant
+  retention window + scheduled purge + admin-callable
+  offboarding-purge endpoint.
+- **Adverse-action surface (SA NCA §62)** — `ScoreResponse.factors`
+  already contains per-factor drivers, but no dedicated "top-N
+  reasons this score is high" endpoint that a lender could hand to
+  a declined borrower.
+- **Score reads audit** — no data-access log for score views.
+  Nice-to-have for pilot; expected by bank-tier customers.
+- **Row-level security in Postgres** — CLAUDE.md claims RLS but zero
+  `CREATE POLICY` statements exist. Isolation is 100% application-
+  layer `WHERE tenant_id = ...`. Consistent today but any missed
+  WHERE in a future service is a cross-tenant leak with no DB backstop.
+
 **Total Stage 2 effort: ~1-2 weeks of focused work.**
 
 ---

@@ -19,6 +19,7 @@ from app.models.score_result import RiskLevel, ScoreResult
 from app.schemas.score import FactorBreakdown
 from app.schemas.scores_list import (
     CustomerContext,
+    CustomerJourneyEntry,
     OutcomeSummary,
     ScoreDetailResponse,
     ScoreListItem,
@@ -237,13 +238,35 @@ async def get_score_detail(
     )
     outcome_row = outcome_result.scalar_one_or_none()
 
-    return _build_detail(req, res, outcome_row)
+    # Load prior scoring history for the same (tenant, customer_id).
+    # Tenant-scoped so a colliding external_customer_id in a different
+    # tenant can never surface here. Chronological, capped at 50 for
+    # response-size safety. Includes THIS score — the drawer flags it
+    # `is_current=True` for the "you are here" highlight.
+    journey_rows = (await db.execute(
+        select(ScoreRequest, ScoreResult, Outcome)
+        .join(ScoreResult, ScoreResult.score_request_id == ScoreRequest.id)
+        .outerjoin(
+            Outcome,
+            (Outcome.score_result_id == ScoreResult.id)
+            & (Outcome.deleted_at.is_(None)),
+        )
+        .where(
+            ScoreRequest.tenant_id == tenant_id,
+            ScoreRequest.external_customer_id == req.external_customer_id,
+        )
+        .order_by(ScoreResult.created_at.asc())
+        .limit(50)
+    )).all()
+
+    return _build_detail(req, res, outcome_row, journey_rows)
 
 
 def _build_detail(
     req: ScoreRequest,
     res: ScoreResult,
     outcome: Outcome | None,
+    journey_rows: list | None = None,
 ) -> ScoreDetailResponse:
     payload = req.request_payload or {}
     customer_raw = payload.get("customer_data", {})
@@ -295,6 +318,31 @@ def _build_detail(
             attempted_at=outcome.attempted_at,
         )
 
+    # Customer journey — prior + current scoring events for this
+    # customer, chronological. Each row: score summary + linked
+    # outcome (if reported), current row flagged.
+    journey: list[CustomerJourneyEntry] = []
+    for j_req, j_res, j_outcome in journey_rows or []:
+        j_payload = j_req.request_payload or {}
+        j_customer = j_payload.get("customer_data", {})
+        journey.append(
+            CustomerJourneyEntry(
+                score_id=j_res.id,
+                scored_at=j_res.created_at,
+                collection_amount=j_req.collection_amount,
+                collection_currency=j_req.collection_currency.value,
+                collection_method=j_req.collection_method.value,
+                collection_due_date=j_req.collection_due_date,
+                instalment_number=j_customer.get("instalment_number"),
+                total_instalments=j_customer.get("total_instalments"),
+                score=j_res.score,
+                risk_level=j_res.risk_level.value,
+                outcome=j_outcome.outcome.value if j_outcome else None,
+                outcome_reported_at=j_outcome.reported_at if j_outcome else None,
+                is_current=(j_res.id == res.id),
+            )
+        )
+
     return ScoreDetailResponse(
         score_id=res.id,
         customer_id=req.external_customer_id,
@@ -318,4 +366,5 @@ def _build_detail(
         scoring_duration_ms=res.scoring_duration_ms,
         customer_context=customer_context,
         outcome=outcome_summary,
+        customer_journey=journey,
     )

@@ -181,6 +181,26 @@ export interface OutcomeSummaryInDetail {
   attempted_at: string | null;
 }
 
+// Chronological loan timeline for the drawer. Each entry represents
+// one scored collection for the same customer; `is_current` marks
+// the entry the drawer is currently showing so the timeline can
+// render "you are here" against the wider journey.
+export interface CustomerJourneyEntry {
+  score_id: string;
+  scored_at: string;
+  collection_amount: number;
+  collection_currency: Currency;
+  collection_method: CollectionMethod;
+  collection_due_date: string;
+  instalment_number: number | null;
+  total_instalments: number | null;
+  score: number;
+  risk_level: RiskLevel;
+  outcome: string | null;
+  outcome_reported_at: string | null;
+  is_current: boolean;
+}
+
 export interface ScoreDetailResponse {
   score_id: string;
   customer_id: string;
@@ -204,6 +224,7 @@ export interface ScoreDetailResponse {
   scoring_duration_ms: number;
   customer_context: CustomerContext;
   outcome: OutcomeSummaryInDetail | null;
+  customer_journey: CustomerJourneyEntry[];
 }
 
 // ==================== Outcomes ====================

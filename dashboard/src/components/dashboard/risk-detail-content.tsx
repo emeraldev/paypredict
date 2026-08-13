@@ -6,6 +6,7 @@ import { FactorBreakdown } from "@/components/shared/factor-breakdown";
 import { HelpPopover } from "@/components/shared/help-popover";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
+import { CustomerJourneySection } from "./customer-journey-section";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { outcomesApi } from "@/lib/api/outcomes";
@@ -171,6 +172,11 @@ export function RiskDetailContent({
       </div>
 
       <Separator />
+
+      {/* Customer journey — chronological loan timeline. Renders
+          nothing for singleton customers. */}
+      <CustomerJourneySection entries={detail.customer_journey ?? []} />
+      {(detail.customer_journey?.length ?? 0) > 1 && <Separator />}
 
       {/* Customer context */}
       <div className="space-y-3">
