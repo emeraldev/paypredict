@@ -204,3 +204,120 @@ async def test_score_via_dashboard_jwt(async_client, sa_admin_user):
     assert 0.0 <= data["score"] <= 1.0
     # JWT callers must not be rate-limited (no headers consumed).
     assert "x-ratelimit-limit" not in {k.lower() for k in response.headers}
+
+
+# ---- PII enforcement at the API boundary --------------------------------
+
+
+def _valid_body(**overrides) -> dict:
+    """Minimal-but-valid POST /v1/score body. Tests override individual
+    fields to exercise rejection paths."""
+    body = {
+        "customer_id": "cust_valid_001",
+        "collection_id": "col_valid_001",
+        "collection_amount": 1500.00,
+        "collection_currency": "ZAR",
+        "collection_due_date": "2026-04-15",
+        "collection_method": "CARD",
+    }
+    body.update(overrides)
+    return body
+
+
+@pytest.mark.asyncio
+async def test_customer_data_rejects_extra_fields(async_client, sa_tenant):
+    """A lender that sends a `phone` field inside customer_data — thinking
+    it'll help the model — must get a 422 pointing at the offending key,
+    not a 200 with the field silently dropped."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(customer_data={"total_payments": 5, "phone": "+27..."}),
+    )
+    assert response.status_code == 422
+    body = response.json()
+    # Pydantic reports the extra field name; assert it's flagged.
+    detail_str = str(body["detail"]).lower()
+    assert "phone" in detail_str
+    assert "extra" in detail_str or "forbidden" in detail_str
+
+
+@pytest.mark.asyncio
+async def test_score_request_rejects_extra_fields(async_client, sa_tenant):
+    """Same rule at the top-level payload — `borrower_name` alongside
+    customer_data is rejected."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(borrower_name="Jane Doe"),
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_id", [
+    "john@example.com",              # email
+    "John Doe",                      # whitespace
+    "+27 82 555 1234",               # formatted phone
+    "(082) 555-1234",                # parens
+    "cust,001",                      # comma
+    "a" * 129,                       # over length cap
+    "",                              # empty
+])
+async def test_customer_id_rejects_pii_shapes(async_client, sa_tenant, bad_id):
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(customer_id=bad_id),
+    )
+    assert response.status_code == 422, f"expected 422 for {bad_id!r}"
+    # Error mentions customer_id specifically.
+    assert "customer_id" in str(response.json()["detail"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("good_id", [
+    "550e8400-e29b-41d4-a716-446655440000",  # UUID
+    "cust_sa_001",                            # underscored prefix
+    "EMP_ROSE_001",                           # SCREAMING prefix
+    "500000123",                              # purely numeric internal id
+    "col:2026:08:13",                         # colon-separated
+    "cust.sa.001",                            # dot-separated
+    "abc-123",                                # hyphen
+])
+async def test_customer_id_accepts_opaque_shapes(async_client, sa_tenant, good_id):
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(customer_id=good_id),
+    )
+    assert response.status_code == 200, f"expected 200 for {good_id!r}"
+
+
+@pytest.mark.asyncio
+async def test_collection_id_shares_rules(async_client, sa_tenant):
+    """collection_id follows the same shape as customer_id."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(collection_id="john@example.com"),
+    )
+    assert response.status_code == 422
+    assert "collection_id" in str(response.json()["detail"])
+
+
+@pytest.mark.asyncio
+async def test_customer_data_string_field_max_length(async_client, sa_tenant):
+    """Free-form string fields on customer_data carry length limits to
+    prevent names / addresses / paragraphs of notes slipping in."""
+    response = await async_client.post(
+        "/v1/score",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json=_valid_body(customer_data={
+            "total_payments": 5,
+            # 100-char blob far exceeds the 32-char cap on card_type
+            "card_type": "credit — this is a really long description with the customer's " * 3,
+        }),
+    )
+    assert response.status_code == 422
+    assert "card_type" in str(response.json()["detail"])
