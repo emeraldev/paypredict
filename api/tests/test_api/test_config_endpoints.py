@@ -850,9 +850,17 @@ async def test_alerts_config_update_writes_field_diff(async_client, sa_admin_use
     hist = (await async_client.get(
         "/v1/config/activity?entity_type=alert_config", headers=_auth(token)
     )).json()
-    entry = hist["items"][0]  # most recent
-    assert entry["before"] == {"slack_webhook_url": "https://hooks.slack.com/services/OLD"}
-    assert entry["after"] == {"slack_webhook_url": "https://hooks.slack.com/services/NEW"}
+    # Two PUTs happen in the same second under CI; the tie-break falls
+    # back to UUID ordering which isn't monotonic. Filter by the actual
+    # after-value rather than relying on `items[0]` being the newer one.
+    NEW = "https://hooks.slack.com/services/NEW"
+    OLD = "https://hooks.slack.com/services/OLD"
+    entry = next(
+        e for e in hist["items"]
+        if (e["after"] or {}).get("slack_webhook_url") == NEW
+    )
+    assert entry["before"] == {"slack_webhook_url": OLD}
+    assert entry["after"] == {"slack_webhook_url": NEW}
     # No unchanged fields leak into the diff.
     assert "high_risk_threshold" not in entry["before"]
 
