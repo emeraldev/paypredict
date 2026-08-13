@@ -641,6 +641,78 @@ async def seed(reseed: bool = False) -> None:
             )[0]
             return pattern, size
 
+        # ---- SA named personas (card + debit order) ----
+        # Same treatment as Rosemary's payroll trio: three scripted
+        # customers whose journeys mirror the archetype scenarios a
+        # BNPL / EFT lender will recognise on first look.
+
+        # CUST_THABO_001 — repeat BNPL customer, always paid on time.
+        # The best-customer archetype for a card lender: 6 clean
+        # instalments, scores stay LOW as the track record builds.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.CARD,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_THABO_001",
+            loan_size=6,
+            pattern="all_success",
+            base_amount=1500.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+        )
+
+        # CUST_LERATO_002 — card expiring mid-loan. First 3 instalments
+        # clean; instalment 4 pending with the card ~10 days from
+        # expiry, so `card_health` fires HIGH → recommended_action
+        # flips to flag_for_review. The "we would have caught it"
+        # equivalent for card lenders.
+        near_expiry_date = (now + timedelta(days=10)).date().isoformat()
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.CARD,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_LERATO_002",
+            loan_size=4,
+            pattern="in_progress",  # first 2 succeed, later ones pending
+            base_amount=850.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Instalment 4: card expires in 10 days.
+                4: {"card_expiry_date": near_expiry_date},
+            },
+        )
+
+        # CUST_ANDILE_003 — debit-order customer, early default. Shows
+        # the `debit_order_return_history` factor fired against a real
+        # journey (previous instalment failed with insufficient_funds).
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.DEBIT_ORDER,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_ANDILE_003",
+            loan_size=4,
+            pattern="early_default",  # 1st fails, rest mixed
+            base_amount=2400.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "high"},
+            rng=rng,
+            now=now,
+        )
+
         # ---- SA journey customers (20 × ~6 instalments ≈ 120 rows) ----
         for j in range(20):
             pattern, loan_size = _pick_journey_shape(rng)
@@ -757,6 +829,85 @@ async def seed(reseed: bool = False) -> None:
             db.add(req)
             db.add(res)
             all_scores.append((res, req))
+
+        # ---- ZM MoMo named personas ----
+        # Same shape as SA / Payroll named trios: three archetype
+        # customers a mobile-money lender will recognise instantly.
+
+        # CUST_MWAKA_001 — reliable Friday-salary wallet user. Regular
+        # inflows, healthy balance, 6 clean instalments. Best-customer
+        # archetype for MoMo lenders.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_MWAKA_001",
+            loan_size=6,
+            pattern="all_success",
+            base_amount=400.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+        )
+
+        # CUST_CHOMBA_002 — wallet balance deteriorating over time.
+        # 6 instalments; on instalments 5+6 wallet_balance_current
+        # drops well below the 7-day average, so wallet_balance_trend
+        # fires. First 4 succeed, then default.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_CHOMBA_002",
+            loan_size=6,
+            pattern="late_default",
+            base_amount=650.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "medium"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Balance collapsed by instalment 6 — wallet_balance_trend
+                # should read this as a deteriorating customer.
+                5: {"wallet_balance_current": 80.0, "wallet_balance_7d_avg": 400.0},
+                6: {"wallet_balance_current": 40.0, "wallet_balance_7d_avg": 300.0},
+            },
+        )
+
+        # CUST_KABWE_003 — loan stacking. High active_loan_count +
+        # loans_taken_last_90d, so loan_cycling_behaviour and
+        # concurrent_loan_count both fire. 4 instalments, mid_default.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_KABWE_003",
+            loan_size=4,
+            pattern="mid_default",
+            base_amount=350.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "high"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Force cycling signals — high active loans + recent
+                # new borrowing throughout the loan.
+                1: {"active_loan_count": 4, "loans_taken_last_90d": 3},
+                2: {"active_loan_count": 4, "loans_taken_last_90d": 3},
+                3: {"active_loan_count": 5, "loans_taken_last_90d": 4},
+                4: {"active_loan_count": 5, "loans_taken_last_90d": 4},
+            },
+        )
 
         # ---- ZM MoMo journey customers (10 × ~5 instalments ≈ 50 rows) ----
         for j in range(10):
@@ -1342,25 +1493,31 @@ async def seed(reseed: bool = False) -> None:
         print(f"  Notifs:   5 (3 unread, 2 read)")
         print(f"  Backtest: 1 completed run (50 items)")
         print()
-        print("=== SA Tenant ===")
+        print("=== SA Tenant (BNPL, CARD + DEBIT_ORDER) ===")
         print(f"  Tenant ID: {sa_tenant.id}")
         print(f"  API Key:   {sa_raw}")
-        print(f"  Scores:    ~142 (CARD + DEBIT_ORDER; 20 journey customers × ~6 instalments + 30 singletons)")
+        print(f"  Scores:    ~150 total. Named personas for demo:")
+        print(f"             CUST_THABO_001  — repeat card customer, 6 instalments, all clean")
+        print(f"             CUST_LERATO_002 — card expires mid-loan (card_health fires HIGH)")
+        print(f"             CUST_ANDILE_003 — debit-order early default, 4 instalments")
         print()
-        print("=== ZM Tenant ===")
+        print("=== ZM Tenant (MOBILE_MONEY) ===")
         print(f"  Tenant ID: {zm_tenant.id}")
         print(f"  API Key:   {zm_raw}")
-        print(f"  Scores:    ~86 (MOBILE_MONEY; 10 journey customers × ~5 instalments + 30 singletons)")
+        print(f"  Scores:    ~89 total. Named personas for demo:")
+        print(f"             CUST_MWAKA_001  — reliable Friday-salary wallet user, 6 clean")
+        print(f"             CUST_CHOMBA_002 — wallet balance deteriorates, late default")
+        print(f"             CUST_KABWE_003  — loan stacking, 4 instalments, mid default")
         print()
         print("=== Fresh Lender (Demo) ===")
         print(f"  Tenant ID: {fresh_tenant.id}")
         print(f"  API Key:   {fresh_raw}")
         print(f"  Scores:    0 — empty tenant, exercises every first-time empty state")
         print()
-        print("=== Demo Payroll ZM (Lumo-style) ===")
+        print("=== Demo Payroll ZM (Lumo-style, PAYROLL) ===")
         print(f"  Tenant ID: {payroll_tenant.id}")
         print(f"  API Key:   {payroll_raw}")
-        print(f"  Scores:    ~58 (PAYROLL). Named personas from Rosemary's call:")
+        print(f"  Scores:    ~58 total. Named personas from Rosemary's call:")
         print(f"             EMP_ROSE_001  — gov worker, 3 instalments, 3rd breaches 40% cap")
         print(f"             EMP_JOHN_002  — repeat borrower, 12 instalments, all clean")
         print(f"             EMP_MOSES_003 — miner, 6 instalments, paid twice then default")
