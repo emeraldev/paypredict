@@ -188,6 +188,240 @@ FAILURE_REASONS = [
 ]
 
 
+# ---- Loan-journey generator ----
+
+def _pattern_outcomes(pattern: str, n: int, rng: random.Random) -> list[str | None]:
+    """Emit outcome states per instalment for one of the demo loan patterns.
+
+    None = "no outcome reported yet" (the row still gets a score but no
+    Outcome). Matches the real-world state where later instalments in
+    an active loan haven't been attempted yet.
+    """
+    if pattern == "all_success":
+        return ["SUCCESS"] * n
+    if pattern == "late_default":
+        # Perfect record until the last instalment defaults — the
+        # "everything looked fine and then it didn't" pattern.
+        return ["SUCCESS"] * (n - 1) + ["FAILED"]
+    if pattern == "mid_default":
+        # 2 SUCCESS then a run of FAILED — the "paid twice then went
+        # silent" persona.
+        k = min(2, max(1, n - 1))
+        return ["SUCCESS"] * k + ["FAILED"] * (n - k)
+    if pattern == "early_default":
+        # First attempt fails; subsequent ones mixed (partial recovery).
+        rest = rng.choices(["SUCCESS", "FAILED"], weights=[0.4, 0.6], k=n - 1)
+        return ["FAILED"] + rest
+    if pattern == "in_progress":
+        # First half reported, later ones still pending. Simulates a
+        # loan that's mid-way through when the demo is being shown.
+        k = (n + 1) // 2
+        return ["SUCCESS"] * k + [None] * (n - k)
+    return [None] * n
+
+
+async def _seed_journey_customer(
+    *,
+    db,
+    engine: ScoringEngine,
+    tenant: Tenant,
+    method: CollectionMethod,
+    factor_set: str,
+    currency: CollectionCurrency,
+    customer_id: str,
+    loan_size: int,
+    pattern: str,
+    base_amount: float,
+    customer_template_fn,
+    template_kwargs: dict,
+    rng: random.Random,
+    now: datetime,
+    per_instalment_override: dict[int, dict] | None = None,
+    active: bool = True,
+) -> None:
+    """Emit `loan_size` scored collections + outcomes for one customer,
+    forming a coherent loan journey.
+
+    Each instalment carries history derived from earlier ones
+    (`total_payments`, `successful_payments`,
+    `last_successful_payment_date`, `resubmission_count`) — so
+    history-aware factors see a real record and scores evolve as
+    the customer's track record builds up. Emits its own outcomes
+    per `pattern`; do NOT feed these into the generic ~80% outcome
+    loop that runs over singleton customers.
+
+    `per_instalment_override` lets named personas (e.g. Lumo's
+    "government worker whose deduction breached the 40% cap")
+    inject scenario-specific customer_data on the target instalment
+    without disturbing the default template.
+
+    `active` (default True) makes the loan surface on the dashboard's
+    "upcoming" view: the last instalment's outcome is forced to
+    pending (regardless of `pattern`) and its `due_date` lands in
+    the near future so the row appears in the default 30-day window.
+    Prior instalments follow the pattern as usual. Set `active=False`
+    only for pure historical loans (populate Outcomes + Analytics
+    but never surface on the dashboard).
+    """
+    outcomes_plan = _pattern_outcomes(pattern, loan_size, rng)
+    if active:
+        # Force the last instalment pending so a demo user can find
+        # this customer via the dashboard and click into their journey.
+        outcomes_plan[-1] = None
+    days_between = 30
+
+    last_success_date: date | None = None
+    successful_so_far = 0
+    resubs_so_far = 0
+
+    for k in range(1, loan_size + 1):
+        if active and k == loan_size:
+            # Anchor the last instalment near-future so it lands in
+            # the dashboard's default upcoming window.
+            scored_at = now - timedelta(days=rng.randint(1, 5))
+            due_date = (now + timedelta(days=rng.randint(3, 20))).date()
+        else:
+            # Historical spread. For active loans, instalment N-1 is
+            # ~1 month ago, N-2 ~2 months ago, etc. For historical
+            # loans, instalment N is ~1 month ago.
+            months_ago = (loan_size - k) if active else (loan_size - k + 1)
+            months_ago = max(1, months_ago)
+            scored_at = now - timedelta(
+                days=months_ago * days_between + rng.randint(-3, 3)
+            )
+            due_date = (scored_at + timedelta(days=rng.randint(3, 7))).date()
+
+        customer_data = customer_template_fn(rng, **template_kwargs)
+
+        # Overlay history derived from prior instalments' outcomes.
+        customer_data["total_payments"] = k - 1
+        customer_data["successful_payments"] = successful_so_far
+        customer_data["resubmission_count"] = resubs_so_far
+        customer_data["instalment_number"] = k
+        customer_data["total_instalments"] = loan_size
+        if last_success_date is not None:
+            customer_data["last_successful_payment_date"] = last_success_date.isoformat()
+
+        # Per-instalment override wins over history + template.
+        if per_instalment_override and k in per_instalment_override:
+            customer_data.update(per_instalment_override[k])
+
+        collection_data = {
+            "collection_amount": base_amount,
+            "collection_due_date": due_date,
+            "collection_method": method.value,
+            "collection_currency": currency.value,
+        }
+
+        scoring_result = engine.score(
+            factor_set=factor_set,
+            customer_data=customer_data,
+            collection_data=collection_data,
+            collection_method=method,
+        )
+        timing = optimise_collection_date(
+            engine,
+            customer_data=customer_data,
+            collection_data=collection_data,
+            collection_method=method,
+            original_score=scoring_result.score,
+            today=due_date,
+        )
+        rec_action = (
+            "shift_date" if timing.should_shift else scoring_result.recommended_action
+        )
+
+        payload = {
+            "customer_data": customer_data,
+            "collection_amount": base_amount,
+            "collection_due_date": due_date.isoformat(),
+            "collection_method": method.value,
+            "collection_currency": currency.value,
+        }
+
+        req = ScoreRequest(
+            id=uuid.uuid4(),
+            tenant_id=tenant.id,
+            external_customer_id=customer_id,
+            external_collection_id=f"{customer_id}_inst_{k:02d}",
+            collection_amount=Decimal(str(base_amount)),
+            collection_currency=currency,
+            collection_due_date=due_date,
+            collection_method=method,
+            request_payload=payload,
+            created_at=scored_at,
+        )
+        res = ScoreResult(
+            id=uuid.uuid4(),
+            score_request_id=req.id,
+            tenant_id=tenant.id,
+            score=scoring_result.score,
+            risk_level=RiskLevel(scoring_result.risk_level),
+            factors={
+                "evaluated": [
+                    {
+                        "factor_name": f.factor_name,
+                        "raw_score": f.raw_score,
+                        "weight": f.weight,
+                        "weighted_score": f.weighted_score,
+                        "explanation": f.explanation,
+                    }
+                    for f in scoring_result.factors
+                ],
+                "skipped": scoring_result.skipped_factors,
+            },
+            recommended_action=rec_action,
+            recommended_collection_date=timing.recommended_date,
+            recommended_score=timing.recommended_score,
+            score_improvement=(
+                timing.score_improvement if timing.should_shift else None
+            ),
+            model_version=scoring_result.model_version,
+            scoring_duration_ms=scoring_result.scoring_duration_ms,
+            weights_snapshot=scoring_result.weights_snapshot,
+            created_at=scored_at,
+        )
+        db.add(req)
+        db.add(res)
+
+        # Outcome for this instalment (None = still to be attempted).
+        outcome_kind = outcomes_plan[k - 1]
+        if outcome_kind is not None:
+            attempted_dt = datetime(
+                due_date.year, due_date.month, due_date.day, 8, 0, tzinfo=timezone.utc
+            )
+            if outcome_kind == "SUCCESS":
+                successful_so_far += 1
+                last_success_date = due_date
+                db.add(Outcome(
+                    id=uuid.uuid4(),
+                    score_result_id=res.id,
+                    tenant_id=tenant.id,
+                    external_collection_id=req.external_collection_id,
+                    outcome=OutcomeStatus.SUCCESS,
+                    failure_reason=None,
+                    failure_category=None,
+                    amount_collected=req.collection_amount,
+                    attempted_at=attempted_dt,
+                    reported_at=attempted_dt + timedelta(hours=rng.randint(1, 24)),
+                ))
+            else:
+                resubs_so_far += 1
+                reason, category = rng.choice(FAILURE_REASONS)
+                db.add(Outcome(
+                    id=uuid.uuid4(),
+                    score_result_id=res.id,
+                    tenant_id=tenant.id,
+                    external_collection_id=req.external_collection_id,
+                    outcome=OutcomeStatus.FAILED,
+                    failure_reason=reason,
+                    failure_category=category,
+                    amount_collected=None,
+                    attempted_at=attempted_dt,
+                    reported_at=attempted_dt + timedelta(hours=rng.randint(1, 24)),
+                ))
+
+
 async def _wipe(db) -> None:
     """Truncate all seed-owned tables. CASCADE follows the tenant FK chain
     through scores, outcomes, alerts, backtests, notifications, etc."""
@@ -414,8 +648,121 @@ async def seed(reseed: bool = False) -> None:
 
         all_scores: list[tuple[ScoreResult, ScoreRequest]] = []
 
-        # SA: 150 scores
-        for i in range(150):
+        # Generic journey shapes — (pattern, loan_size, weight). Repeated
+        # weight controls how often each shape shows up in a demo tenant.
+        JOURNEY_SHAPES = [
+            ("all_success", 6, 30),
+            ("in_progress", 6, 25),
+            ("late_default", 6, 15),
+            ("mid_default", 4, 15),
+            ("early_default", 4, 10),
+            ("all_success", 12, 5),
+        ]
+
+        def _pick_journey_shape(rng: random.Random) -> tuple[str, int]:
+            pattern, size, _ = rng.choices(
+                JOURNEY_SHAPES, weights=[w for _, _, w in JOURNEY_SHAPES], k=1
+            )[0]
+            return pattern, size
+
+        # ---- SA named personas (card + debit order) ----
+        # Same treatment as Rosemary's payroll trio: three scripted
+        # customers whose journeys mirror the archetype scenarios a
+        # BNPL / EFT lender will recognise on first look.
+
+        # CUST_THABO_001 — repeat BNPL customer, always paid on time.
+        # The best-customer archetype for a card lender: 6 clean
+        # instalments, scores stay LOW as the track record builds.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.CARD,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_THABO_001",
+            loan_size=6,
+            pattern="all_success",
+            base_amount=1500.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+        )
+
+        # CUST_LERATO_002 — card expiring mid-loan. First 3 instalments
+        # clean; instalment 4 pending with the card ~10 days from
+        # expiry, so `card_health` fires HIGH → recommended_action
+        # flips to flag_for_review. The "we would have caught it"
+        # equivalent for card lenders.
+        near_expiry_date = (now + timedelta(days=10)).date().isoformat()
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.CARD,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_LERATO_002",
+            loan_size=4,
+            pattern="in_progress",  # first 2 succeed, later ones pending
+            base_amount=850.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Instalment 4: card expires in 10 days.
+                4: {"card_expiry_date": near_expiry_date},
+            },
+        )
+
+        # CUST_ANDILE_003 — debit-order customer, early default. Shows
+        # the `debit_order_return_history` factor fired against a real
+        # journey (previous instalment failed with insufficient_funds).
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=sa_tenant,
+            method=CollectionMethod.DEBIT_ORDER,
+            factor_set="CARD_DEBIT",
+            currency=CollectionCurrency.ZAR,
+            customer_id="CUST_ANDILE_003",
+            loan_size=4,
+            pattern="early_default",  # 1st fails, rest mixed
+            base_amount=2400.0,
+            customer_template_fn=_sa_customer,
+            template_kwargs={"risk_bias": "high"},
+            rng=rng,
+            now=now,
+        )
+
+        # ---- SA journey customers (20 × ~6 instalments ≈ 120 rows) ----
+        for j in range(20):
+            pattern, loan_size = _pick_journey_shape(rng)
+            method = rng.choice(sa_methods)
+            # Bias picked once per loan so the customer has a consistent
+            # profile across their journey.
+            bias = "low" if pattern == "all_success" else rng.choice(["medium", "low"])
+            await _seed_journey_customer(
+                db=db,
+                engine=engine,
+                tenant=sa_tenant,
+                method=method,
+                factor_set="CARD_DEBIT",
+                currency=CollectionCurrency.ZAR,
+                customer_id=f"cust_sa_j_{j + 1:03d}",
+                loan_size=loan_size,
+                pattern=pattern,
+                base_amount=round(rng.uniform(500, 4000), 2),
+                customer_template_fn=_sa_customer,
+                template_kwargs={"risk_bias": bias},
+                rng=rng,
+                now=now,
+            )
+
+        # SA singletons: 30 (was 150 pre-journey)
+        for i in range(30):
             bias = rng.choice(risk_biases)
             method = rng.choice(sa_methods)
             customer_data = _sa_customer(rng, bias)
@@ -500,14 +847,115 @@ async def seed(reseed: bool = False) -> None:
                 ),
                 model_version=scoring_result.model_version,
                 scoring_duration_ms=scoring_result.scoring_duration_ms,
+                weights_snapshot=scoring_result.weights_snapshot,
                 created_at=scored_at,
             )
             db.add(req)
             db.add(res)
             all_scores.append((res, req))
 
-        # ZM: 80 scores
-        for i in range(80):
+        # ---- ZM MoMo named personas ----
+        # Same shape as SA / Payroll named trios: three archetype
+        # customers a mobile-money lender will recognise instantly.
+
+        # CUST_MWAKA_001 — reliable Friday-salary wallet user. Regular
+        # inflows, healthy balance, 6 clean instalments. Best-customer
+        # archetype for MoMo lenders.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_MWAKA_001",
+            loan_size=6,
+            pattern="all_success",
+            base_amount=400.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "low"},
+            rng=rng,
+            now=now,
+        )
+
+        # CUST_CHOMBA_002 — wallet balance deteriorating over time.
+        # 6 instalments; on instalments 5+6 wallet_balance_current
+        # drops well below the 7-day average, so wallet_balance_trend
+        # fires. First 4 succeed, then default.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_CHOMBA_002",
+            loan_size=6,
+            pattern="late_default",
+            base_amount=650.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "medium"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Balance collapsed by instalment 6 — wallet_balance_trend
+                # should read this as a deteriorating customer.
+                5: {"wallet_balance_current": 80.0, "wallet_balance_7d_avg": 400.0},
+                6: {"wallet_balance_current": 40.0, "wallet_balance_7d_avg": 300.0},
+            },
+        )
+
+        # CUST_KABWE_003 — loan stacking. High active_loan_count +
+        # loans_taken_last_90d, so loan_cycling_behaviour and
+        # concurrent_loan_count both fire. 4 instalments, mid_default.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=zm_tenant,
+            method=CollectionMethod.MOBILE_MONEY,
+            factor_set="MOBILE_WALLET",
+            currency=CollectionCurrency.ZMW,
+            customer_id="CUST_KABWE_003",
+            loan_size=4,
+            pattern="mid_default",
+            base_amount=350.0,
+            customer_template_fn=_zm_customer,
+            template_kwargs={"risk_bias": "high"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Force cycling signals — high active loans + recent
+                # new borrowing throughout the loan.
+                1: {"active_loan_count": 4, "loans_taken_last_90d": 3},
+                2: {"active_loan_count": 4, "loans_taken_last_90d": 3},
+                3: {"active_loan_count": 5, "loans_taken_last_90d": 4},
+                4: {"active_loan_count": 5, "loans_taken_last_90d": 4},
+            },
+        )
+
+        # ---- ZM MoMo journey customers (10 × ~5 instalments ≈ 50 rows) ----
+        for j in range(10):
+            pattern, loan_size = _pick_journey_shape(rng)
+            bias = "low" if pattern == "all_success" else rng.choice(["medium", "low"])
+            await _seed_journey_customer(
+                db=db,
+                engine=engine,
+                tenant=zm_tenant,
+                method=CollectionMethod.MOBILE_MONEY,
+                factor_set="MOBILE_WALLET",
+                currency=CollectionCurrency.ZMW,
+                customer_id=f"cust_zm_j_{j + 1:03d}",
+                loan_size=loan_size,
+                pattern=pattern,
+                base_amount=round(rng.uniform(100, 1200), 2),
+                customer_template_fn=_zm_customer,
+                template_kwargs={"risk_bias": bias},
+                rng=rng,
+                now=now,
+            )
+
+        # ZM singletons: 30 (was 80 pre-journey)
+        for i in range(30):
             bias = rng.choice(risk_biases)
             customer_data = _zm_customer(rng, bias)
             amount = round(rng.uniform(50, 1500), 2)
@@ -590,19 +1038,119 @@ async def seed(reseed: bool = False) -> None:
                 ),
                 model_version=scoring_result.model_version,
                 scoring_duration_ms=scoring_result.scoring_duration_ms,
+                weights_snapshot=scoring_result.weights_snapshot,
                 created_at=scored_at,
             )
             db.add(req)
             db.add(res)
             all_scores.append((res, req))
 
-        # Payroll (Zambia): 50 salary advances — ~80% government, 20% miners
-        # (matches Lumo's ~1000 gov / ~100 mining mix). Miners bias higher
-        # risk regardless because of segment volatility.
-        payroll_risk_biases = ["high"] * 5 + ["medium"] * 15 + ["low"] * 30
+        # ---- Payroll (Zambia) named personas (Rosemary / Lumo call) ----
+        # Three scripted customers whose journeys mirror real scenarios
+        # Rosemary at Lumo described. The demo user (or Rosemary
+        # herself) recognises the shape immediately and the product
+        # "sells itself" (her words).
+
+        # EMP_ROSE_001 — government worker whose latest deduction would
+        # breach the 40% cap. Two prior successful instalments; the
+        # third (still pending) has current_total_deductions engineered
+        # near the ceiling so threshold_headroom fires HIGH.
+        rose_gross = 9500.0
+        rose_headroom_deductions = round(rose_gross * 0.40 * 0.96, 2)  # 96% of cap
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=payroll_tenant,
+            method=CollectionMethod.PAYROLL,
+            factor_set="PAYROLL",
+            currency=CollectionCurrency.ZMW,
+            customer_id="EMP_ROSE_001",
+            loan_size=3,
+            pattern="in_progress",  # first 2 succeed, 3rd pending
+            base_amount=1200.0,
+            customer_template_fn=_payroll_customer,
+            template_kwargs={"risk_bias": "low", "segment": "government"},
+            rng=rng,
+            now=now,
+            per_instalment_override={
+                # Instalment 3: engineer the "over the 40% cap" scenario.
+                3: {
+                    "gross_salary": rose_gross,
+                    "current_total_deductions": rose_headroom_deductions,
+                    "net_pay": round(rose_gross - rose_headroom_deductions - (rose_gross * 0.15), 2),
+                    "active_loan_count": 3,
+                },
+            },
+        )
+
+        # EMP_JOHN_002 — repeat borrower who's always paid on time.
+        # Lumo's best-customer archetype. 12-instalment loan, all clean.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=payroll_tenant,
+            method=CollectionMethod.PAYROLL,
+            factor_set="PAYROLL",
+            currency=CollectionCurrency.ZMW,
+            customer_id="EMP_JOHN_002",
+            loan_size=12,
+            pattern="all_success",
+            base_amount=800.0,
+            customer_template_fn=_payroll_customer,
+            template_kwargs={"risk_bias": "low", "segment": "government"},
+            rng=rng,
+            now=now,
+        )
+
+        # EMP_MOSES_003 — miner who paid twice then went silent.
+        # Segment volatility + mid-loan default = the classic "we should
+        # have seen it coming" case the pitch calls out.
+        await _seed_journey_customer(
+            db=db,
+            engine=engine,
+            tenant=payroll_tenant,
+            method=CollectionMethod.PAYROLL,
+            factor_set="PAYROLL",
+            currency=CollectionCurrency.ZMW,
+            customer_id="EMP_MOSES_003",
+            loan_size=6,
+            pattern="mid_default",
+            base_amount=1500.0,
+            customer_template_fn=_payroll_customer,
+            template_kwargs={"risk_bias": "medium", "segment": "mining"},
+            rng=rng,
+            now=now,
+        )
+
+        # ---- Payroll generic journeys (5 × ~4 = ~20 rows) ----
+        for j in range(5):
+            pattern, loan_size = _pick_journey_shape(rng)
+            # Payroll loans are short (2-6 months typically) so cap size
+            loan_size = min(loan_size, 6)
+            segment = rng.choice(["government", "government", "government", "mining"])
+            bias = "low" if pattern == "all_success" else rng.choice(["medium", "low"])
+            await _seed_journey_customer(
+                db=db,
+                engine=engine,
+                tenant=payroll_tenant,
+                method=CollectionMethod.PAYROLL,
+                factor_set="PAYROLL",
+                currency=CollectionCurrency.ZMW,
+                customer_id=f"emp_{segment[:3]}_j_{j + 1:03d}",
+                loan_size=loan_size,
+                pattern=pattern,
+                base_amount=round(rng.uniform(500, 3000), 2),
+                customer_template_fn=_payroll_customer,
+                template_kwargs={"risk_bias": bias, "segment": segment},
+                rng=rng,
+                now=now,
+            )
+
+        # Payroll singletons: 9 (was 50 pre-journey; ~80% gov / 20% miners)
+        payroll_risk_biases = ["high", "medium", "medium", "low", "low", "low", "low", "low", "low"]
         rng.shuffle(payroll_risk_biases)
-        for i in range(50):
-            segment = "government" if i < 40 else "mining"
+        for i in range(9):
+            segment = "government" if i < 7 else "mining"
             bias = payroll_risk_biases[i]
             customer_data = _payroll_customer(rng, bias, segment)
             amount = round(rng.uniform(500, 4500), 2)  # ZMW salary-advance range
@@ -682,6 +1230,7 @@ async def seed(reseed: bool = False) -> None:
                 ),
                 model_version=scoring_result.model_version,
                 scoring_duration_ms=scoring_result.scoring_duration_ms,
+                weights_snapshot=scoring_result.weights_snapshot,
                 created_at=scored_at,
             )
             db.add(req)
@@ -968,25 +1517,34 @@ async def seed(reseed: bool = False) -> None:
         print(f"  Notifs:   5 (3 unread, 2 read)")
         print(f"  Backtest: 1 completed run (50 items)")
         print()
-        print("=== SA Tenant ===")
+        print("=== SA Tenant (BNPL, CARD + DEBIT_ORDER) ===")
         print(f"  Tenant ID: {sa_tenant.id}")
         print(f"  API Key:   {sa_raw}")
-        print(f"  Scores:    150 (CARD + DEBIT_ORDER)")
+        print(f"  Scores:    ~150 total. Named personas for demo:")
+        print(f"             CUST_THABO_001  — repeat card customer, 6 instalments, all clean")
+        print(f"             CUST_LERATO_002 — card expires mid-loan (card_health fires HIGH)")
+        print(f"             CUST_ANDILE_003 — debit-order early default, 4 instalments")
         print()
-        print("=== ZM Tenant ===")
+        print("=== ZM Tenant (MOBILE_MONEY) ===")
         print(f"  Tenant ID: {zm_tenant.id}")
         print(f"  API Key:   {zm_raw}")
-        print(f"  Scores:    80  (MOBILE_MONEY)")
+        print(f"  Scores:    ~89 total. Named personas for demo:")
+        print(f"             CUST_MWAKA_001  — reliable Friday-salary wallet user, 6 clean")
+        print(f"             CUST_CHOMBA_002 — wallet balance deteriorates, late default")
+        print(f"             CUST_KABWE_003  — loan stacking, 4 instalments, mid default")
         print()
         print("=== Fresh Lender (Demo) ===")
         print(f"  Tenant ID: {fresh_tenant.id}")
         print(f"  API Key:   {fresh_raw}")
-        print(f"  Scores:    0  — empty tenant, exercises every first-time empty state")
+        print(f"  Scores:    0 — empty tenant, exercises every first-time empty state")
         print()
-        print("=== Demo Payroll ZM (Lumo-style) ===")
+        print("=== Demo Payroll ZM (Lumo-style, PAYROLL) ===")
         print(f"  Tenant ID: {payroll_tenant.id}")
         print(f"  API Key:   {payroll_raw}")
-        print(f"  Scores:    50 (PAYROLL — 40 government workers, 10 miners)")
+        print(f"  Scores:    ~58 total. Named personas from Rosemary's call:")
+        print(f"             EMP_ROSE_001  — gov worker, 3 instalments, 3rd breaches 40% cap")
+        print(f"             EMP_JOHN_002  — repeat borrower, 12 instalments, all clean")
+        print(f"             EMP_MOSES_003 — miner, 6 instalments, paid twice then default")
         print()
         print("=== Dashboard Login ===")
         print(f"  Admin:   admin@demo-sa.paypredict.dev     / admin123")

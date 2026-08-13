@@ -222,6 +222,115 @@ async def test_score_detail_not_found(async_client, sa_admin_user):
 
 
 @pytest.mark.asyncio
+async def test_score_detail_customer_journey_for_singleton(
+    async_client, sa_admin_user
+):
+    """A customer with exactly one score has a journey of length 1 (this
+    score itself, flagged is_current). Drawer hides the section for len<=1."""
+    token = await _login(async_client)
+    score = await _create_score(async_client, customer_id="jrn_singleton")
+
+    r = await async_client.get(
+        f"/v1/scores/{score['score_id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    journey = r.json()["customer_journey"]
+    assert len(journey) == 1
+    assert journey[0]["is_current"] is True
+    assert journey[0]["score_id"] == score["score_id"]
+
+
+@pytest.mark.asyncio
+async def test_score_detail_customer_journey_sequences_prior_scores(
+    async_client, sa_admin_user
+):
+    """Three scores for the same customer produce a length-3 journey
+    ordered oldest→newest; is_current lands on exactly the requested one."""
+    token = await _login(async_client)
+    a = await _create_score(async_client, customer_id="jrn_loan", amount=500)
+    b = await _create_score(async_client, customer_id="jrn_loan", amount=600)
+    c = await _create_score(async_client, customer_id="jrn_loan", amount=700)
+
+    # Ask for the middle score's detail.
+    r = await async_client.get(
+        f"/v1/scores/{b['score_id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    journey = r.json()["customer_journey"]
+    assert len(journey) == 3
+    # Chronological.
+    ids_in_order = [j["score_id"] for j in journey]
+    assert ids_in_order == [a["score_id"], b["score_id"], c["score_id"]]
+    # Exactly one is_current, and it's b.
+    current = [j for j in journey if j["is_current"]]
+    assert len(current) == 1
+    assert current[0]["score_id"] == b["score_id"]
+
+
+@pytest.mark.asyncio
+async def test_score_detail_customer_journey_is_tenant_scoped(
+    async_client, sa_admin_user, zm_tenant, db_session
+):
+    """A colliding external_customer_id in a DIFFERENT tenant must not
+    surface in this tenant's journey. Inserts the ZM tenant's row via
+    the db_session (no ApiKey fixture required)."""
+    import uuid as _uuid
+    from datetime import date as _date, datetime as _datetime, timezone as _tz
+    from decimal import Decimal as _Decimal
+
+    from app.models.score_request import (
+        CollectionCurrency,
+        CollectionMethod,
+        ScoreRequest,
+    )
+    from app.models.score_result import RiskLevel, ScoreResult
+
+    token = await _login(async_client)
+    sa_score = await _create_score(async_client, customer_id="jrn_collide")
+
+    # ZM tenant carries a colliding customer_id. Would leak into SA's
+    # journey if the query missed the tenant_id filter.
+    zm_req = ScoreRequest(
+        id=_uuid.uuid4(),
+        tenant_id=zm_tenant.id,
+        external_customer_id="jrn_collide",
+        external_collection_id="col_zm_collide",
+        collection_amount=_Decimal("200"),
+        collection_currency=CollectionCurrency.ZMW,
+        collection_due_date=_date(2026, 4, 15),
+        collection_method=CollectionMethod.MOBILE_MONEY,
+        request_payload={"customer_data": {}},
+    )
+    zm_res = ScoreResult(
+        id=_uuid.uuid4(),
+        score_request_id=zm_req.id,
+        tenant_id=zm_tenant.id,
+        score=0.5,
+        risk_level=RiskLevel.MEDIUM,
+        factors={"evaluated": [], "skipped": []},
+        recommended_action="collect_normally",
+        model_version="heuristic_wallet_v1",
+        scoring_duration_ms=1,
+        created_at=_datetime.now(_tz.utc),
+    )
+    db_session.add(zm_req)
+    db_session.add(zm_res)
+    await db_session.flush()
+
+    r = await async_client.get(
+        f"/v1/scores/{sa_score['score_id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200
+    journey = r.json()["customer_journey"]
+    # Only the SA row appears — never the ZM row for the same id.
+    assert len(journey) == 1
+    assert journey[0]["score_id"] == sa_score["score_id"]
+
+
+@pytest.mark.asyncio
 async def test_summary_counts_reflect_filters(async_client, sa_admin_user):
     """Summary counts should reflect active filters, not all data."""
     token = await _login(async_client)

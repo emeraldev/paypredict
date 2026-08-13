@@ -68,6 +68,31 @@ class OutcomeSummary(BaseModel):
     attempted_at: datetime | None = None
 
 
+class CustomerJourneyEntry(BaseModel):
+    """One prior scoring event for the same (tenant, customer_id).
+
+    Used by the dashboard drawer to render a chronological loan
+    timeline so a lender can see this customer's full history in
+    one glance. Includes the current score itself (flagged with
+    `is_current: True`) so the timeline reads as "you are here"
+    against the rest.
+    """
+
+    score_id: UUID
+    scored_at: datetime
+    collection_amount: Decimal
+    collection_currency: str
+    collection_method: str
+    collection_due_date: date
+    instalment_number: int | None = None
+    total_instalments: int | None = None
+    score: float
+    risk_level: str
+    outcome: str | None = None
+    outcome_reported_at: datetime | None = None
+    is_current: bool = False
+
+
 class ScoreDetailResponse(BaseModel):
     score_id: UUID
     customer_id: str
@@ -91,3 +116,8 @@ class ScoreDetailResponse(BaseModel):
     scoring_duration_ms: int
     customer_context: CustomerContext
     outcome: OutcomeSummary | None = None
+    # Chronological timeline of prior scores + outcomes for the same
+    # (tenant, external_customer_id). Includes the current row, flagged
+    # `is_current=True`. Empty for singleton customers. Capped at 50
+    # entries so a pathological loan-book doesn't bloat the response.
+    customer_journey: list[CustomerJourneyEntry] = []
