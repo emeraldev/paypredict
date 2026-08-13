@@ -82,7 +82,14 @@ async def score_single_collection(
     tenant: Tenant = Depends(enforce_rate_limit_or_jwt_write),
     db: AsyncSession = Depends(get_db),
 ) -> ScoreResponse:
-    """Score a single upcoming collection. Returns risk score, level, and factor breakdown."""
+    """Score a single upcoming collection. Returns risk score, level, and factor breakdown.
+
+    `customer_id` and `collection_id` must be opaque URL-safe tokens
+    (letters, digits, `_`, `-`, `.`, `:` only, 1-128 characters).
+    PII values (emails, formatted phone numbers, whitespace-separated
+    names) are rejected with 422. See the API description above for
+    the full boundary rule and examples of shapes that work.
+    """
     return await score_collection(request, tenant, db)
 
 

@@ -28,6 +28,14 @@ async def score_bulk(
 
     <= 50 items: processed synchronously, results returned inline.
     > 50 items: queued to Celery, returns job_id for polling.
+
+    Same PII boundary as `POST /v1/score`: `customer_id` /
+    `collection_id` must be opaque tokens, `customer_data` rejects
+    unknown keys. On a JSON payload, Pydantic validates the whole
+    request atomically — one malformed row rejects the whole batch
+    with a 422 detail identifying the offending row + field. CSV
+    uploads (`POST /v1/backtest/upload`, scoring CSV) surface
+    per-row errors instead so one bad row doesn't sink the file.
     """
     # Convert Pydantic models to dicts — keep date objects for the scoring engine
     collections = [

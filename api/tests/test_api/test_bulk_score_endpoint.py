@@ -180,3 +180,42 @@ async def test_bulk_job_poll_scoped_by_tenant(db_session, sa_tenant, zm_tenant):
 
     other_tenant = await get_job_status(db_session, str(zm_tenant.id), job_id)
     assert other_tenant is None, "cross-tenant poll must return None"
+
+
+@pytest.mark.asyncio
+async def test_bulk_rejects_pii_in_row(async_client, sa_tenant):
+    """PII in ANY row of a JSON batch fails the whole request with a
+    422 identifying the offending row + field. Non-atomic per-row
+    handling is a CSV-upload concern, not a JSON-endpoint one."""
+    r = await async_client.post(
+        "/v1/score/bulk",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+        json={
+            "collections": [
+                {
+                    "customer_id": "cust_valid_001",
+                    "collection_id": "col_001",
+                    "collection_amount": 500,
+                    "collection_currency": "ZAR",
+                    "collection_due_date": "2026-04-15",
+                    "collection_method": "CARD",
+                },
+                {
+                    # This row's customer_id looks like an email.
+                    "customer_id": "jane@example.com",
+                    "collection_id": "col_002",
+                    "collection_amount": 500,
+                    "collection_currency": "ZAR",
+                    "collection_due_date": "2026-04-15",
+                    "collection_method": "CARD",
+                },
+            ],
+        },
+    )
+    assert r.status_code == 422
+    body = r.json()
+    # Pydantic tells us which row + field.
+    detail_str = str(body["detail"])
+    assert "customer_id" in detail_str
+    # Row index (1) surfaces in the loc path.
+    assert "collections" in detail_str

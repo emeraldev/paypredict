@@ -21,11 +21,11 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   // ---- Required collection fields ----
   customer_id: {
     label: "Customer reference",
-    help: "Your own customer ID. We never see names or contact info.",
+    help: "Opaque token (letters, digits, _ - . : only, 1-128 chars). We never accept names, emails, phone numbers or ID numbers. If your internal ID is one of those, hash it first.",
   },
   collection_id: {
     label: "Collection reference",
-    help: "Your reference for this specific debit / instalment / payment attempt.",
+    help: "Opaque token (letters, digits, _ - . : only, 1-128 chars). Same PII rules as customer reference.",
   },
   collection_amount: {
     label: "Amount",

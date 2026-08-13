@@ -67,6 +67,39 @@ Use `pk_test_` prefixed keys for sandbox / integration testing.
 3. Use the returned risk score to prioritise your collections.
 4. Report outcomes via `POST /v1/outcomes` to improve accuracy over time.
 
+### Never send personally identifiable information
+
+PayPredict stores only the identifiers **you** send us. To keep that
+data minimal — and to make sure you never have to answer to
+regulators about PII stored in a scoring vendor's database — the
+API rejects requests that carry personal data on the boundary.
+
+**`customer_id` and `collection_id`**: must be opaque URL-safe
+tokens — letters, digits, `_`, `-`, `.`, `:` only, 1-128 characters.
+Examples that work: `550e8400-e29b-41d4-a716-446655440000`,
+`cust_9f3a2b`, `EMP_ROSE_001`, `col:2026:08:13`. Examples that
+**get rejected as 422**: `john@example.com` (email), `+27 82 555 1234`
+(formatted phone), `John Doe` (whitespace), `8001015009087` and
+similar plaintext national IDs (13+ consecutive digits — reject any
+value that looks like a South African ID or Zambian NRC).
+
+If your internal system stores customers by phone number or ID
+number today, hash or opaque them before sending
+(`sha256(id)[:16]`, an internal database id, or a UUID assigned at
+integration time all work).
+
+**`customer_data`**: only the declared fields listed below are
+accepted. Sending an unknown key (`{"phone": "..."}`,
+`{"borrower_name": "..."}`) returns 422 with the offending field
+name. Free-form string fields carry short length limits (32-64
+characters) to prevent names, addresses, or paragraphs of unstructured
+customer notes from slipping in.
+
+Report an outcome via `POST /v1/outcomes` follows the same rules —
+`collection_id` shape is validated identically. Bulk (`POST /v1/score/bulk`)
+and backtest CSV uploads enforce the same rules per row so one bad
+row surfaces its own error rather than sinking the whole batch.
+
 ### What `customer_data` fields actually move the score
 
 Every field on `customer_data` is optional. The scoring engine falls

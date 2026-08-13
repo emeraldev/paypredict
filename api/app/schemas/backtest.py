@@ -3,28 +3,35 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.score import OpaqueId
 
 
 # ---- Request ----
 
 class BacktestCustomerData(BaseModel):
     """Subset of customer data fields accepted in backtest input."""
+    # Match the single-score schema: unknown keys are a 422, not a
+    # silent-drop. Backtest uploads are a common vector for accidental
+    # PII (CSV columns from the lender's internal system).
+    model_config = ConfigDict(extra="forbid")
+
     total_payments: int = 0
     successful_payments: int = 0
     last_successful_payment_date: date | None = None
     average_collection_amount: Decimal | None = None
     instalment_number: int | None = None
     total_instalments: int | None = None
-    card_type: str | None = None
+    card_type: str | None = Field(default=None, max_length=32)
     card_expiry_date: date | None = None
-    last_decline_code: str | None = None
+    last_decline_code: str | None = Field(default=None, max_length=64)
     debit_order_returns: list[str] = Field(default_factory=list)
     known_salary_day: int | None = Field(default=None, ge=1, le=31)
     wallet_balance_7d_avg: Decimal | None = None
     wallet_balance_current: Decimal | None = None
     hours_since_last_inflow: int | None = None
-    regular_inflow_day: str | None = None
+    regular_inflow_day: str | None = Field(default=None, max_length=32)
     active_loan_count: int | None = None
     transactions_last_7d: int | None = None
     transactions_avg_7d: int | None = None
@@ -34,15 +41,17 @@ class BacktestCustomerData(BaseModel):
 
 
 class BacktestCollectionInput(BaseModel):
-    customer_id: str
-    collection_id: str
+    model_config = ConfigDict(extra="forbid")
+
+    customer_id: OpaqueId
+    collection_id: OpaqueId
     collection_amount: Decimal = Field(gt=0)
     collection_currency: str = Field(pattern="^(ZAR|ZMW)$")
     collection_date: date
     collection_method: str = Field(pattern="^(CARD|DEBIT_ORDER|MOBILE_MONEY|PAYROLL)$")
     customer_data: BacktestCustomerData = Field(default_factory=BacktestCustomerData)
     actual_outcome: str = Field(pattern="^(SUCCESS|FAILED)$")
-    failure_reason: str | None = None
+    failure_reason: str | None = Field(default=None, max_length=255)
 
 
 class BacktestRequest(BaseModel):
