@@ -128,16 +128,11 @@ decisions.
 
 Findings from the mid-session compliance survey. Weight-change and
 generic activity audit trails shipped as PRs #51 + #53 (linked from
-item #12 above). The rest of the survey is captured here so nothing
-gets forgotten — each item needs its own PR before we onboard a
-serious bank customer.
+item #12 above); PII enforcement shipped as PR #56 (see
+`current-feature.md` history for the shape). The rest of the survey
+is captured here so nothing gets forgotten — each item needs its own
+PR before we onboard a serious bank customer.
 
-- **PII enforcement** — `CustomerData` schema uses Pydantic's default
-  `extra="ignore"` (silently drops unknown keys), and `customer_id` /
-  `collection_id` have no pattern check. A lender who accidentally
-  sends a phone number in either field lands it in `score_requests`
-  forever. Fix: reject known-PII-shaped values at the schema layer;
-  document the boundary in the OpenAPI description.
 - **Auth hardening** — password minimum is 6 chars (no complexity /
   MFA / lockout); JWT is 24h with client-side-only logout; no
   password-change or forgot-password flow. Below any SA/Zambian
