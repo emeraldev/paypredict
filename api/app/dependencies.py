@@ -111,12 +111,32 @@ async def get_current_user(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user_id = decode_access_token(credentials.credentials)
-    user = await get_user_by_id(db, user_id)
+    token = decode_access_token(credentials.credentials)
+    user = await get_user_by_id(db, token.user_id)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     if not user.tenant.is_active:
         raise HTTPException(status_code=401, detail="Tenant is deactivated")
+    # Password-change revocation: any JWT issued before the last
+    # password rotation is rejected. `password_changed_at` may be NULL
+    # for pre-migration users (never rotated) — treat that as "always
+    # valid" so a rollout doesn't sign them out.
+    #
+    # `iat` is a whole-second NumericDate per RFC 7519; we compare at
+    # the same resolution. That leaves a same-second window in which
+    # a token minted just before the rotation is still honoured — the
+    # smallest overlap the coarse iat resolution allows without also
+    # rejecting the fresh token minted by the change-password endpoint
+    # itself. That closes the 24-hour JWT lifetime down to <=1 second
+    # of exposure, which is the practically important guarantee.
+    if user.password_changed_at is not None:
+        pw_changed_second = int(user.password_changed_at.timestamp())
+        token_iat_second = int(token.issued_at.timestamp())
+        if token_iat_second < pw_changed_second:
+            raise HTTPException(
+                status_code=401,
+                detail="Session invalidated — please sign in again",
+            )
     return user
 
 

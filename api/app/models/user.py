@@ -2,7 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -32,6 +40,24 @@ class User(Base):
         Enum(UserRole, name="user_role_enum"), default=UserRole.VIEWER, nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Failed-login lockout: incremented on every wrong password, cleared on
+    # a successful auth. `locked_until` is a hard block on the next attempt;
+    # once past, both fields are cleared on the next successful login.
+    failed_login_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0", default=0
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Server-side revocation without a jti blacklist: every JWT is issued
+    # with an `iat` claim; on decode we reject any token whose iat is
+    # older than this timestamp. Password-change (self-service or admin)
+    # bumps this to now(), invalidating every outstanding session for the
+    # user. Nullable = pre-migration users; treated as "never rotated"
+    # (accepts all JWTs on iat >= created_at, which the migration backfills).
+    password_changed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(

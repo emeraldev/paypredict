@@ -46,3 +46,58 @@ def validate_opaque_id(value: str) -> str:
             "accepted — hash or replace with an internal reference."
         )
     return value
+
+
+# --- Password policy -----------------------------------------------------
+#
+# Applied at password-SET time (team invite, self-service change,
+# admin-set), never at login-time — a legacy hash that predates the
+# policy must still let its owner in so they can rotate. Once set, a
+# new password must clear this bar.
+
+PASSWORD_MIN_LENGTH = 12
+PASSWORD_MAX_LENGTH = 72  # bcrypt caps input at 72 bytes; anything longer
+# is silently truncated by the hasher. Reject up front so a user's
+# 100-char password isn't quietly stored as its first 72 bytes.
+
+_HAS_UPPER = re.compile(r"[A-Z]")
+_HAS_LOWER = re.compile(r"[a-z]")
+_HAS_DIGIT = re.compile(r"\d")
+_HAS_SYMBOL = re.compile(r"[^A-Za-z0-9]")
+
+
+def validate_password(value: str) -> str:
+    """Enforce the platform password policy on any new/changed password.
+
+    Rules (bank-grade minimum for SA / Zambia):
+    - Length in [12, 72]. Under 12 is trivially crackable offline;
+      over 72 is bcrypt's silent-truncation zone.
+    - Must contain at least 3 of the 4 character classes: upper,
+      lower, digit, symbol. "3 of 4" (not "all 4") keeps the rule
+      passable with strong passphrases like `correct-horse-battery-9`
+      while still rejecting `password123`.
+
+    Not applied at login — a user with a legacy short password must
+    still be able to log in so they can rotate to a compliant one.
+
+    Raises ValueError on rejection so Pydantic surfaces it as 422.
+    """
+    if len(value) < PASSWORD_MIN_LENGTH:
+        raise ValueError(
+            f"password must be at least {PASSWORD_MIN_LENGTH} characters long"
+        )
+    if len(value) > PASSWORD_MAX_LENGTH:
+        raise ValueError(
+            f"password must be at most {PASSWORD_MAX_LENGTH} characters "
+            "(bcrypt caps input at 72 bytes)"
+        )
+    classes_present = sum(
+        bool(pattern.search(value))
+        for pattern in (_HAS_UPPER, _HAS_LOWER, _HAS_DIGIT, _HAS_SYMBOL)
+    )
+    if classes_present < 3:
+        raise ValueError(
+            "password must include at least 3 of: uppercase letter, "
+            "lowercase letter, digit, symbol"
+        )
+    return value

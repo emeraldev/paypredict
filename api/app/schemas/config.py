@@ -1,12 +1,16 @@
 """Pydantic schemas for dashboard config endpoints (api-keys, team, alerts, weights)."""
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from app.models.score_request import CollectionMethod
 from app.models.tenant import EmailDigest
 from app.models.user import UserRole
+from app.schemas._validators import validate_password
+
+_Password = Annotated[str, AfterValidator(validate_password)]
 
 
 # ---- API Keys ----
@@ -55,7 +59,7 @@ class TeamMemberItem(BaseModel):
 class TeamInviteRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     name: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=6, max_length=255)
+    password: _Password
     role: UserRole = UserRole.VIEWER
 
 

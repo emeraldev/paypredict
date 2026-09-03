@@ -191,6 +191,11 @@ async def invite_member(
         name=req.name,
         password_hash=hash_password(req.password),
         role=req.role,
+        # Stamp so the JWT iat-check treats any pre-existing token
+        # (there shouldn't be one — this is a fresh account) as
+        # invalid, and so a self-service rotation is comparable
+        # against a real timestamp.
+        password_changed_at=datetime.now(timezone.utc),
     )
     db.add(user)
     await db.flush()

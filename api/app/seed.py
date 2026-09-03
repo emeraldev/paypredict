@@ -581,7 +581,10 @@ async def seed(reseed: bool = False) -> None:
                     ))
 
         # ---- Users ----
-        admin_hash = hash_password("admin123")
+        # Demo credentials meet the platform password policy (12–72 chars,
+        # 3 of 4 character classes) — a first login demo shouldn't force
+        # the user through a rotation to comply.
+        admin_hash = hash_password("Admin-Demo-Pass-1")
 
         db.add(User(
             tenant_id=sa_tenant.id,
@@ -589,13 +592,15 @@ async def seed(reseed: bool = False) -> None:
             name="SA Admin",
             password_hash=admin_hash,
             role=UserRole.ADMIN,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=sa_tenant.id,
             email="viewer@demo-sa.paypredict.dev",
             name="SA Viewer",
-            password_hash=hash_password("viewer123"),
+            password_hash=hash_password("Viewer-Demo-Pass-1"),
             role=UserRole.VIEWER,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=zm_tenant.id,
@@ -603,13 +608,15 @@ async def seed(reseed: bool = False) -> None:
             name="ZM Admin",
             password_hash=admin_hash,
             role=UserRole.ADMIN,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=zm_tenant.id,
             email="viewer@demo-zm.paypredict.dev",
             name="ZM Viewer",
-            password_hash=hash_password("viewer123"),
+            password_hash=hash_password("Viewer-Demo-Pass-1"),
             role=UserRole.VIEWER,
+            password_changed_at=now,
         ))
         # Fresh tenant users: one admin, one manager. Skipping viewer here on
         # purpose — a brand-new lender wouldn't usually have viewers seat 1.
@@ -619,13 +626,15 @@ async def seed(reseed: bool = False) -> None:
             name="Fresh Admin",
             password_hash=admin_hash,
             role=UserRole.ADMIN,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=fresh_tenant.id,
             email="manager@demo-fresh.paypredict.dev",
             name="Fresh Manager",
-            password_hash=hash_password("manager123"),
+            password_hash=hash_password("Manager-Demo-Pass-1"),
             role=UserRole.MANAGER,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=payroll_tenant.id,
@@ -633,13 +642,15 @@ async def seed(reseed: bool = False) -> None:
             name="Payroll Admin",
             password_hash=admin_hash,
             role=UserRole.ADMIN,
+            password_changed_at=now,
         ))
         db.add(User(
             tenant_id=payroll_tenant.id,
             email="viewer@demo-payroll.paypredict.dev",
             name="Payroll Viewer",
-            password_hash=hash_password("viewer123"),
+            password_hash=hash_password("Viewer-Demo-Pass-1"),
             role=UserRole.VIEWER,
+            password_changed_at=now,
         ))
 
         # ---- Scored Collections ----
@@ -1547,14 +1558,14 @@ async def seed(reseed: bool = False) -> None:
         print(f"             EMP_MOSES_003 — miner, 6 instalments, paid twice then default")
         print()
         print("=== Dashboard Login ===")
-        print(f"  Admin:   admin@demo-sa.paypredict.dev     / admin123")
-        print(f"  Viewer:  viewer@demo-sa.paypredict.dev    / viewer123")
-        print(f"  Admin:   admin@demo-zm.paypredict.dev     / admin123")
-        print(f"  Viewer:  viewer@demo-zm.paypredict.dev    / viewer123")
-        print(f"  Admin:   admin@demo-fresh.paypredict.dev  / admin123    ← fresh, no data")
-        print(f"  Manager: manager@demo-fresh.paypredict.dev / manager123 ← fresh, no data")
-        print(f"  Admin:   admin@demo-payroll.paypredict.dev / admin123   ← payroll")
-        print(f"  Viewer:  viewer@demo-payroll.paypredict.dev / viewer123 ← payroll")
+        print(f"  Admin:   admin@demo-sa.paypredict.dev     / Admin-Demo-Pass-1")
+        print(f"  Viewer:  viewer@demo-sa.paypredict.dev    / Viewer-Demo-Pass-1")
+        print(f"  Admin:   admin@demo-zm.paypredict.dev     / Admin-Demo-Pass-1")
+        print(f"  Viewer:  viewer@demo-zm.paypredict.dev    / Viewer-Demo-Pass-1")
+        print(f"  Admin:   admin@demo-fresh.paypredict.dev  / Admin-Demo-Pass-1    ← fresh, no data")
+        print(f"  Manager: manager@demo-fresh.paypredict.dev / Manager-Demo-Pass-1 ← fresh, no data")
+        print(f"  Admin:   admin@demo-payroll.paypredict.dev / Admin-Demo-Pass-1   ← payroll")
+        print(f"  Viewer:  viewer@demo-payroll.paypredict.dev / Viewer-Demo-Pass-1 ← payroll")
 
 
 if __name__ == "__main__":

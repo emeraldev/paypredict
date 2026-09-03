@@ -6,12 +6,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTable } from "@/components/settings/activity-table";
 import { AlertsTab } from "@/components/settings/alerts-tab";
 import { ApiKeysTab } from "@/components/settings/api-keys-tab";
+import { ProfileTab } from "@/components/settings/profile-tab";
 import { TeamTab } from "@/components/settings/team-tab";
 import { WeightsTab } from "@/components/settings/weights-tab";
 import { PageHeader } from "@/components/shared/page-header";
 import { useAuth } from "@/hooks/use-auth";
 
-const VALID_TABS = ["weights", "api-keys", "alerts", "team", "activity"] as const;
+const VALID_TABS = [
+  "weights",
+  "api-keys",
+  "alerts",
+  "team",
+  "activity",
+  "profile",
+] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 function isValidTab(value: string | null): value is TabValue {
@@ -51,6 +59,7 @@ export default function SettingsPage() {
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
           {isAdmin && <TabsTrigger value="team">Team</TabsTrigger>}
           {isAdmin && <TabsTrigger value="activity">Activity</TabsTrigger>}
+          <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="weights" className="mt-4">
           <WeightsTab />
@@ -83,6 +92,9 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
         )}
+        <TabsContent value="profile" className="mt-4">
+          <ProfileTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
