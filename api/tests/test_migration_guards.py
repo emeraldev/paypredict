@@ -318,6 +318,27 @@ _CASES = [
         ),
         "FORCE_DESTRUCTIVE_DOWNGRADE",
     ),
+    (
+        "a1b8c2d4e5f7",  # auth-hardening columns on users
+        "failed-login lockout",
+        "a1b8c2d4e5f7",
+        # Seed a user row where at least one of the three new columns
+        # holds a non-default value so `at_risk_count` is > 0. A single
+        # bumped counter suffices — the guard trips on any non-baseline
+        # state that a downgrade would silently drop.
+        lambda db: (
+            _seed_tenant(db, extra={"id": "'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid"}),
+            _sql(db, [
+                "INSERT INTO users (id, tenant_id, email, name, "
+                "password_hash, role, failed_login_count) VALUES "
+                "(gen_random_uuid(), "
+                "'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, "
+                "'seed@auth-hardening.test', 'seed', 'not-a-real-hash', "
+                "'ADMIN', 2)"
+            ]),
+        ),
+        "FORCE_DESTRUCTIVE_DOWNGRADE",
+    ),
 ]
 
 

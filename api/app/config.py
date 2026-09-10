@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24  # 24 hours
 
+    # Failed-login lockout on /v1/auth/login. After
+    # `login_lockout_threshold` consecutive wrong passwords the account
+    # is refused for `login_lockout_minutes`; counter clears on any
+    # successful login. Same values apply to every environment — the
+    # bar is bank-grade, not tenant-tunable.
+    login_lockout_threshold: int = 5
+    login_lockout_minutes: int = 15
+
     # Database
     database_url: str = (
         "postgresql+asyncpg://paypredict:localdev@localhost:5434/paypredict_dev"

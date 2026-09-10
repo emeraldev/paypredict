@@ -1,5 +1,11 @@
 import { api, setToken, clearToken } from "./client";
-import type { LoginRequest, LoginResponse, UserResponse } from "./types";
+import type {
+  ChangePasswordRequest,
+  ChangePasswordResponse,
+  LoginRequest,
+  LoginResponse,
+  UserResponse,
+} from "./types";
 
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
@@ -18,5 +24,19 @@ export const authApi = {
     } finally {
       clearToken();
     }
+  },
+
+  // Server rotates the password AND invalidates every prior JWT (via
+  // password_changed_at). The response includes a fresh token so we
+  // swap it in-place — the old one is already dead server-side.
+  changePassword: async (
+    payload: ChangePasswordRequest,
+  ): Promise<ChangePasswordResponse> => {
+    const res = await api.post<ChangePasswordResponse>(
+      "/v1/auth/change-password",
+      payload,
+    );
+    setToken(res.token);
+    return res;
   },
 };

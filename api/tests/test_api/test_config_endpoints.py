@@ -135,7 +135,7 @@ async def test_team_invite_and_remove(async_client, sa_admin_user):
         json={
             "email": "viewer@test.dev",
             "name": "Test Viewer",
-            "password": "viewer123",
+            "password": "Viewer-Test-Pass-1",
             "role": "VIEWER",
         },
     )
@@ -164,7 +164,7 @@ async def test_team_update_role(async_client, sa_admin_user):
         json={
             "email": "role-change@test.dev",
             "name": "Role Changer",
-            "password": "change123",
+            "password": "Role-Change-Pass-9",
             "role": "VIEWER",
         },
     )
@@ -193,7 +193,7 @@ async def test_team_duplicate_email(async_client, sa_admin_user):
         json={
             "email": TEST_USER_EMAIL,
             "name": "Duplicate",
-            "password": "dup12345",
+            "password": "Dup-Test-Pass-1234",
             "role": "VIEWER",
         },
     )
@@ -212,7 +212,7 @@ async def test_team_viewer_forbidden(async_client, sa_admin_user):
         json={
             "email": "viewer-forbidden@test.dev",
             "name": "Forbidden Viewer",
-            "password": "view1234",
+            "password": "Forbid-Viewer-1234",
             "role": "VIEWER",
         },
     )
@@ -220,7 +220,7 @@ async def test_team_viewer_forbidden(async_client, sa_admin_user):
 
     # Login as viewer
     viewer_token = await _login(
-        async_client, email="viewer-forbidden@test.dev", password="view1234"
+        async_client, email="viewer-forbidden@test.dev", password="Forbid-Viewer-1234"
     )
 
     # Try to list team → 403

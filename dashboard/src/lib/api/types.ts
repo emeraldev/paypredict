@@ -35,6 +35,17 @@ export interface LoginResponse {
   user: UserResponse;
 }
 
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface ChangePasswordResponse {
+  token: string;
+  token_type: string;
+  expires_in: number;
+}
+
 // ==================== Pagination ====================
 
 export interface PaginationMeta {
