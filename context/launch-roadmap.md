@@ -15,15 +15,33 @@ everything in Stages 0–1 is done.
 
 ---
 
-## Status today (2026-05-15)
+## Status today (2026-09-10)
 
-- **236 tests passing**, CI green on every PR.
+- **441 tests passing**, CI green on every PR.
 - Scoring + bulk + outcomes + analytics + backtest + notifications all work end-to-end.
 - Timing optimiser shipped (Phase 4).
 - Rate-limit enforcement shipped with per-tier limits + dual-auth.
 - Public/internal Swagger docs split.
+- Compliance sprint: audit trails (PRs #51 + #53), PII enforcement (#56), auth hardening (#57).
 - **No live deployment**. Localhost only.
 - **No prospects** yet — purely in development.
+
+## Target market (as of 2026-09-10)
+
+Near-term focus is **Zambia mobile-money / payroll-deduction lenders**
+(Lumo-style salary advance, MNO-embedded lending). Explicitly NOT
+targeting bank-tier customers or the SA consumer-credit market in
+this window. Two consequences ripple through the backlog:
+
+- **Zambia DPA 2021, not SA POPIA / NCA.** Adverse-action letter
+  requirements (SA NCA §62) don't have a direct Zambian equivalent
+  at the same specificity. Score-reads audits are a bank
+  expectation Zambian MNO-lender prospects will not ask for.
+- **Data-processor posture.** Because PR #56 stripped PII at the
+  boundary, the rows we hold are opaque-id + factor breakdown +
+  outcome — DPA §24 (retention) applies weakly. Retention policy is
+  needed for lender-offboarding right-to-erasure, not as a rolling
+  TTL. See the reshaped compliance backlog below.
 
 ---
 
@@ -126,33 +144,56 @@ decisions.
 
 ### Compliance backlog (survey outputs, not yet scheduled)
 
-Findings from the mid-session compliance survey. Weight-change and
-generic activity audit trails shipped as PRs #51 + #53 (linked from
-item #12 above); PII enforcement shipped as PR #56 (see
-`current-feature.md` history for the shape). The rest of the survey
-is captured here so nothing gets forgotten — each item needs its own
-PR before we onboard a serious bank customer.
+Findings from the mid-session compliance survey. Shipped: audit
+trails (PRs #51 + #53), PII enforcement (#56), auth hardening (#57).
+Auth hardening was scoped to what was shippable without new
+infrastructure — **forgot-password flow** remains open (blocked on
+Stage 1 item #7 email transport) and **full JWT revocation** via
+jti-blacklist / refresh-token rotation is deferred to Stage 3+
+(the shipped `password_changed_at` check closes 24h JWT lifetime
+down to ≤1s of exposure after a rotation, which is the practically
+important guarantee).
 
-- **Auth hardening** — password minimum is 6 chars (no complexity /
-  MFA / lockout); JWT is 24h with client-side-only logout; no
-  password-change or forgot-password flow. Below any SA/Zambian
-  bank's minimum. Fix: password policy, change + reset endpoints,
-  failed-login lockout on `/auth/login`, server-side JWT revocation.
-- **Data retention + tenant purge** — nothing deletes anything; no
-  auto-purge, no TTL, no offboarding path. POPIA §14 + DPA 2021 §24
-  exposure and a blocker for tenant offboarding. Fix: per-tenant
-  retention window + scheduled purge + admin-callable
-  offboarding-purge endpoint.
-- **Adverse-action surface (SA NCA §62)** — `ScoreResponse.factors`
-  already contains per-factor drivers, but no dedicated "top-N
-  reasons this score is high" endpoint that a lender could hand to
-  a declined borrower.
-- **Score reads audit** — no data-access log for score views.
-  Nice-to-have for pilot; expected by bank-tier customers.
+The remaining survey items are re-scoped against the **Zambia +
+non-bank target market** above. Two items descoped, two carried,
+one active.
+
+### Active
+
 - **Row-level security in Postgres** — CLAUDE.md claims RLS but zero
   `CREATE POLICY` statements exist. Isolation is 100% application-
   layer `WHERE tenant_id = ...`. Consistent today but any missed
-  WHERE in a future service is a cross-tenant leak with no DB backstop.
+  WHERE in a future service is a cross-tenant leak with no DB
+  backstop. Not customer-tier-dependent — the risk exists in every
+  posture — and cheap to add now. **Next PR.**
+
+### Carried (but not urgent under the current market)
+
+- **Data retention + tenant offboarding-purge** — needed when a
+  lender leaves and asks for right-to-erasure under DPA 2021,
+  not as a rolling TTL (weak §24 pressure because we hold no PII
+  post-#56). Design consideration: when we build it, model the
+  purge as **anonymise + detach** rather than delete — strip
+  `tenant_id` + `customer_id` from `score_requests` +
+  `score_results` + `outcomes` and move the `(features, outcome)`
+  pair into a de-identified training pool. Tenant's data
+  disappears from their view; the ML training set survives.
+  Build on first offboarding ask.
+- **Forgot-password flow** — needs email transport (Stage 1 #7).
+  Not launched together on purpose; email is the harder half.
+
+### Descoped under Zambia + non-bank focus
+
+- ~~**Adverse-action surface (SA NCA §62)**~~ — SA-specific consumer
+  credit law with no direct Zambian equivalent at the same
+  specificity. `ScoreResponse.factors` already returns per-factor
+  drivers, which is enough for a Zambian lender to hand a
+  disputing borrower. Revisit only if SA re-enters scope.
+- ~~**Score reads audit**~~ — bank-tier expectation; Zambian mobile-
+  money / payroll-deduction lenders will not ask. `activity_log`
+  covers every *mutation*; adding a read log is deferred until a
+  prospect asks. Revisit only when bank-tier customers re-enter
+  scope.
 
 **Total Stage 2 effort: ~1-2 weeks of focused work.**
 
