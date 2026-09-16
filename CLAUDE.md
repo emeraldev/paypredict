@@ -364,7 +364,7 @@ async def test_something(async_client, sa_admin_user):
 - Heuristics are the product, not a placeholder for ML. They provide immediate value.
 - Every scored collection + outcome pair is training data for future ML models
 - AWS Cape Town (af-south-1) for hosting — latency to SA customers matters
-- The name "PayPredict" is a working name — domain availability not yet confirmed
+- **The name "PayPredict" is a placeholder and is actively being changed.** The team is searching for the permanent name and checking domain availability. Until the rename lands: do NOT purchase domains, register trademarks, provision branded infrastructure (Fly.io app names / DNS records / verified email senders), or ship the current name in customer-facing marketing copy. New code can freely reference `paypredict` inline — a mechanical sweep on rename day is fine — but external obligations under this name should not accrue. See `context/branding.md` for the full inventory of where the name is baked in and the rename-day checklist.
 
 ## Read the following for more context
 
