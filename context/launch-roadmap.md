@@ -22,7 +22,7 @@ everything in Stages 0–1 is done.
 - Timing optimiser shipped (Phase 4).
 - Rate-limit enforcement shipped with per-tier limits + dual-auth.
 - Public/internal Swagger docs split.
-- Compliance sprint: audit trails (PRs #51 + #53), PII enforcement (#56), auth hardening (#57).
+- Compliance sprint: audit trails (PRs #51 + #53), PII enforcement (#56), auth hardening (#57), cross-tenant isolation regression test (in-flight).
 - **No live deployment**. Localhost only.
 - **No prospects** yet — purely in development.
 
@@ -155,19 +155,35 @@ down to ≤1s of exposure after a rotation, which is the practically
 important guarantee).
 
 The remaining survey items are re-scoped against the **Zambia +
-non-bank target market** above. Two items descoped, two carried,
-one active.
-
-### Active
-
-- **Row-level security in Postgres** — CLAUDE.md claims RLS but zero
-  `CREATE POLICY` statements exist. Isolation is 100% application-
-  layer `WHERE tenant_id = ...`. Consistent today but any missed
-  WHERE in a future service is a cross-tenant leak with no DB
-  backstop. Not customer-tier-dependent — the risk exists in every
-  posture — and cheap to add now. **Next PR.**
+non-bank target market** above.
 
 ### Carried (but not urgent under the current market)
+
+- **Postgres row-level security** — was queued as the next PR but
+  demoted after a trade-off review. Full write-up in
+  `current-feature.md` history (the cross-tenant isolation PR);
+  short version:
+
+  - Cost is real and permanent — every new engineer / psql session /
+    Celery task / migration script has to remember to `SET LOCAL
+    app.tenant_id = ...` or silently get zero rows back. A missed
+    GUC is a new silent-empty failure mode we don't have today.
+  - Zambia DPA 2021 §25 says "appropriate security measures"
+    without prescribing DB-level isolation. No Zambian MNO-lender
+    prospect will ask "do you have Postgres RLS." For SA banks it
+    would be table-stakes — but SA banks are not in scope.
+  - The threat RLS defends against — a missed `WHERE tenant_id`
+    in a future service — is now caught cheaply by
+    `test_cross_tenant_isolation.py` (see PR #58): two tenants
+    seeded with parallel data, every dashboard read + write-by-id
+    hit as tenant A, assert no B rows or ids appear. Adding a new
+    endpoint is one parametrize entry. Catches the same class of
+    bug at PR time.
+
+  Revisit RLS when **a bank-tier prospect enters diligence OR the
+  production tenant count crosses ~5**. Both change the risk/reward
+  math (bigger blast radius per tenant, and formal compliance
+  reviewers who WILL ask about DB-level isolation).
 
 - **Data retention + tenant offboarding-purge** — needed when a
   lender leaves and asks for right-to-erasure under DPA 2021,
