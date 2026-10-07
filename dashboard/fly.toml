@@ -1,0 +1,48 @@
+# Fly.io app config for the Next.js dashboard.
+#
+# App name is a neutral placeholder — the platform is being renamed
+# (see context/branding.md). Region is jnb (Johannesburg).
+#
+# The dashboard talks to the API over the internet via
+# NEXT_PUBLIC_API_URL, which is baked into the client bundle at
+# build time (Next inlines NEXT_PUBLIC_*). Change requires a rebuild.
+# See docs/deployment-guide.md.
+
+app = "pp-demo-dashboard"
+primary_region = "jnb"
+
+[build]
+  # NEXT_PUBLIC_API_URL is a build-time arg for the Dashboard image —
+  # Fly passes this through as `--build-arg` when running the release.
+  # Update via `fly deploy --build-arg NEXT_PUBLIC_API_URL=...` or
+  # via a GitHub Actions workflow input.
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://pp-demo-api.fly.dev"
+
+[env]
+  # Everything runtime the dashboard needs is baked in at build time
+  # by Next.js. If we ever add server-side env (e.g. for a BFF layer),
+  # runtime secrets go via `fly secrets set`, not here.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    # Next 16 serves a lightweight response at `/` — cheap for a
+    # health check. If we add a dedicated `/api/health` route later,
+    # point this at that instead.
+    path = "/"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

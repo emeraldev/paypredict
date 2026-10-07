@@ -1,0 +1,35 @@
+# Local venvs / build caches
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor + OS
+.idea/
+.vscode/
+.DS_Store
+
+# Dev / test only
+tests/
+scripts/
+init-db.sql
+docker-compose.yml
+
+# Env — never bake secrets into an image
+.env
+.env.*
+!.env.example
+
+# Docs, git, CI — not needed at runtime
+docs/
+.git/
+.github/
+.gitignore
+*.md

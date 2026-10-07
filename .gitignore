@@ -38,3 +38,15 @@ htmlcov/
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Context — tracked long-lived docs below; everything else under
+# context/ (phase drafts, scratch planning, one-off chore notes) is
+# local-only.
+/context/*.md
+!/context/ai-interaction.md
+!/context/branding.md
+!/context/coding-standards.md
+!/context/current-feature.md
+!/context/filtering.md
+!/context/launch-roadmap.md
+!/context/project-spec.md

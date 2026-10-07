@@ -1,0 +1,53 @@
+# Fly.io app config for the FastAPI backend.
+#
+# App name is a neutral placeholder — the platform is being renamed
+# (see context/branding.md); pick a permanent app name at rename time.
+# Region is jnb (Johannesburg) to minimise round-trip latency to
+# Zambian and South African users. The DB (managed by Neon) and Redis
+# (Fly Redis) should be created in the same region.
+#
+# See docs/deployment-guide.md for the full one-time setup.
+
+app = "pp-demo-api"
+primary_region = "jnb"
+
+# One-VM staging — bump to 2 when we care about zero-downtime deploys.
+# Free tier machines are shared-cpu-1x / 256 MB; the API's steady-state
+# memory is ~120 MB.
+[build]
+
+[env]
+  # Everything else — JWT_SECRET_KEY, SECRET_KEY, DATABASE_URL,
+  # REDIS_URL, CORS_ORIGINS, PUBLIC_API_URL — is set via
+  # `fly secrets set` per the deployment guide; those are not committed.
+  ENVIRONMENT = "staging"
+  LOG_LEVEL = "INFO"
+  # Public docs on. Internal docs are additionally gated on
+  # environment != "production" (see app/config.py :: internal_docs_visible)
+  # so a demo env stays legible for the team while never leaking to prod.
+  INTERNAL_DOCS_ENABLED = "true"
+
+# Alembic runs BEFORE the new machine starts serving traffic. If the
+# migration fails, the deploy aborts and old machines keep serving.
+[deploy]
+  release_command = "alembic upgrade head"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/v1/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
