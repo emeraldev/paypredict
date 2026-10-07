@@ -29,9 +29,11 @@ Do this **once** per environment, by hand. After it's done, deploys are
 
 1. In the Neon console, create a new project:
    - **Name:** `pp-demo`
-   - **Region:** the closest available to `jnb`. Neon's `af-south-1`
-     (Cape Town) is the shortest hop today; if it isn't available in
-     your account tier, `eu-central-1` (Frankfurt) is the fallback.
+   - **Region:** **AWS Frankfurt (`eu-central-1`)**. Neon has no
+     Africa region (verified against their management-API region
+     enum, 2026-10); Frankfurt is the closest, ~160 ms RTT to
+     Johannesburg via the WACS submarine cable. See the latency
+     trade-off note below.
    - **Postgres version:** 16
    - **Database name:** `paypredict`
 2. From the Neon dashboard, copy the connection string. It looks like:
@@ -44,6 +46,41 @@ Do this **once** per environment, by hand. After it's done, deploys are
    the end, keep it: asyncpg respects it.
 
 Result: the value you'll paste into `DATABASE_URL` below.
+
+**Latency trade-off (why Frankfurt is fine for Stage 0 and when it stops being fine).**
+The app runs in Fly `jnb`; the DB sits in AWS `eu-central-1`
+(Frankfurt). That's ~160 ms RTT per DB round-trip. A dashboard
+page load does a handful of mostly-parallel queries so it adds
+~200–500 ms over the perceived response, which no prospect
+clicking around will notice. **A lender integrating via API is
+different:** a `POST /v1/score` does 2–3 serial DB round-trips
+(api-key lookup, score_request insert, score_result insert) so
+the Frankfurt DB turns a ~10 ms call into a ~500 ms call. That's
+visible in any load test and matters once we have a real
+integrator.
+
+**Postgres region: upgrade paths for Stage 1 (first live lender).**
+When latency starts to matter, two options, in order of
+operational cost:
+
+- **Fly Postgres (Unmanaged) in `jnb`** — ~2 ms RTT, co-located
+  with the app. One `flyctl postgres create --region jnb`
+  command. You own backups, failover, and version upgrades —
+  Fly's docs list those as "under development" even for their
+  Managed PG, and Unmanaged has none of them. Fine for pilot
+  scale (one or two tenants, we babysit) with a scripted
+  nightly `pg_dump` to S3 and a documented monthly failover
+  drill.
+- **AWS RDS Postgres in `af-south-1`** (Cape Town) — ~5 ms RTT,
+  fully managed by AWS (automated backups, point-in-time
+  restore, snapshots, parameter groups, minor-version
+  auto-upgrade). ~$15–20/month at the `db.t4g.micro` tier.
+  Needs a VPC + public endpoint or a Fly WireGuard peer; the
+  Fly app connects via a new `DATABASE_URL`.
+
+Migration from Neon to either option is a `pg_dump` + restore
++ `fly secrets set DATABASE_URL=...` — one afternoon of work,
+documented separately when we get there.
 
 ### 3. Create the Fly.io apps + Redis
 
