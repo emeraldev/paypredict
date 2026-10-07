@@ -1,0 +1,76 @@
+# Auto-deploy the API + dashboard to Fly.io on merges to `main`.
+#
+# Prereqs (documented in docs/deployment-guide.md):
+#   1. Fly.io account with the two apps created (`pp-demo-api`,
+#      `pp-demo-dashboard`).
+#   2. Neon Postgres project + connection string set via
+#      `fly secrets set -a pp-demo-api DATABASE_URL=...`.
+#   3. Fly Redis add-on + REDIS_URL set the same way.
+#   4. JWT_SECRET_KEY, SECRET_KEY, CORS_ORIGINS, PUBLIC_API_URL set
+#      as Fly secrets on the API app.
+#   5. Repository secret FLY_API_TOKEN — generated via
+#      `fly tokens create deploy` — pasted into the repo's
+#      Actions secrets. Same token is used for both jobs.
+#
+# We gate deploy on the existing `ci.yml` "CI passed" gate: only
+# run after CI is green. GitHub Actions doesn't offer a direct
+# job-level dependency across workflows, so we key on the workflow
+# name via `workflow_run` — this is the sanctioned pattern.
+
+name: Deploy to Fly.io
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+  # Manual trigger for hot-fixes or re-runs. Choose which app(s) to
+  # deploy — default is both.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which app to deploy"
+        required: true
+        default: "both"
+        type: choice
+        options: [both, api, dashboard]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Never cancel a deploy — let it finish.
+
+jobs:
+  deploy-api:
+    # workflow_run fires on both success + failure of the upstream CI;
+    # gate on success. workflow_dispatch bypasses this.
+    if: >
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'both' || github.event.inputs.target == 'api')
+      || github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy API
+        run: flyctl deploy --config api/fly.toml --remote-only ./api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-dashboard:
+    if: >
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'both' || github.event.inputs.target == 'dashboard')
+      || github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    # Deploy dashboard after API so the client bundle's cached-in
+    # NEXT_PUBLIC_API_URL points at a running backend on the very
+    # first request. Not strictly required — Fly's health check
+    # already gates traffic — but cheaper on debugging when
+    # something is off.
+    needs: deploy-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy dashboard
+        run: flyctl deploy --config dashboard/fly.toml --remote-only ./dashboard
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
