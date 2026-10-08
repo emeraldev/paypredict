@@ -1,10 +1,10 @@
 # Auto-deploy the API + dashboard to Fly.io on merges to `main`.
 #
 # Prereqs (documented in docs/deployment-guide.md):
-#   1. Fly.io account with the two apps created (`pp-demo-api`,
-#      `pp-demo-dashboard`).
+#   1. Fly.io account with the two apps created (`pp-api`,
+#      `pp-dashboard`).
 #   2. Neon Postgres project + connection string set via
-#      `fly secrets set -a pp-demo-api DATABASE_URL=...`.
+#      `fly secrets set -a pp-api DATABASE_URL=...`.
 #   3. Fly Redis add-on + REDIS_URL set the same way.
 #   4. JWT_SECRET_KEY, SECRET_KEY, CORS_ORIGINS, PUBLIC_API_URL set
 #      as Fly secrets on the API app.

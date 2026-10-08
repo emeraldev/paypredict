@@ -13,7 +13,13 @@ expected before the first pilot goes live.
   DNS records, SES verified sender, custom TLDs, ...) under
   `paypredict.*`. Pick neutral placeholder names for infra so a
   rename doesn't force us to re-issue TLS certs, re-verify email
-  senders, or update every integrator's DNS.
+  senders, or update every integrator's DNS. Current convention
+  (see `docs/deployment-guide.md`): a bare `pp-<role>` prefix —
+  `pp-api`, `pp-dashboard`, `pp-redis`, Neon project `pp`. No
+  environment suffix today ("staging" / "demo" / "prod" would
+  create their own rename trap when we eventually split
+  environments); add one at that point and name the new
+  environment, not this one.
 - **Do not put the current name in customer-facing copy for a live
   demo.** Screenshots, email templates, one-pagers, and pitch decks
   should say "the platform" or use a neutral working label until

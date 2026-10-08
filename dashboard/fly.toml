@@ -8,7 +8,7 @@
 # build time (Next inlines NEXT_PUBLIC_*). Change requires a rebuild.
 # See docs/deployment-guide.md.
 
-app = "pp-demo-dashboard"
+app = "pp-dashboard"
 primary_region = "jnb"
 
 [build]
@@ -17,7 +17,7 @@ primary_region = "jnb"
   # Update via `fly deploy --build-arg NEXT_PUBLIC_API_URL=...` or
   # via a GitHub Actions workflow input.
   [build.args]
-    NEXT_PUBLIC_API_URL = "https://pp-demo-api.fly.dev"
+    NEXT_PUBLIC_API_URL = "https://pp-api.fly.dev"
 
 [env]
   # Everything runtime the dashboard needs is baked in at build time

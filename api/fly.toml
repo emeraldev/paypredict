@@ -8,7 +8,7 @@
 #
 # See docs/deployment-guide.md for the full one-time setup.
 
-app = "pp-demo-api"
+app = "pp-api"
 primary_region = "jnb"
 
 # One-VM staging — bump to 2 when we care about zero-downtime deploys.
