@@ -39,9 +39,16 @@ Do this **once** per environment, by hand. After it's done, deploys are
    postgresql://user:password@ep-xxxxx.eu-central-1.aws.neon.tech/paypredict
    ```
 3. **Rewrite the scheme** to `postgresql+asyncpg://` — the API uses
-   asyncpg, not the default psycopg driver. Neon supports asyncpg
-   natively. If the connection string carries `?sslmode=require` at
-   the end, keep it: asyncpg respects it.
+   asyncpg, not the default psycopg driver.
+4. **Strip `&channel_binding=require`** if Neon's string includes it.
+   That's a libpq-only parameter; asyncpg is pure-Python and doesn't
+   recognise it. `sslmode=require` already enforces TLS.
+5. **The default `-pooler` endpoint is fine** — the app's SQLAlchemy
+   engine (`api/app/database.py`) and Alembic's env (`api/alembic/env.py`)
+   both pass `connect_args={"statement_cache_size": 0}` to asyncpg,
+   which is the Neon-prescribed workaround for using PgBouncer
+   transaction-mode pooling with asyncpg's named prepared statements.
+   You do NOT need to swap to the direct (non-pooled) endpoint.
 
 Result: the value you'll paste into `DATABASE_URL` below.
 

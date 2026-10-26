@@ -53,6 +53,12 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Same pooler-compat reason as app/database.py — Fly deploys
+        # run `alembic upgrade head` as the release_command against
+        # Neon's pooled endpoint, which trips asyncpg's prepared-
+        # statement cache. Zero cache = safe under transaction-mode
+        # pooling.
+        connect_args={"statement_cache_size": 0},
     )
 
     async with connectable.connect() as connection:
