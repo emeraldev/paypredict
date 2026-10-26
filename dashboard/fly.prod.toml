@@ -1,0 +1,36 @@
+# Fly.io config — Dashboard, PRODUCTION environment.
+#
+# Serves real lenders (Kalene first). Points at the prod API via
+# NEXT_PUBLIC_API_URL baked into the client bundle at build time.
+#
+# Deploys are MANUAL via workflow_dispatch. One machine stays
+# warm so a lender logging in at 7am doesn't hit a cold start.
+
+app = "pp-prod-dashboard"
+primary_region = "jnb"
+
+[build]
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://pp-prod-api.fly.dev"
+
+[env]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

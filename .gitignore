@@ -43,6 +43,7 @@ celerybeat.pid
 # context/ (phase drafts, scratch planning, one-off chore notes) is
 # local-only.
 /context/*.md
+/context/demo*
 !/context/ai-interaction.md
 !/context/branding.md
 !/context/coding-standards.md

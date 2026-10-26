@@ -1,0 +1,58 @@
+# Fly.io config — API, PRODUCTION environment.
+#
+# This is the environment real lenders hit — the Kalene pilot lives
+# here, future paying tenants will too. Deploys from `main` are
+# MANUAL (workflow_dispatch), gated on a human having smoke-checked
+# staging first. See .github/workflows/deploy.yml.
+#
+# Three behavioural differences from staging:
+# - ENVIRONMENT = "production" — switches off /docs/internal entirely
+#   via the belt-and-braces gate in app/config.py :: internal_docs_visible.
+# - min_machines_running = 1 — don't sleep. A sleeping machine costs
+#   a lender a 10-30s cold-start on their first request of the day.
+# - LOG_LEVEL = "INFO" (same as staging, but worth noting if we ever
+#   turn staging up to DEBUG for a chase).
+#
+# Infra naming convention lives in context/branding.md. All secrets
+# are set via `fly secrets set -a pp-prod-api ...` per
+# docs/deployment-guide.md and never committed.
+
+app = "pp-prod-api"
+primary_region = "jnb"
+
+[build]
+
+[env]
+  ENVIRONMENT = "production"
+  LOG_LEVEL = "INFO"
+  # Belt + braces: the config module also refuses to expose
+  # /docs/internal when environment == "production" regardless of this
+  # flag, but set it explicitly so an operator reading `fly config
+  # show -a pp-prod-api` sees the intent without having to cross-ref
+  # the Python code.
+  INTERNAL_DOCS_ENABLED = "false"
+
+[deploy]
+  release_command = "alembic upgrade head"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Keep at least one machine warm so a lender's first API call of
+  # the day isn't a 10-30s cold start.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/v1/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

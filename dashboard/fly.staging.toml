@@ -1,0 +1,40 @@
+# Fly.io config — Dashboard, STAGING environment.
+#
+# Serves the demo tenants and our own browser-based testing. Points
+# at the staging API via NEXT_PUBLIC_API_URL (baked into the client
+# bundle at build time — Next.js inlines NEXT_PUBLIC_*, which is
+# why it's a build-arg here rather than a runtime env).
+#
+# Auto-deploys on every merge to `main`.
+
+app = "pp-staging-dashboard"
+primary_region = "jnb"
+
+[build]
+  [build.args]
+    NEXT_PUBLIC_API_URL = "https://pp-staging-api.fly.dev"
+
+[env]
+  # Nothing runtime for Next.js — all public config was baked in at
+  # build time via build.args. Server-side env would go here if we
+  # ever add a BFF layer.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
