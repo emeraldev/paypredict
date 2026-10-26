@@ -13,7 +13,14 @@ expected before the first pilot goes live.
   DNS records, SES verified sender, custom TLDs, ...) under
   `paypredict.*`. Pick neutral placeholder names for infra so a
   rename doesn't force us to re-issue TLS certs, re-verify email
-  senders, or update every integrator's DNS.
+  senders, or update every integrator's DNS. Current convention
+  (see `docs/deployment-guide.md`): **`pp-<env>-<role>`** —
+  `pp-staging-api`, `pp-prod-api`, `pp-staging-dashboard`,
+  `pp-prod-dashboard`, `pp-staging-redis`, `pp-prod-redis`, and
+  the Neon project is `pp` with branches `main` (prod) and
+  `staging`. When the platform rename lands it becomes a single
+  `pp-*` → `<new-name>-*` sweep across every Fly app + the Neon
+  project name + this doc.
 - **Do not put the current name in customer-facing copy for a live
   demo.** Screenshots, email templates, one-pagers, and pitch decks
   should say "the platform" or use a neutral working label until

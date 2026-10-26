@@ -1,0 +1,56 @@
+# Fly.io config — API, STAGING environment.
+#
+# Staging is where our own testing + Lumo-style prospect demos +
+# seeded demo data all live. Auto-deploys on every merge to `main`
+# via .github/workflows/deploy.yml. Promotion to prod is a separate
+# manual step — see api/fly.prod.toml and the deploy workflow.
+#
+# Infra naming convention (see context/branding.md): `pp-<env>-<role>`
+# prefix with no placeholder product name baked in. When the platform
+# rename lands it becomes `<new-name>-staging-api` in one sweep.
+#
+# All secrets (DATABASE_URL / REDIS_URL / JWT_SECRET_KEY / SECRET_KEY /
+# CORS_ORIGINS / PUBLIC_API_URL) are set via `fly secrets set -a
+# pp-staging-api ...` per docs/deployment-guide.md and never
+# committed.
+
+app = "pp-staging-api"
+primary_region = "jnb"
+
+[build]
+
+[env]
+  # Settings._validate_secrets requires environment ∉ {development, test}
+  # in prod, which this is treated as (JWT_SECRET_KEY must be set).
+  ENVIRONMENT = "staging"
+  LOG_LEVEL = "INFO"
+  # /docs/internal is additionally gated on environment != "production"
+  # in app/config.py :: internal_docs_visible, so this flag plus
+  # ENVIRONMENT=staging gives the team the full Swagger here.
+  INTERNAL_DOCS_ENABLED = "true"
+
+# Release command runs BEFORE the new machine starts serving — if the
+# migration fails the deploy aborts, old machines keep serving, no 503s.
+[deploy]
+  release_command = "alembic upgrade head"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Staging sleeps when idle (saves money overnight / weekends).
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/v1/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
