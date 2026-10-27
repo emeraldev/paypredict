@@ -303,6 +303,87 @@ time comes.
 
 ---
 
+## Known gotchas — things that bit us during the first deploy
+
+Each of these cost 10–30 minutes of debugging on 2026-10-26. All
+are called out in the setup sections above now, but repeat them
+here as a scannable checklist for the next operator so they
+don't have to read the whole file to catch them.
+
+### Neon connection string
+
+- **`sslmode=require` → `ssl=require`.** asyncpg (what SQLAlchemy
+  uses on the `postgresql+asyncpg://` scheme) does not understand
+  libpq's `sslmode` parameter; it will crash with
+  `TypeError: connect() got an unexpected keyword argument
+  'sslmode'`. Rewrite the URL to use `ssl=require` instead.
+  Already handled in step 2 of One-time setup — do not skip.
+- **Strip `channel_binding=require`.** Same reason: asyncpg does
+  not recognise it. `sslmode=require` / `ssl=require` alone
+  already enforces TLS.
+- **Keep the `-pooler` hostname.** `api/app/database.py` and
+  `api/alembic/env.py` both pass `connect_args={"statement_cache_size":
+  0}` to asyncpg so Neon's PgBouncer transaction-mode pooling
+  works. Do not swap to the direct endpoint.
+- **Passwords are per-branch, not shared.** Neon generates a
+  separate `pp_owner` password for each branch. If you copy the
+  prod branch's password into the staging secret (or vice versa)
+  the deploy will fail with `password authentication failed`.
+  Always grab each password from the branch's own connection
+  details page.
+- **Free-tier scale-to-zero is hardcoded to 5 minutes.** Neon
+  suspends the compute after 5 minutes idle; the first incoming
+  connection triggers a cold-start of ~10–30 seconds. First-time
+  deploys to an empty branch should either (a) wake the compute
+  via a `SELECT 1;` in Neon's SQL editor immediately before
+  `flyctl deploy`, or (b) wait for the queued asyncpg
+  timeout+retry patch to merge so the release command rides out
+  the cold-start automatically. Upgrade to Neon's Launch plan
+  (~$19/mo) to disable scale-to-zero outright.
+
+### Fly.io
+
+- **`pp-*` names are globally unique across all accounts.** If a
+  name is taken, pick a longer variant (e.g. `pp-score-api`) and
+  update `fly.*.toml` + the deployment guide + GitHub Actions
+  before trying again.
+- **Builder auth lag after enabling billing.** Right after you
+  add a credit card for the first time, Depot (Fly's default
+  remote builder) may reject deploys with `unauthenticated:
+  Invalid token` for 15–30 minutes while Fly syncs billing to
+  its builder infrastructure. Workaround: `--local-only` builds
+  bypass Depot entirely; or re-run `flyctl auth logout &&
+  flyctl auth login`.
+- **Dashboard health check path must return 2xx.** Set
+  `path = "/login"` not `/` in `dashboard/fly.*.toml` — the auth
+  guard 307-redirects `/` to `/login`, and Fly's default HTTP
+  check treats 3xx as failing. Already set correctly in the
+  committed configs; just do not revert.
+- **Interactive prompts on `flyctl redis create`.** Pass
+  `--disable-eviction` (Celery broker safety), `--no-replicas`,
+  and `--enable-prodpack=false` so the command runs
+  non-interactively. The `free` plan was removed; the default
+  (`pay-as-you-go`) is right for a demo.
+
+### Docker Desktop (on macOS)
+
+- **Built-in proxy may silently block `registry.fly.io`.** If
+  `flyctl deploy --local-only` times out mid-push with
+  `net/http: timeout awaiting response headers` against
+  `registry.fly.io`, open Docker Desktop → Settings → Resources
+  → Proxies and switch "Proxy mode" to **No proxy** (or add
+  `*.fly.io` to the Bypass field). This is the Docker Desktop
+  Image Access Management proxy, not a user-configured proxy,
+  and it only exempts Docker Hub by default.
+
+### After-deploy sanity
+
+- **Fly's `auto_stop_machines = "stop"` suspends both machines
+  when idle.** A `flyctl ssh console ...` immediately after will
+  fail with "no started VMs" — hit the public URL once (e.g.
+  `curl https://pp-staging-api.fly.dev/v1/health`) to wake a
+  machine, then re-run the SSH command.
+
 ## Known limits of this deployment
 
 - **No Celery worker.** Bulk scoring at >50 items queues to Celery
