@@ -28,7 +28,7 @@ primary_region = "jnb"
     timeout = "5s"
     grace_period = "10s"
     method = "GET"
-    path = "/"
+    path = "/login"
 
 [[vm]]
   cpu_kind = "shared"

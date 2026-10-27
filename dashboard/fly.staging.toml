@@ -32,7 +32,10 @@ primary_region = "jnb"
     timeout = "5s"
     grace_period = "10s"
     method = "GET"
-    path = "/"
+    # `/login` returns a direct Next.js 200; `/` 307-redirects via
+    # the auth guard, which Fly's default HTTP check treats as a
+    # failing status.
+    path = "/login"
 
 [[vm]]
   cpu_kind = "shared"
