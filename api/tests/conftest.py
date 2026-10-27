@@ -82,10 +82,36 @@ async def db_session():
 
         session.commit = _savepoint_commit  # type: ignore[assignment]
 
-        yield session
+        # ---- Override `database._parallel_runner` for this test ----
+        #
+        # Production path: each parallel query opens a fresh session
+        # against its own connection — real parallelism. In tests the
+        # test session owns the only transaction + savepoint; a fresh
+        # session would open a new connection OUTSIDE that transaction,
+        # commits from the parallel query would persist to the real
+        # test DB, and inserts the test made inside its transaction
+        # would be invisible to the parallel query (empty results).
+        #
+        # Patch the runner to reuse the test's session. Parallelism
+        # collapses to serial — tests are checking correctness, not
+        # perf, so sequential execution is correct. Multi-coroutine
+        # safety doesn't matter: asyncio.gather still runs each coro
+        # in the same event loop; they just serialise at the session.
+        from app import database
 
-        await session.close()
-        await txn.rollback()
+        original_runner = database._parallel_runner
+
+        async def _test_reuse_session(fn):
+            return await fn(session)
+
+        database._parallel_runner = _test_reuse_session
+
+        try:
+            yield session
+        finally:
+            database._parallel_runner = original_runner
+            await session.close()
+            await txn.rollback()
 
     await engine.dispose()
 

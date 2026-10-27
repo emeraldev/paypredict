@@ -51,3 +51,4 @@ celerybeat.pid
 !/context/filtering.md
 !/context/launch-roadmap.md
 !/context/project-spec.md
+context/*.mov

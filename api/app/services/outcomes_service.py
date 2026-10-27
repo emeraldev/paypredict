@@ -12,6 +12,7 @@ from decimal import Decimal
 from sqlalchemy import Select, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import run_parallel
 from app.models.outcome import Outcome, OutcomeStatus
 from app.models.score_request import ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
@@ -223,19 +224,23 @@ async def list_outcomes(
     sort_col = _SORT_COLUMNS.get(sort_by, Outcome.attempted_at)
     query = query.order_by(sort_col.desc() if sort_order == "desc" else sort_col.asc())
 
-    rows, pagination = await paginate(db, query, page, page_size)
-
-    items = [_row_to_item(row) for row in rows]
-
-    stats = await _compute_stats(
-        db,
-        tenant_id,
-        outcome_status=outcome_status,
-        match_filter=match_filter,
-        search=search,
-        date_from=date_from,
-        date_to=date_to,
+    # Pagination (count + page) and the aggregate stats are
+    # independent — split them onto parallel sessions to overlap the
+    # Frankfurt round-trips.
+    (pagination_result, stats) = await run_parallel(
+        lambda s: paginate(s, query, page, page_size),
+        lambda s: _compute_stats(
+            s,
+            tenant_id,
+            outcome_status=outcome_status,
+            match_filter=match_filter,
+            search=search,
+            date_from=date_from,
+            date_to=date_to,
+        ),
     )
+    rows, pagination = pagination_result
+    items = [_row_to_item(row) for row in rows]
 
     return OutcomesListResponse(items=items, pagination=pagination, stats=stats)
 
