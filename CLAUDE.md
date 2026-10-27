@@ -24,7 +24,7 @@ This is NOT an ML product yet. Heuristics are the product for the first 6-12 mon
 - **Cache:** Redis
 - **Dashboard:** Next.js 16 (Turbopack default, async cookies/headers/params) / React 19 / TypeScript / Tailwind CSS v4 + shadcn/ui (zinc, base-ui not Radix) / recharts / date-fns
 - **Auth:** API keys (hashed) for lender API access, NextAuth v5 for dashboard (deferred — currently stubbed)
-- **Hosting:** AWS af-south-1 (Cape Town) — ECS Fargate or App Runner
+- **Hosting (current, as of 2026-10):** Fly.io `jnb` (Johannesburg) for the API + dashboard containers and Redis, Neon `eu-central-1` (Frankfurt) for Postgres. Two environments: `pp-staging-*` (auto-deploys on merge to `main`) and `pp-prod-*` (manual promotion via `workflow_dispatch` with a GitHub Environment reviewer gate). Full runbook in `docs/deployment-guide.md`. **Hosting (planned, Stage 3):** AWS af-south-1 (Cape Town) — ECS Fargate or App Runner once latency/compliance pressure justifies the migration.
 - **CI/CD:** GitHub Actions → Docker → AWS
 - **Monitoring:** Sentry + CloudWatch
 
@@ -218,7 +218,7 @@ When adding a new endpoint, set `tags=[...]` to one of the canonical values in `
 
 ## Current development phase
 
-Phases 1–3 complete. Phase 4 timing optimiser shipped. 236 tests passing. Next: deployment or remaining Phase 4 features.
+Phases 1–3 complete. Phase 4 timing optimiser shipped. **Live on Fly.io + Neon** as of 2026-10-26 — staging + prod environment split, GitHub Actions auto-deploy on merge to `main` (staging) with manual promotion for prod. **First real pilot customer (Kalene, 4-branch Zambian salary-advance lender) onboarding in-flight for the week of 2026-10-27.** 467 tests passing. Compliance sprint complete (audit trails, PII enforcement, auth hardening, cross-tenant isolation guard). Next: a few small Kalene-specific product gaps (30% net-pay floor on ThresholdHeadroom, employer-specific segments), then back on Phase 4 (analytics depth, ML prep).
 
 ### Phase 1 (Weeks 1-4) — COMPLETE
 Scoring engine, 16 factors, POST /v1/score, POST /v1/outcomes, seed data, 117 tests.
@@ -244,6 +244,12 @@ JWT auth, all dashboard-facing API endpoints, dashboard wired to real API (zero 
 - ~~Timing optimiser — optimal collection date recommendation~~ ✅ shipped
 - Analytics depth — cohort analysis, factor trends, A/B weight testing
 - ML prep — labelled dataset export, feature engineering, model training
+
+### Stage 0 — Live deployment — COMPLETE (2026-10-26)
+Fly.io app containers + Neon Postgres in a two-env (staging + prod) split. See `docs/deployment-guide.md` for the full runbook including the "Known gotchas" section captured from the first live deploy. Compliance sprint also complete this stage — PR #51 (weight-change audit log + per-score snapshot), #53 (generic activity audit log + outcome soft-delete), #56 (PII enforcement at the API boundary), #57 (auth hardening: password policy + lockout + change-password endpoint + JWT revocation via `password_changed_at`), #58 (cross-tenant isolation parametrized regression guard).
+
+### Stage 1 — First pilot — IN FLIGHT (2026-10-27)
+Kalene signed up for a pilot post-demo. Multi-branch Zambian salary-advance lender (Kitwe, Lusaka, Chingola, Solwezi). Onboarding this week — see `context/demo-info/this-week-kalene-plan.md`. Blocking product gaps queued: 30% net-pay floor on ThresholdHeadroom (Kalene explicitly uses this alongside the 50% ceiling), employer-specific segments beyond `government`/`mining` (Zesco + specific mine names).
 
 ## Commands
 
