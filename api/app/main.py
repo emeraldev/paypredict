@@ -36,7 +36,7 @@ from app.config import APP_VERSION, settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
-    from app.database import engine
+    from app.database import engine, warm_connection_pool
     from app.startup_checks import assert_db_at_head
 
     # Refuse to serve traffic when the DB is behind (or ahead of) the
@@ -44,6 +44,14 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     # before it binds, which is the correct behaviour — a partially-
     # migrated DB serving live requests would 500 on missing columns.
     await assert_db_at_head(engine)
+
+    # Pre-establish asyncpg connections to Neon so the first real
+    # request doesn't pay the full TCP+TLS+Postgres handshake cost
+    # (~500 ms-1 s per connection over Frankfurt RTT). See
+    # `database.warm_connection_pool` for the full rationale.
+    # Failure is logged + swallowed; the app keeps booting.
+    await warm_connection_pool()
+
     yield
     await engine.dispose()
 
