@@ -25,14 +25,15 @@ engine = create_async_engine(
     #   Covers production too — a lender's first API call after a
     #   quiet period shouldn't 500.
     connect_args={"statement_cache_size": 0, "timeout": 90},
-    # Pessimistic connection check — hands SQLAlchemy's pool a quick
-    # SELECT 1 before yielding a stale connection. Catches the case
-    # where Neon suspended the compute AFTER a connection was pooled
-    # here; without this, the first query after suspension would
-    # raise ConnectionDoesNotExistError instead of silently
-    # reconnecting. Costs one round-trip per checkout (~ms); cheap
-    # vs the 500 to the lender.
-    pool_pre_ping=True,
+    # Note: pool_pre_ping is deliberately NOT enabled.
+    # When Neon's free-tier auto-suspend was in play, pre-ping was
+    # the defence against stale pooled connections surviving a
+    # compute suspension. We upgraded to Neon's Launch plan + set
+    # scale-to-zero to "off" on both branches (2026-10-27), so the
+    # compute never suspends in normal operation. Keeping pre-ping
+    # on would just add one ~160 ms Frankfurt-RTT round-trip per
+    # request for no benefit. If we ever revert Neon to a tier that
+    # auto-suspends, re-enable this.
 )
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

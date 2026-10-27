@@ -1,16 +1,17 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 
 import bcrypt
 import redis
-from fastapi import Depends, HTTPException, Response, Security
+from fastapi import BackgroundTasks, Depends, HTTPException, Response, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.database import get_db
+from app.database import async_session, get_db
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -19,6 +20,36 @@ from app.services.rate_limit_service import (
     check_and_increment,
     headers_for,
 )
+
+_logger = logging.getLogger(__name__)
+
+
+async def _bump_last_used_at(api_key_id: uuid.UUID) -> None:
+    """Fire-and-forget UPDATE of `ApiKey.last_used_at`.
+
+    Runs after the response is sent via FastAPI's BackgroundTasks,
+    using a fresh session so it can't collide with the request's own
+    session (`AsyncSession` is not safe for concurrent use). Failures
+    are logged and swallowed — a stale `last_used_at` is a cosmetic
+    issue, far less bad than a 500 to a lender.
+
+    This moves what used to be a ~160 ms Frankfurt-RTT round-trip
+    off every API-key-authenticated request's critical path. See
+    `context/demo-info/perf-audit-2026-10-27.md` for the full
+    audit.
+    """
+    try:
+        async with async_session() as session:
+            await session.execute(
+                update(ApiKey)
+                .where(ApiKey.id == api_key_id)
+                .values(last_used_at=datetime.now(timezone.utc))
+            )
+            await session.commit()
+    except Exception:
+        _logger.exception(
+            "last_used_at update failed for api_key_id=%s", api_key_id
+        )
 
 
 # A stable, cheap bcrypt hash we run on the auth-miss path so that
@@ -38,6 +69,7 @@ session_security = HTTPBearer(auto_error=False)
 
 
 async def get_current_tenant(
+    background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
@@ -82,14 +114,12 @@ async def get_current_tenant(
     if not tenant.is_active:
         raise HTTPException(status_code=401, detail="Tenant is deactivated")
 
-    # Update last_used_at. Same-request update — will be rolled back if
-    # the endpoint later raises 4xx/5xx. Documented as L1 in the audit;
-    # out of scope for this PR (PR B territory) but noting it here.
-    await db.execute(
-        update(ApiKey)
-        .where(ApiKey.id == api_key.id)
-        .values(last_used_at=datetime.now(timezone.utc))
-    )
+    # Schedule the last_used_at bump to run AFTER the response is sent
+    # (FastAPI's BackgroundTasks). Keeps a ~160 ms Frankfurt-RTT round
+    # trip off every scoring request's critical path — the UPDATE is
+    # cosmetic / observational, so delaying it a few ms after the
+    # response is fine.
+    background_tasks.add_task(_bump_last_used_at, api_key.id)
 
     return tenant
 
@@ -141,6 +171,7 @@ async def get_current_user(
 
 
 async def get_tenant_from_either(
+    background_tasks: BackgroundTasks,
     credentials: HTTPAuthorizationCredentials | None = Security(session_security),
     db: AsyncSession = Depends(get_db),
 ) -> Tenant:
@@ -154,7 +185,7 @@ async def get_tenant_from_either(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if credentials.credentials.startswith("pk_"):
-        return await get_current_tenant(credentials, db)
+        return await get_current_tenant(background_tasks, credentials, db)
     user = await get_current_user(credentials, db)
     return user.tenant
 
@@ -205,6 +236,7 @@ async def enforce_rate_limit(
 
 
 async def enforce_rate_limit_or_jwt(
+    background_tasks: BackgroundTasks,
     response: Response,
     credentials: HTTPAuthorizationCredentials | None = Security(session_security),
     db: AsyncSession = Depends(get_db),
@@ -226,7 +258,7 @@ async def enforce_rate_limit_or_jwt(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if credentials.credentials.startswith("pk_"):
-        tenant = await get_current_tenant(credentials, db)
+        tenant = await get_current_tenant(background_tasks, credentials, db)
         _apply_rate_limit(tenant, response)
         return tenant
     user = await get_current_user(credentials, db)
@@ -234,6 +266,7 @@ async def enforce_rate_limit_or_jwt(
 
 
 async def enforce_rate_limit_or_jwt_write(
+    background_tasks: BackgroundTasks,
     response: Response,
     credentials: HTTPAuthorizationCredentials | None = Security(session_security),
     db: AsyncSession = Depends(get_db),
@@ -256,7 +289,7 @@ async def enforce_rate_limit_or_jwt_write(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if credentials.credentials.startswith("pk_"):
-        tenant = await get_current_tenant(credentials, db)
+        tenant = await get_current_tenant(background_tasks, credentials, db)
         _apply_rate_limit(tenant, response)
         return tenant
     user = await get_current_user(credentials, db)
