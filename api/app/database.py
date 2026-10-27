@@ -103,3 +103,75 @@ async def run_parallel(*fns: QueryFn) -> tuple:
     `get_db`'s commit covers them atomically.
     """
     return tuple(await asyncio.gather(*(_parallel_runner(fn) for fn in fns)))
+
+
+# ---- Startup: warm the connection pool ------------------------------
+#
+# asyncpg connections to Neon over Frankfurt RTT (~160 ms) take
+# multiple round-trips to establish (TCP + TLS + Postgres auth), so
+# a fresh connection costs ~500 ms-1 s before the first query even
+# starts. On a freshly booted Fly machine the SQLAlchemy pool is
+# empty — the first user request pays the full handshake cost, and
+# the parallelized analytics endpoints pay it four times over
+# (once per fresh session, in parallel but still bottlenecked by
+# the slowest handshake).
+#
+# `warm_connection_pool` fires N trivial queries in parallel at
+# startup to pre-establish N pooled connections. By the time
+# traffic arrives, the pool has warm connections ready for the
+# `run_parallel` helpers to check out.
+#
+# Failure is logged + swallowed: a warmup problem must not block
+# serving. The lifespan hook already runs `assert_db_at_head`
+# which fails hard on real DB issues — warmup is best-effort.
+
+
+async def warm_connection_pool(n: int = 5, timeout: float = 15.0) -> int:
+    """Pre-establish `n` pooled asyncpg connections.
+
+    Returns the number that actually succeeded. Each warmup runs
+    its own fresh session, holds the connection briefly via a
+    `SELECT 1`, and releases it back to the pool warm. Any failure
+    is logged and treated as 0 for that slot — the app keeps
+    booting.
+
+    Default `n=5` warms half of `pool_size=10`, enough that the
+    four parallel analytics branches + one request's main session
+    all check out warm. More would pay for cold-start wall-clock
+    with diminishing returns.
+    """
+    from sqlalchemy import text
+
+    async def _one() -> bool:
+        try:
+            async with async_session() as session:
+                await session.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            _logger.warning("connection pool warmup slot failed", exc_info=True)
+            return False
+
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(*(_one() for _ in range(n))),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        _logger.warning(
+            "connection pool warmup exceeded %.1fs timeout — continuing cold",
+            timeout,
+        )
+        return 0
+    succeeded = sum(1 for r in results if r)
+    _logger.info(
+        "connection pool warmup: %d/%d slots established", succeeded, n
+    )
+    return succeeded
+
+
+# Logger used by the warmup. Kept here (not imported from a utils
+# module) so this file has no app-internal dependencies — database.py
+# is at the bottom of the import tree.
+import logging  # noqa: E402
+
+_logger = logging.getLogger(__name__)
