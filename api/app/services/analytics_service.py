@@ -12,7 +12,9 @@ from decimal import Decimal
 
 from sqlalchemy import Float, case, cast, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
+from app.database import run_parallel
 from app.models.outcome import Outcome, OutcomeStatus
 from app.models.score_request import ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
@@ -27,7 +29,19 @@ from app.schemas.analytics import (
     PredictionAccuracy,
     RiskDistribution,
 )
+from app.services import analytics_cache
 from app.services.query_utils import period_start
+
+
+async def _execute_one(session: AsyncSession, query: Select) -> any:
+    """Trivial wrapper: run one SQL query, return its one()-row.
+
+    Exists so `run_parallel(lambda s: _execute_one(s, q))` reads
+    cleanly in call sites. Keeps the lambda closure tiny — no
+    captured state besides the pre-built query object, which is
+    read-only.
+    """
+    return (await session.execute(query)).one()
 
 
 # ---- Summary ----
@@ -37,9 +51,23 @@ async def get_summary(
     tenant_id: uuid.UUID,
     period: str,
 ) -> AnalyticsSummaryResponse:
-    cutoff = period_start(period)
+    # Cache check — key off (endpoint, tenant_id, period). Short TTL
+    # so admin weight edits are visible within ~1 min; long enough
+    # that back-to-back clicks are instant.
+    params = {"period": period}
+    cached = analytics_cache.get(
+        AnalyticsSummaryResponse, "summary", tenant_id, params
+    )
+    if cached is not None:
+        return cached
 
-    # Scores in period
+    cutoff = period_start(period)
+    prev_cutoff = cutoff - (datetime.now(timezone.utc) - cutoff)
+
+    # Four independent aggregations — before this landed they ran
+    # serially (each paying ~160 ms Frankfurt RTT), stacking to
+    # 4+ seconds. Running them via `run_parallel` fires each on a
+    # fresh session so they overlap in wall-clock time.
     scores_q = (
         select(
             func.count().label("total_scored"),
@@ -56,9 +84,7 @@ async def get_summary(
         .join(ScoreResult, ScoreResult.score_request_id == ScoreRequest.id)
         .where(ScoreRequest.tenant_id == tenant_id, ScoreResult.created_at >= cutoff)
     )
-    sr = (await db.execute(scores_q)).one()
 
-    # Outcomes in period (joined to ScoreResult for prediction accuracy)
     outcomes_q = (
         select(
             func.count().label("total_outcomes"),
@@ -71,9 +97,7 @@ async def get_summary(
             Outcome.deleted_at.is_(None),
         )
     )
-    orow = (await db.execute(outcomes_q)).one()
 
-    # Prediction accuracy: need outcomes joined to score results
     acc_q = (
         select(
             func.count(case((
@@ -98,20 +122,7 @@ async def get_summary(
             Outcome.deleted_at.is_(None),
         )
     )
-    arow = (await db.execute(acc_q)).one()
 
-    high_fail_rate = round(arow.high_failed / arow.high_total, 3) if arow.high_total > 0 else 0.0
-    low_success_rate = round(arow.low_success / arow.low_total, 3) if arow.low_total > 0 else 0.0
-    # Overall accuracy: high that failed + low that succeeded + all medium / total linked
-    matched = arow.high_failed + arow.low_success + (arow.linked_total - arow.high_total - arow.low_total)
-    overall_accuracy = round(matched / arow.linked_total, 3) if arow.linked_total > 0 else 0.0
-
-    total_resolved = orow.success + orow.failed
-    collection_rate = round(orow.success / total_resolved, 3) if total_resolved > 0 else 0.0
-    reporting_rate = round(orow.total_outcomes / sr.total_scored, 3) if sr.total_scored > 0 else 0.0
-
-    # Collection rate change: compare current period vs previous period
-    prev_cutoff = cutoff - (datetime.now(timezone.utc) - cutoff)
     prev_outcomes_q = (
         select(
             func.count(case((Outcome.outcome == OutcomeStatus.SUCCESS, 1))).label("success"),
@@ -124,11 +135,28 @@ async def get_summary(
             Outcome.deleted_at.is_(None),
         )
     )
-    prev = (await db.execute(prev_outcomes_q)).one()
+
+    sr, orow, arow, prev = await run_parallel(
+        lambda s: _execute_one(s, scores_q),
+        lambda s: _execute_one(s, outcomes_q),
+        lambda s: _execute_one(s, acc_q),
+        lambda s: _execute_one(s, prev_outcomes_q),
+    )
+
+    high_fail_rate = round(arow.high_failed / arow.high_total, 3) if arow.high_total > 0 else 0.0
+    low_success_rate = round(arow.low_success / arow.low_total, 3) if arow.low_total > 0 else 0.0
+    # Overall accuracy: high that failed + low that succeeded + all medium / total linked
+    matched = arow.high_failed + arow.low_success + (arow.linked_total - arow.high_total - arow.low_total)
+    overall_accuracy = round(matched / arow.linked_total, 3) if arow.linked_total > 0 else 0.0
+
+    total_resolved = orow.success + orow.failed
+    collection_rate = round(orow.success / total_resolved, 3) if total_resolved > 0 else 0.0
+    reporting_rate = round(orow.total_outcomes / sr.total_scored, 3) if sr.total_scored > 0 else 0.0
+
     prev_rate = round(prev.success / prev.resolved, 3) if prev.resolved > 0 else 0.0
     rate_change = round(collection_rate - prev_rate, 3)
 
-    return AnalyticsSummaryResponse(
+    response = AnalyticsSummaryResponse(
         period=period,
         total_scored=sr.total_scored,
         total_outcomes=orow.total_outcomes,
@@ -146,6 +174,9 @@ async def get_summary(
         outcomes_reporting_rate=reporting_rate,
     )
 
+    analytics_cache.set_("summary", tenant_id, params, response)
+    return response
+
 
 # ---- Collection rate over time ----
 
@@ -155,6 +186,13 @@ async def get_collection_rate(
     period: str,
     interval: str,
 ) -> CollectionRateResponse:
+    params = {"period": period, "interval": interval}
+    cached = analytics_cache.get(
+        CollectionRateResponse, "collection_rate", tenant_id, params
+    )
+    if cached is not None:
+        return cached
+
     cutoff = period_start(period)
 
     # Truncate to day or week
@@ -188,7 +226,9 @@ async def get_collection_rate(
             failed_count=failed,
         ))
 
-    return CollectionRateResponse(data_points=points)
+    response = CollectionRateResponse(data_points=points)
+    analytics_cache.set_("collection_rate", tenant_id, params, response)
+    return response
 
 
 # ---- Factor contributions ----
@@ -205,6 +245,11 @@ async def get_factor_contributions(
 
     We use a subquery that unnests the evaluated array, then aggregate.
     """
+    params = {"period": period}
+    cached = analytics_cache.get(FactorsResponse, "factors", tenant_id, params)
+    if cached is not None:
+        return cached
+
     cutoff = period_start(period)
 
     # COALESCE on both keys defends against legacy rows written by the old
@@ -249,7 +294,9 @@ async def get_factor_contributions(
         for row in rows
     ]
 
-    return FactorsResponse(factors=factors)
+    response = FactorsResponse(factors=factors)
+    analytics_cache.set_("factors", tenant_id, params, response)
+    return response
 
 
 # ---- Confusion matrix ----
@@ -259,6 +306,11 @@ async def get_accuracy(
     tenant_id: uuid.UUID,
     period: str,
 ) -> AccuracyResponse:
+    params = {"period": period}
+    cached = analytics_cache.get(AccuracyResponse, "accuracy", tenant_id, params)
+    if cached is not None:
+        return cached
+
     cutoff = period_start(period)
 
     q = (
@@ -292,7 +344,7 @@ async def get_accuracy(
     )
     row = (await db.execute(q)).one()
 
-    return AccuracyResponse(
+    response = AccuracyResponse(
         confusion_matrix=ConfusionMatrix(
             predicted_high_actual_failed=row.ph_af,
             predicted_high_actual_success=row.ph_as,
@@ -302,3 +354,5 @@ async def get_accuracy(
             predicted_low_actual_success=row.pl_as,
         )
     )
+    analytics_cache.set_("accuracy", tenant_id, params, response)
+    return response

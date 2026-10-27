@@ -13,6 +13,7 @@ from sqlalchemy import Select, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.database import run_parallel
 from app.models.outcome import Outcome
 from app.models.score_request import ScoreRequest
 from app.models.score_result import RiskLevel, ScoreResult
@@ -163,20 +164,25 @@ async def list_scores(
     sort_col = _SORT_COLUMNS.get(sort_by, ScoreResult.score)
     query = query.order_by(sort_col.desc() if sort_order == "desc" else sort_col.asc())
 
-    rows, pagination = await paginate(db, query, page, page_size)
-
-    items = [_row_to_list_item(req, res) for req, res in rows]
-
-    summary = await _compute_summary(
-        db,
-        tenant_id,
-        risk_level=risk_level,
-        collection_method=collection_method,
-        recommended_action=recommended_action,
-        due_date_from=due_date_from,
-        due_date_to=due_date_to,
-        search=search,
+    # Pagination (count + page) and the aggregate summary are
+    # independent — split them onto parallel sessions. Before: ~160 ms
+    # Frankfurt-RTT round-trip for pagination finishing before the
+    # summary even started. After: both overlap.
+    (pagination_result, summary) = await run_parallel(
+        lambda s: paginate(s, query, page, page_size),
+        lambda s: _compute_summary(
+            s,
+            tenant_id,
+            risk_level=risk_level,
+            collection_method=collection_method,
+            recommended_action=recommended_action,
+            due_date_from=due_date_from,
+            due_date_to=due_date_to,
+            search=search,
+        ),
     )
+    rows, pagination = pagination_result
+    items = [_row_to_list_item(req, res) for req, res in rows]
 
     return ScoresListResponse(items=items, pagination=pagination, summary=summary)
 
@@ -230,20 +236,18 @@ async def get_score_detail(
     # Load linked outcome. Skip soft-deleted rows so the drawer
     # shows the "no outcome recorded" state (letting the clerk file
     # a fresh outcome) rather than a phantom deleted one.
-    outcome_result = await db.execute(
-        select(Outcome).where(
-            Outcome.score_result_id == res.id,
-            Outcome.deleted_at.is_(None),
-        )
+    # Outcome lookup and customer journey are independent — fire both
+    # in parallel. Journey is capped at 50 for response-size safety;
+    # outcome filters out soft-deleted rows so the drawer shows "no
+    # outcome recorded" rather than a phantom deleted one.
+    outcome_q = select(Outcome).where(
+        Outcome.score_result_id == res.id,
+        Outcome.deleted_at.is_(None),
     )
-    outcome_row = outcome_result.scalar_one_or_none()
-
-    # Load prior scoring history for the same (tenant, customer_id).
     # Tenant-scoped so a colliding external_customer_id in a different
-    # tenant can never surface here. Chronological, capped at 50 for
-    # response-size safety. Includes THIS score — the drawer flags it
-    # `is_current=True` for the "you are here" highlight.
-    journey_rows = (await db.execute(
+    # tenant can never surface here. Includes THIS score — the drawer
+    # flags it `is_current=True` for the "you are here" highlight.
+    journey_q = (
         select(ScoreRequest, ScoreResult, Outcome)
         .join(ScoreResult, ScoreResult.score_request_id == ScoreRequest.id)
         .outerjoin(
@@ -257,7 +261,14 @@ async def get_score_detail(
         )
         .order_by(ScoreResult.created_at.asc())
         .limit(50)
-    )).all()
+    )
+
+    outcome_result, journey_result = await run_parallel(
+        lambda s: s.execute(outcome_q),
+        lambda s: s.execute(journey_q),
+    )
+    outcome_row = outcome_result.scalar_one_or_none()
+    journey_rows = journey_result.all()
 
     return _build_detail(req, res, outcome_row, journey_rows)
 
