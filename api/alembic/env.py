@@ -53,12 +53,14 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        # Same pooler-compat reason as app/database.py — Fly deploys
-        # run `alembic upgrade head` as the release_command against
-        # Neon's pooled endpoint, which trips asyncpg's prepared-
-        # statement cache. Zero cache = safe under transaction-mode
-        # pooling.
-        connect_args={"statement_cache_size": 0},
+        # Mirrors app/database.py — see that file for the rationale on
+        # each option. statement_cache_size=0 is the PgBouncer
+        # pooler-compat workaround; timeout=90 rides out Neon's free-
+        # tier cold-start (compute suspends after 5 min idle, re-wake
+        # can take ~10-30 s + occasionally longer) so the deploy's
+        # release_command doesn't fail the whole deploy on a
+        # recoverable TimeoutError.
+        connect_args={"statement_cache_size": 0, "timeout": 90},
     )
 
     async with connectable.connect() as connection:
