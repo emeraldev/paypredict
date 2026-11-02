@@ -86,7 +86,27 @@ API key (full):  pk_live_<lookup>_<secret>
 
 ## Hand over to the lender
 
-Send on a secure channel (not plain email):
+**PayPredict does not send email yet** (Stage 1 roadmap item #7). There
+is no welcome email, no "credentials delivered" notification, no
+password-reset link. Handover is 100% manual: the person who runs
+the provision script is responsible for getting the credentials to
+the lender via a channel the lender can actually read.
+
+Preferred channels (in order):
+
+1. **In-person**, pasted into their password manager while you watch
+2. **A password manager's share-this-vault feature** (1Password, Bitwarden)
+3. **An end-to-end-encrypted chat** (Signal, WhatsApp with disappearing
+   messages on, Telegram secret chat), only if the lender has one
+4. **A phone call to read out the password**, with the API key sent
+   over a separate secure channel after
+
+Avoid: SMS, plain email, Slack / Teams DMs, screenshots in public
+chats. The admin password unlocks the whole tenant, and the API key
+can mint real scoring traffic, so treat both at the same sensitivity
+level as a database root password.
+
+What to hand over:
 
 1. **Dashboard URL:** `https://pp-prod-dashboard.fly.dev`
 2. **Admin login + password** (from the credentials block)
@@ -97,6 +117,15 @@ Send on a secure channel (not plain email):
    > Settings → Profile, then start uploading scoring requests via
    > the API or via the Score Collections page. Each API request
    > needs an `Authorization: Bearer <API key>` header."
+
+### What happens if they lose the password
+
+There is no self-service reset (Stage 1 roadmap item #12, not shipped).
+Recovery today: an operator with DB access resets `password_hash` on
+their user row and hands over a new generated password on the same
+secure channel used initially. Flag this to the lender during handover
+so they capture the password into their password manager immediately,
+rather than treating email-recovery as the fallback.
 
 ## After-provision checklist
 
