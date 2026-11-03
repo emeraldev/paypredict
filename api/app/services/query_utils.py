@@ -41,18 +41,26 @@ async def paginate(
     query: Select[Any],
     page: int,
     page_size: int,
+    total_items: int | None = None,
 ) -> tuple[list[Any], PaginationMeta]:
     """Run a paginated SELECT and return rows + pagination metadata.
 
-    The query is executed twice: once wrapped in COUNT(*) for the total,
-    once with LIMIT/OFFSET applied for the page. Always uses subqueries
-    so JOINs and filters are preserved across both runs.
+    By default the query is executed twice: once wrapped in COUNT(*)
+    for the total, once with LIMIT/OFFSET applied for the page. Always
+    uses subqueries so JOINs and filters are preserved across both.
+
+    Callers that have already computed `total_items` (typically because
+    an upstream aggregate already scans the same filtered set) can pass
+    it in to skip the COUNT round-trip. The caller is responsible for
+    using the same filters so the number matches what this query would
+    return.
     """
     page = max(page, 1)
     page_size = clamp_page_size(page_size)
 
-    count_query = func.count().select().select_from(query.subquery())
-    total_items: int = (await db.execute(count_query)).scalar_one()
+    if total_items is None:
+        count_query = func.count().select().select_from(query.subquery())
+        total_items = (await db.execute(count_query)).scalar_one()
 
     total_pages = max(1, (total_items + page_size - 1) // page_size)
 
