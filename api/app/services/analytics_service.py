@@ -29,7 +29,7 @@ from app.schemas.analytics import (
     PredictionAccuracy,
     RiskDistribution,
 )
-from app.services import analytics_cache
+from app.services import response_cache
 from app.services.query_utils import period_start
 
 
@@ -55,8 +55,8 @@ async def get_summary(
     # so admin weight edits are visible within ~1 min; long enough
     # that back-to-back clicks are instant.
     params = {"period": period}
-    cached = analytics_cache.get(
-        AnalyticsSummaryResponse, "summary", tenant_id, params
+    cached = response_cache.get(
+        "analytics", AnalyticsSummaryResponse, "summary", tenant_id, params
     )
     if cached is not None:
         return cached
@@ -174,7 +174,7 @@ async def get_summary(
         outcomes_reporting_rate=reporting_rate,
     )
 
-    analytics_cache.set_("summary", tenant_id, params, response)
+    response_cache.set_("analytics", "summary", tenant_id, params, response)
     return response
 
 
@@ -187,8 +187,8 @@ async def get_collection_rate(
     interval: str,
 ) -> CollectionRateResponse:
     params = {"period": period, "interval": interval}
-    cached = analytics_cache.get(
-        CollectionRateResponse, "collection_rate", tenant_id, params
+    cached = response_cache.get(
+        "analytics", CollectionRateResponse, "collection_rate", tenant_id, params
     )
     if cached is not None:
         return cached
@@ -227,7 +227,7 @@ async def get_collection_rate(
         ))
 
     response = CollectionRateResponse(data_points=points)
-    analytics_cache.set_("collection_rate", tenant_id, params, response)
+    response_cache.set_("analytics", "collection_rate", tenant_id, params, response)
     return response
 
 
@@ -246,7 +246,9 @@ async def get_factor_contributions(
     We use a subquery that unnests the evaluated array, then aggregate.
     """
     params = {"period": period}
-    cached = analytics_cache.get(FactorsResponse, "factors", tenant_id, params)
+    cached = response_cache.get(
+        "analytics", FactorsResponse, "factors", tenant_id, params
+    )
     if cached is not None:
         return cached
 
@@ -295,7 +297,7 @@ async def get_factor_contributions(
     ]
 
     response = FactorsResponse(factors=factors)
-    analytics_cache.set_("factors", tenant_id, params, response)
+    response_cache.set_("analytics", "factors", tenant_id, params, response)
     return response
 
 
@@ -307,7 +309,9 @@ async def get_accuracy(
     period: str,
 ) -> AccuracyResponse:
     params = {"period": period}
-    cached = analytics_cache.get(AccuracyResponse, "accuracy", tenant_id, params)
+    cached = response_cache.get(
+        "analytics", AccuracyResponse, "accuracy", tenant_id, params
+    )
     if cached is not None:
         return cached
 
@@ -354,5 +358,5 @@ async def get_accuracy(
             predicted_low_actual_success=row.pl_as,
         )
     )
-    analytics_cache.set_("accuracy", tenant_id, params, response)
+    response_cache.set_("analytics", "accuracy", tenant_id, params, response)
     return response
