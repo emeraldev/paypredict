@@ -140,6 +140,10 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
     label: "Regulatory threshold %",
     help: "0.40 = 40% for Zambia. Override only if the borrower's jurisdiction differs.",
   },
+  min_take_home_pct: {
+    label: "Minimum take-home %",
+    help: "Business-policy floor. 0.30 = decline when net-pay would drop below 30% of gross. Leave blank to disable the floor check.",
+  },
   resubmission_count: {
     label: "Deductions resubmitted (last 6 months)",
     help: "Times you had to resubmit this borrower's deduction at a lower amount.",

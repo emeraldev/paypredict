@@ -86,6 +86,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   const [netPay, setNetPay] = useState("");
   const [currentTotalDeductions, setCurrentTotalDeductions] = useState("");
   const [deductionThresholdPct, setDeductionThresholdPct] = useState("");
+  const [minTakeHomePct, setMinTakeHomePct] = useState("");
   const [resubmissionCount, setResubmissionCount] = useState("");
   const [borrowerSegment, setBorrowerSegment] = useState("");
 
@@ -144,6 +145,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
       setNum("net_pay", netPay);
       setNum("current_total_deductions", currentTotalDeductions);
       setNum("deduction_threshold_pct", deductionThresholdPct);
+      setNum("min_take_home_pct", minTakeHomePct);
       setInt("resubmission_count", resubmissionCount);
       setStr("borrower_segment", borrowerSegment);
       // active_loan_count matters for payroll too (competing deductions) —
@@ -561,6 +563,17 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                           value={deductionThresholdPct}
                           onChange={(e) => setDeductionThresholdPct(e.target.value)}
                           placeholder="0.40"
+                        />
+                      </Field>
+                      <Field name="min_take_home_pct">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={minTakeHomePct}
+                          onChange={(e) => setMinTakeHomePct(e.target.value)}
+                          placeholder="0.30"
                         />
                       </Field>
                       <Field name="resubmission_count">

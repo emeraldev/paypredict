@@ -89,6 +89,10 @@ export interface CustomerData {
   net_pay?: number | null;
   current_total_deductions?: number | null;
   deduction_threshold_pct?: number | null;
+  // Minimum take-home ratio of gross salary. When set, ThresholdHeadroom
+  // scores HIGH if a collection would drop net-pay below the floor,
+  // independently of the regulatory ceiling. Common Zambian value is 0.30.
+  min_take_home_pct?: number | null;
   resubmission_count?: number | null;
   borrower_segment?: string | null;
 }
@@ -109,6 +113,11 @@ export interface FactorBreakdown {
   weight: number;
   weighted_score: number;
   explanation: string;
+  // Short code naming the specific policy rule inside the factor that
+  // fired (e.g. "floor_breach" from ThresholdHeadroom), or null when
+  // the score alone tells the story. See lib/constants.ts TRIGGER_LABELS
+  // for the display mapping.
+  trigger?: string | null;
 }
 
 export interface ScoreResponse {

@@ -146,7 +146,7 @@ export const FACTOR_DESCRIPTIONS: Record<string, string> = {
   airtime_purchase_pattern: "Airtime buying regularity",
   loan_cycling_behaviour: "Borrowing to repay pattern",
   // PAYROLL factor set
-  threshold_headroom: "Room before hitting the regulatory deduction cap",
+  threshold_headroom: "Room against both the regulatory deduction cap and the minimum take-home floor",
   deduction_to_income_ratio: "Deduction size relative to borrower's income",
   resubmission_history: "Past deductions resubmitted at lower amounts",
   borrower_segment: "Employment sector risk (government/mining/private)",
@@ -230,3 +230,17 @@ export const FACTOR_LABELS: Record<string, string> = {
   resubmission_history: "Deduction resubmission history",
   borrower_segment: "Employment sector",
 };
+
+// Short labels for a FactorBreakdown.trigger. Rendered next to the
+// factor row when the backend named a specific policy rule as the
+// cause (not just a tight buffer). Any trigger not in this map falls
+// through to the raw code so new codes still surface, just unstyled.
+export const TRIGGER_LABELS: Record<string, string> = {
+  floor_breach: "Take-home below the minimum",
+  ceiling_breach: "Deduction ceiling exceeded",
+};
+
+export function getTriggerLabel(trigger: string | null | undefined): string | null {
+  if (!trigger) return null;
+  return TRIGGER_LABELS[trigger] ?? trigger;
+}

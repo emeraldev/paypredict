@@ -1,4 +1,4 @@
-import { FACTOR_LABELS } from "@/lib/constants";
+import { FACTOR_LABELS, getTriggerLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { getFactorBarClass } from "@/lib/utils/format-risk";
 
@@ -8,6 +8,7 @@ interface FactorBarProps {
   weight: number;
   weightedScore: number;
   explanation: string;
+  trigger?: string | null;
   className?: string;
 }
 
@@ -17,12 +18,14 @@ export function FactorBar({
   weight,
   weightedScore,
   explanation,
+  trigger,
   className,
 }: FactorBarProps) {
   const label = FACTOR_LABELS[factor] ?? factor;
   const barClass = getFactorBarClass(rawScore);
   // Min 3% width so non-zero scores are still visible
   const barWidth = Math.max(Math.round(rawScore * 100), 3);
+  const triggerLabel = getTriggerLabel(trigger);
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -45,6 +48,11 @@ export function FactorBar({
         />
       </div>
       <p className="text-xs text-muted-foreground">{explanation}</p>
+      {triggerLabel && (
+        <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
+          {triggerLabel}
+        </span>
+      )}
     </div>
   );
 }
