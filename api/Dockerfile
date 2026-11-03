@@ -60,6 +60,11 @@ COPY --chown=app:app app/ ./app/
 COPY --chown=app:app alembic/ ./alembic/
 COPY --chown=app:app alembic.ini ./alembic.ini
 COPY --chown=app:app pyproject.toml ./pyproject.toml
+# Operator-run scripts invoked via `flyctl ssh console -a <app> -C
+# "python -m scripts.<name> ..."`. Currently provision_tenant.py for
+# pilot onboarding; test_flow.py and check_migration_guards.py are
+# dev-time tooling that come along for free (harmless at runtime).
+COPY --chown=app:app scripts/ ./scripts/
 
 USER app
 
