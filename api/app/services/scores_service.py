@@ -29,8 +29,21 @@ from app.schemas.scores_list import (
 )
 from app.services import response_cache
 from app.services.query_utils import PaginationMeta, paginate
+from pydantic import BaseModel
 
 _SCORES_CACHE_NS = "scores"
+
+
+class _CachedSummary(BaseModel):
+    """Internal cache envelope so (summary, total) travel together.
+
+    Not exposed on the API surface; `summary` is unwrapped before the
+    response is built. Keeps `ScoresSummary` free of total-row noise
+    that the dashboard summary cards do not render.
+    """
+
+    summary: ScoresSummary
+    total: int
 
 
 # ---- Shared base query ----
@@ -95,8 +108,14 @@ async def _compute_summary(
     due_date_from: date | None,
     due_date_to: date | None,
     search: str | None,
-) -> ScoresSummary:
-    """Aggregate counts over the full filtered dataset (not paged)."""
+) -> tuple[ScoresSummary, int]:
+    """Aggregate counts over the full filtered dataset (not paged).
+
+    Returns (summary, total_items). The total is the row count of the
+    filtered set, folded into the same aggregate so `paginate` can
+    skip its own COUNT. ScoresSummary itself does not expose `total`;
+    it stays scoped to the dashboard summary cards.
+    """
     base = _base_query(tenant_id)
     base = _apply_filters(
         base,
@@ -125,16 +144,18 @@ async def _compute_summary(
         func.count(case((sub.c.recommended_action == "shift_date", 1))).label(
             "shift_recommended"
         ),
+        func.count().label("total"),
     )
 
     row = (await db.execute(summary_q)).one()
-    return ScoresSummary(
+    summary = ScoresSummary(
         high_risk=row.high,
         medium_risk=row.medium,
         low_risk=row.low,
         total_value_at_risk=row.value_at_risk,
         shift_recommended=row.shift_recommended,
     )
+    return summary, int(row.total)
 
 
 async def list_scores(
@@ -167,11 +188,11 @@ async def list_scores(
     sort_col = _SORT_COLUMNS.get(sort_by, ScoreResult.score)
     query = query.order_by(sort_col.desc() if sort_order == "desc" else sort_col.asc())
 
-    # Cache the summary per (tenant, filter set). The summary is
-    # independent of page/sort, so paging through the same filtered
-    # view hits the cached value every time after the first load.
-    # 60s TTL mirrors the analytics namespace; a scoring POST becomes
-    # visible on the next read within that window.
+    # Cache the summary + the total-row count per (tenant, filter set).
+    # Both are independent of page/sort, so paging through the same
+    # filtered view hits the cached value every time after the first
+    # load. 60s TTL mirrors the analytics namespace; a scoring POST
+    # becomes visible on the next read within that window.
     filter_key = {
         "risk_level": risk_level,
         "collection_method": collection_method,
@@ -180,20 +201,27 @@ async def list_scores(
         "due_date_to": due_date_to.isoformat() if due_date_to else None,
         "search": search,
     }
-    cached_summary = response_cache.get(
-        _SCORES_CACHE_NS, ScoresSummary, "summary", tenant_id, filter_key
+    cached = response_cache.get(
+        _SCORES_CACHE_NS, _CachedSummary, "summary", tenant_id, filter_key
     )
 
-    if cached_summary is not None:
-        # Hit path: only the paginated page needs the DB. Run it on
-        # the request session so we skip the fresh-session fan-out
-        # overhead of `run_parallel` when there is nothing to fan out.
-        rows, pagination = await paginate(db, query, page, page_size)
-        summary = cached_summary
+    if cached is not None:
+        # Hit path: skip both the aggregate AND the pagination COUNT
+        # (we already know the total from the cached envelope). Only
+        # the paginated page itself touches the DB, on the request
+        # session so we avoid the fresh-session fan-out of
+        # `run_parallel` when there is nothing to fan out.
+        rows, pagination = await paginate(
+            db, query, page, page_size, total_items=cached.total
+        )
+        summary = cached.summary
     else:
-        # Miss path: fetch page + summary in parallel like before, then
-        # populate the cache for the next click.
-        (pagination_result, summary) = await run_parallel(
+        # Miss path: page + summary run in parallel. `paginate` runs
+        # its own COUNT in parallel with the aggregate, so the fold-
+        # COUNT optimisation only applies to the hit path. The miss
+        # path still populates the cache with the aggregate's
+        # row count so the next hit can take the shortcut.
+        (pagination_result, summary_and_total) = await run_parallel(
             lambda s: paginate(s, query, page, page_size),
             lambda s: _compute_summary(
                 s,
@@ -207,8 +235,13 @@ async def list_scores(
             ),
         )
         rows, pagination = pagination_result
+        summary, total = summary_and_total
         response_cache.set_(
-            _SCORES_CACHE_NS, "summary", tenant_id, filter_key, summary
+            _SCORES_CACHE_NS,
+            "summary",
+            tenant_id,
+            filter_key,
+            _CachedSummary(summary=summary, total=total),
         )
 
     items = [_row_to_list_item(req, res) for req, res in rows]

@@ -69,4 +69,11 @@ class ScoreResult(Base):
             "risk_level",
             "created_at",
         ),
+        # Dashboard default sort is `ORDER BY score DESC`. Postgres can
+        # satisfy that directly from this index without an in-memory sort.
+        Index(
+            "ix_score_results_tenant_score_desc",
+            "tenant_id",
+            score.desc(),
+        ),
     )
