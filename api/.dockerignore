@@ -16,9 +16,10 @@ htmlcov/
 .vscode/
 .DS_Store
 
-# Dev / test only
+# Dev / test only. `scripts/` is NOT in this list because
+# scripts/provision_tenant.py is an operator-run production tool
+# invoked via `flyctl ssh console`; see api/Dockerfile for the COPY.
 tests/
-scripts/
 init-db.sql
 docker-compose.yml
 
