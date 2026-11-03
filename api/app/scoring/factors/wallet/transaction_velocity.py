@@ -26,7 +26,7 @@ class TransactionVelocity(BaseFactor):
             return 0.7
         return 0.9
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.1:
             return "Transaction activity is normal — no concern"
         if score <= 0.4:

@@ -19,6 +19,7 @@ export function FactorBreakdown({ factors, skippedFactors = [] }: FactorBreakdow
           weight={f.weight}
           weightedScore={f.weighted_score}
           explanation={f.explanation}
+          trigger={f.trigger}
         />
       ))}
       {skippedFactors.length > 0 && (

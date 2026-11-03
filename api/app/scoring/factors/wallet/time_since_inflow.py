@@ -23,7 +23,7 @@ class TimeSinceLastInflow(BaseFactor):
             return 0.6
         return 0.8
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.1:
             return "Money received very recently — ideal collection window"
         if score <= 0.2:

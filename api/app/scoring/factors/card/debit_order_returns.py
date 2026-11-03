@@ -33,7 +33,7 @@ class DebitOrderReturnHistory(BaseFactor):
 
         return self.clamp(base_score)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 1.0:
             return "Account closed — debit order collection is impossible"
         if score >= 0.8:

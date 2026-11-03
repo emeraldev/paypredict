@@ -55,6 +55,7 @@ def _factor_to_db_shape(f: dict) -> dict:
         "weight": f["weight"],
         "weighted_score": f["weighted_score"],
         "explanation": f["explanation"],
+        "trigger": f.get("trigger"),
     }
 
 
@@ -167,6 +168,7 @@ def _score_one(
                 "weight": f.weight,
                 "weighted_score": f.weighted_score,
                 "explanation": f.explanation,
+                "trigger": f.trigger,
             }
             for f in result.factors
         ],

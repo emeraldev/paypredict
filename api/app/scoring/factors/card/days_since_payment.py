@@ -18,7 +18,7 @@ class DaysSinceLastPayment(BaseFactor):
         days = (date.today() - last_payment).days
         return self.clamp(days / 90)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 1.0:
             return "No successful payment on record — maximum recency risk"
         days = round(score * 90)

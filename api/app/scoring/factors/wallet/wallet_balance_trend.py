@@ -50,7 +50,7 @@ class WalletBalanceTrend(BaseFactor):
 
         return self.clamp(score)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.8:
             return "Wallet balance has crashed or cannot cover collection — very high risk"
         if score >= 0.5:

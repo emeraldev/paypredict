@@ -23,7 +23,7 @@ class AirtimePurchasePattern(BaseFactor):
             return 0.6
         return 0.8
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.1:
             return "Recent airtime purchase — financially active"
         if score <= 0.2:

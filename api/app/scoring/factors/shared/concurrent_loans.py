@@ -18,7 +18,7 @@ class ConcurrentLoanCount(BaseFactor):
             return 0.5
         return 0.8  # 3+
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score == 0.0:
             return "No other active loans — single obligation"
         if score <= 0.2:

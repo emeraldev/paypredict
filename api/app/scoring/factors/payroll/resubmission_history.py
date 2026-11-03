@@ -30,7 +30,7 @@ class ResubmissionHistory(BaseFactor):
             return 0.6
         return 0.85  # 3+
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score == 0.0:
             return "No previous resubmissions — clean deduction history"
         if score <= 0.3:

@@ -138,6 +138,7 @@ def _payroll_customer(rng: random.Random, risk_bias: str, segment: str) -> dict:
         "net_pay": net_pay,
         "current_total_deductions": current_deductions,
         "deduction_threshold_pct": 0.40,  # Zambia
+        "min_take_home_pct": 0.30,  # Zambian business-policy floor
         "resubmission_count": resubmissions,
         "borrower_segment": segment,
     }

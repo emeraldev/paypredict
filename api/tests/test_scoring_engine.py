@@ -343,3 +343,73 @@ class TestMethodDrivenBundleSelection:
         assert card.skipped_factors == ["debit_order_return_history"]
         assert set(debit.skipped_factors) == {"card_health", "card_type"}
         assert card.model_version == debit.model_version == "heuristic_card_v1"
+
+
+class TestFactorTriggerPropagation:
+    """Engine threads `factor.trigger(...)` into FactorResult.trigger and
+    passes the same value into `factor.explain(score, trigger=...)`.
+    Covers the duck-type path for any future factor that opts in."""
+
+    def test_trigger_is_captured_and_passed_to_explain(self, monkeypatch):
+        from app.models.score_request import CollectionMethod
+        from app.scoring.factors.base import BaseFactor
+        from app.scoring import registry
+
+        captured: dict[str, object] = {}
+
+        class _StubFactor(BaseFactor):
+            applicable_methods = [CollectionMethod.PAYROLL]
+
+            def calculate(self, customer_data, collection_data):
+                return 0.9
+
+            def trigger(self, customer_data, collection_data):
+                return "stub_rule_fired"
+
+            def explain(self, score, trigger=None):
+                captured["explain_score"] = score
+                captured["explain_trigger"] = trigger
+                return f"stub explain for {trigger}"
+
+        stub_bundle = {"_stub_factor": (_StubFactor(), 1.0)}
+        monkeypatch.setitem(
+            registry.METHOD_FACTOR_SETS,
+            CollectionMethod.PAYROLL,
+            stub_bundle,
+        )
+
+        result = engine.score(
+            customer_data={},
+            collection_data={
+                "collection_amount": 100.0,
+                "collection_due_date": date(2026, 11, 15),
+                "collection_method": "PAYROLL",
+            },
+            collection_method=CollectionMethod.PAYROLL,
+        )
+
+        assert len(result.factors) == 1
+        f = result.factors[0]
+        assert f.factor_name == "_stub_factor"
+        assert f.trigger == "stub_rule_fired"
+        assert f.explanation == "stub explain for stub_rule_fired"
+        assert captured["explain_trigger"] == "stub_rule_fired"
+
+    def test_default_trigger_is_none_for_factors_that_do_not_override(self):
+        """A factor that doesn't override `trigger()` sees None propagate.
+        Regression check that every existing factor (none of which emit
+        triggers today) continues to produce FactorResult.trigger == None.
+        """
+        from app.models.score_request import CollectionMethod
+
+        result = engine.score(
+            customer_data={"gross_salary": 10000, "current_total_deductions": 2000},
+            collection_data={
+                "collection_amount": 500.0,
+                "collection_due_date": date(2026, 11, 15),
+                "collection_method": "PAYROLL",
+            },
+            collection_method=CollectionMethod.PAYROLL,
+        )
+        for f in result.factors:
+            assert f.trigger is None, f"{f.factor_name} unexpectedly emitted a trigger"

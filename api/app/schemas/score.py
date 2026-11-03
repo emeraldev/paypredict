@@ -59,6 +59,12 @@ class CustomerData(BaseModel):
     net_pay: Decimal | None = None
     current_total_deductions: Decimal | None = None
     deduction_threshold_pct: float | None = None
+    # Minimum take-home ratio of gross salary. When set, ThresholdHeadroom
+    # scores HIGH if this collection would drop net-pay below the floor,
+    # independently of the regulatory ceiling (`deduction_threshold_pct`).
+    # Omit (or None) to disable the floor and keep the ceiling-only
+    # behaviour. 0.30 is the common Zambian business-policy value.
+    min_take_home_pct: float | None = None
     resubmission_count: int | None = None
     borrower_segment: str | None = Field(default=None, max_length=32)
 
@@ -87,6 +93,12 @@ class FactorBreakdown(BaseModel):
     weight: float
     weighted_score: float
     explanation: str
+    # Short code naming the specific policy rule that fired inside the
+    # factor (e.g. "floor_breach", "ceiling_breach" from
+    # ThresholdHeadroom), or None when the score alone tells the story.
+    # The dashboard renders a precise reason badge when present, falling
+    # back to the generic explanation otherwise.
+    trigger: str | None = None
 
 
 class ScoreResponse(BaseModel):

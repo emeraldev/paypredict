@@ -22,7 +22,7 @@ class LoanCyclingBehaviour(BaseFactor):
             return 0.3
         return 0.1
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.8:
             return "New loan taken within repayment period — loan cycling detected"
         if score >= 0.6:

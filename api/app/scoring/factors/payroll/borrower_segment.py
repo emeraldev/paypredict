@@ -38,7 +38,7 @@ class BorrowerSegment(BaseFactor):
         segment = str(raw).strip().lower()
         return DEFAULT_SEGMENT_SCORES.get(segment, 0.4)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.25:
             return "Government/stable sector — lower risk segment"
         if score <= 0.45:
