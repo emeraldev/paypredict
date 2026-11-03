@@ -42,7 +42,7 @@ class CardHealth(BaseFactor):
 
         return self.clamp(base_score)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.9:
             return "Card is expired or has hard decline — very high risk"
         if score >= 0.7:

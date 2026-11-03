@@ -35,7 +35,7 @@ class DeductionToIncomeRatio(BaseFactor):
             return 0.2
         return 0.1
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.8:
             return "Deduction is a very large portion of borrower's income"
         if score >= 0.6:

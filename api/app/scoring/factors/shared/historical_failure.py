@@ -14,7 +14,7 @@ class HistoricalFailureRate(BaseFactor):
         failure_rate = 1 - (successful / total)
         return self.clamp(failure_rate)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         pct = round(score * 100, 1)
         if score == 0.5:
             return "No payment history available — moderate default applied"

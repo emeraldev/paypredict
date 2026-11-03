@@ -39,7 +39,7 @@ class SalaryCycleAlignment(BaseFactor):
             return 0.5
         return 0.75
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.1:
             return "Collection perfectly aligned with inflow day — lowest risk"
         if score <= 0.25:

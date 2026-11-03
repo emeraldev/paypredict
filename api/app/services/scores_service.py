@@ -376,6 +376,7 @@ def _build_detail(
             weight=f["weight"],
             weighted_score=f["weighted_score"],
             explanation=f["explanation"],
+            trigger=f.get("trigger"),
         )
         for f in factors_data.get("evaluated", [])
     ]

@@ -20,7 +20,7 @@ class CardType(BaseFactor):
             return 0.5
         return 0.4  # Unknown type
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score <= 0.2:
             return "Credit card — credit limit provides buffer against insufficient funds"
         if score >= 0.5:

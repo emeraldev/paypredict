@@ -17,7 +17,7 @@ class InstalmentPosition(BaseFactor):
         position_ratio = instalment_number / total_instalments
         return self.clamp(position_ratio * 0.8)
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.5:
             return "Late-stage instalment — payment fatigue risk is elevated"
         if score >= 0.3:

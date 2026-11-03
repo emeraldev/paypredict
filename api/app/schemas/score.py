@@ -87,6 +87,12 @@ class FactorBreakdown(BaseModel):
     weight: float
     weighted_score: float
     explanation: str
+    # Short code naming the specific policy rule that fired inside the
+    # factor (e.g. "floor_breach", "ceiling_breach" from
+    # ThresholdHeadroom), or None when the score alone tells the story.
+    # The dashboard renders a precise reason badge when present, falling
+    # back to the generic explanation otherwise.
+    trigger: str | None = None
 
 
 class ScoreResponse(BaseModel):

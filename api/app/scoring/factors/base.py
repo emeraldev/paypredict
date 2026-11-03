@@ -22,8 +22,33 @@ class BaseFactor(ABC):
         """Return a risk score between 0.0 (safe) and 1.0 (risky)."""
 
     @abstractmethod
-    def explain(self, score: float) -> str:
-        """Return a human-readable explanation of the score."""
+    def explain(self, score: float, trigger: str | None = None) -> str:
+        """Return a human-readable explanation of the score.
+
+        `trigger` is the short code returned by `self.trigger(...)` when a
+        specific policy rule inside the factor fired (not just a tight
+        buffer). Factors that emit triggers should short-circuit here to
+        return a message that names the rule by name, rather than the
+        generic bucketed message. Factors that don't emit triggers can
+        ignore the kwarg.
+        """
+
+    def trigger(
+        self, customer_data: dict, collection_data: dict
+    ) -> str | None:
+        """Return a short code naming the specific policy rule that fired, or None.
+
+        Default implementation returns None — the factor's score alone
+        tells the story. Factors that gate on specific business rules
+        (e.g. a regulatory cap breach vs a tight buffer) override this
+        to tell the engine which rule fired, which the dashboard then
+        surfaces as a precise reason rather than a bucketed tightness
+        message.
+
+        Called by the engine after `calculate`; the return is stored on
+        `FactorBreakdown.trigger` and passed into `explain(score, trigger=...)`.
+        """
+        return None
 
     def clamp(self, value: float) -> float:
         """Clamp value to 0.0-1.0 range."""

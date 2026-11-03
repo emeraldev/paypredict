@@ -87,6 +87,7 @@ async def score_collection(
                     "weight": f.weight,
                     "weighted_score": f.weighted_score,
                     "explanation": f.explanation,
+                    "trigger": f.trigger,
                 }
                 for f in result.factors
             ],
@@ -118,6 +119,7 @@ async def score_collection(
                 weight=f.weight,
                 weighted_score=f.weighted_score,
                 explanation=f.explanation,
+                trigger=f.trigger,
             )
             for f in result.factors
         ],

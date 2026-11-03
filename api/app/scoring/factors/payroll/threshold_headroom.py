@@ -68,7 +68,7 @@ class ThresholdHeadroom(BaseFactor):
             return 0.3
         return 0.1
 
-    def explain(self, score: float) -> str:
+    def explain(self, score: float, trigger: str | None = None) -> str:
         if score >= 0.95:
             return "Borrower already at or over the deduction ceiling — deduction will be rejected"
         if score >= 0.85:

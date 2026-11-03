@@ -15,6 +15,12 @@ class FactorResult:
     weight: float
     weighted_score: float
     explanation: str
+    # Short code naming the specific policy rule that fired inside the
+    # factor, or None when the score alone tells the story. Set by
+    # factors that gate on named business rules (e.g.
+    # `ThresholdHeadroom` emits "floor_breach" / "ceiling_breach").
+    # The engine populates this from `factor.trigger(...)`.
+    trigger: str | None = None
 
 
 @dataclass
@@ -96,7 +102,13 @@ class ScoringEngine:
             normalised_weight = raw_weight / total_raw_weight if needs_normalisation else raw_weight
             raw_score = factor.calculate(customer_data, collection_data)
             weighted_score = raw_score * normalised_weight
-            explanation = factor.explain(raw_score)
+            # Call `trigger` BEFORE `explain` so a factor can tell the
+            # engine which specific policy rule fired, and `explain` can
+            # short-circuit to a rule-named message. Default on BaseFactor
+            # returns None, so factors that don't gate on named rules
+            # take no new behaviour.
+            trigger = factor.trigger(customer_data, collection_data)
+            explanation = factor.explain(raw_score, trigger=trigger)
 
             factor_results.append(
                 FactorResult(
@@ -105,6 +117,7 @@ class ScoringEngine:
                     weight=round(normalised_weight, 4),
                     weighted_score=round(weighted_score, 4),
                     explanation=explanation,
+                    trigger=trigger,
                 )
             )
             total_weighted += weighted_score
