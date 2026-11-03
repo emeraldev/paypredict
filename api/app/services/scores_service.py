@@ -27,7 +27,10 @@ from app.schemas.scores_list import (
     ScoresListResponse,
     ScoresSummary,
 )
+from app.services import response_cache
 from app.services.query_utils import PaginationMeta, paginate
+
+_SCORES_CACHE_NS = "scores"
 
 
 # ---- Shared base query ----
@@ -164,24 +167,50 @@ async def list_scores(
     sort_col = _SORT_COLUMNS.get(sort_by, ScoreResult.score)
     query = query.order_by(sort_col.desc() if sort_order == "desc" else sort_col.asc())
 
-    # Pagination (count + page) and the aggregate summary are
-    # independent — split them onto parallel sessions. Before: ~160 ms
-    # Frankfurt-RTT round-trip for pagination finishing before the
-    # summary even started. After: both overlap.
-    (pagination_result, summary) = await run_parallel(
-        lambda s: paginate(s, query, page, page_size),
-        lambda s: _compute_summary(
-            s,
-            tenant_id,
-            risk_level=risk_level,
-            collection_method=collection_method,
-            recommended_action=recommended_action,
-            due_date_from=due_date_from,
-            due_date_to=due_date_to,
-            search=search,
-        ),
+    # Cache the summary per (tenant, filter set). The summary is
+    # independent of page/sort, so paging through the same filtered
+    # view hits the cached value every time after the first load.
+    # 60s TTL mirrors the analytics namespace; a scoring POST becomes
+    # visible on the next read within that window.
+    filter_key = {
+        "risk_level": risk_level,
+        "collection_method": collection_method,
+        "recommended_action": recommended_action,
+        "due_date_from": due_date_from.isoformat() if due_date_from else None,
+        "due_date_to": due_date_to.isoformat() if due_date_to else None,
+        "search": search,
+    }
+    cached_summary = response_cache.get(
+        _SCORES_CACHE_NS, ScoresSummary, "summary", tenant_id, filter_key
     )
-    rows, pagination = pagination_result
+
+    if cached_summary is not None:
+        # Hit path: only the paginated page needs the DB. Run it on
+        # the request session so we skip the fresh-session fan-out
+        # overhead of `run_parallel` when there is nothing to fan out.
+        rows, pagination = await paginate(db, query, page, page_size)
+        summary = cached_summary
+    else:
+        # Miss path: fetch page + summary in parallel like before, then
+        # populate the cache for the next click.
+        (pagination_result, summary) = await run_parallel(
+            lambda s: paginate(s, query, page, page_size),
+            lambda s: _compute_summary(
+                s,
+                tenant_id,
+                risk_level=risk_level,
+                collection_method=collection_method,
+                recommended_action=recommended_action,
+                due_date_from=due_date_from,
+                due_date_to=due_date_to,
+                search=search,
+            ),
+        )
+        rows, pagination = pagination_result
+        response_cache.set_(
+            _SCORES_CACHE_NS, "summary", tenant_id, filter_key, summary
+        )
+
     items = [_row_to_list_item(req, res) for req, res in rows]
 
     return ScoresListResponse(items=items, pagination=pagination, summary=summary)
