@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import run_parallel
 from app.models.factor_weight import FactorWeight
 from app.models.score_request import CollectionMethod
 from app.scoring.registry import (
@@ -238,24 +239,35 @@ async def list_configured_methods(
     for it OR scored at least one collection with it. Keeps the UI free
     of tabs for methods the tenant doesn't use (a payroll-only lender
     sees one tab, not four).
+
+    The two source queries (factor_weights DISTINCT and score_requests
+    DISTINCT) are independent and have no overlapping writes, so they
+    run on fresh parallel sessions via `run_parallel`. Saves one
+    Frankfurt round-trip on every weights GET.
     """
     from app.models.score_request import ScoreRequest
 
-    weight_methods = await db.execute(
-        select(FactorWeight.collection_method)
-        .where(FactorWeight.tenant_id == tenant_id)
-        .distinct()
-    )
-    score_methods = await db.execute(
-        select(ScoreRequest.collection_method)
-        .where(ScoreRequest.tenant_id == tenant_id)
-        .distinct()
-    )
-    seen: set[str] = set()
-    seen.update(str(row) for row in weight_methods.scalars().all())
-    # ScoreRequest.collection_method is a PG enum; SQLAlchemy hands it back as
-    # the enum member — normalise to its string value.
-    for row in score_methods.scalars().all():
-        seen.add(row.value if isinstance(row, CollectionMethod) else str(row))
+    async def _weight_methods(session: AsyncSession) -> list[str]:
+        result = await session.execute(
+            select(FactorWeight.collection_method)
+            .where(FactorWeight.tenant_id == tenant_id)
+            .distinct()
+        )
+        return [str(row) for row in result.scalars().all()]
 
+    async def _score_methods(session: AsyncSession) -> list[str]:
+        result = await session.execute(
+            select(ScoreRequest.collection_method)
+            .where(ScoreRequest.tenant_id == tenant_id)
+            .distinct()
+        )
+        # ScoreRequest.collection_method is a PG enum; SQLAlchemy hands
+        # it back as the enum member. Normalise to its string value.
+        return [
+            row.value if isinstance(row, CollectionMethod) else str(row)
+            for row in result.scalars().all()
+        ]
+
+    weight_names, score_names = await run_parallel(_weight_methods, _score_methods)
+    seen = set(weight_names) | set(score_names)
     return [m for m in CollectionMethod if m.value in seen]

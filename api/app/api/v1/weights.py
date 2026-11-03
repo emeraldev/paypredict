@@ -44,16 +44,18 @@ from app.scoring.registry import (
     FACTOR_DESCRIPTIONS,
     FACTOR_LABELS,
     METHOD_LABELS,
+    get_default_weights_for_method,
     get_factors_for_method,
 )
+from app.services import response_cache
 from app.services.weight_audit_service import (
     WeightChangeActor,
     list_weight_changes,
 )
 from app.services.weights_service import (
     add_method_with_defaults,
-    get_effective_weights_for_method,
     list_configured_methods,
+    load_all_weights_by_method,
     upsert_weights_for_method,
 )
 
@@ -88,21 +90,30 @@ def _actor_from_user(user: User | None) -> WeightChangeActor:
 async def _build_response(
     db: AsyncSession, tenant: Tenant
 ) -> WeightsResponse:
-    """Compose the grouped GET body from persisted rows + defaults."""
+    """Compose the grouped GET body from persisted rows + defaults.
+
+    Two DB reads total: `list_configured_methods` (one parallel round-
+    trip for the pair of DISTINCT queries) + `load_all_weights_by_method`
+    (one query for every custom weight the tenant has). Prior to this
+    we did one query per method inside the loop, which stacked an extra
+    Frankfurt round-trip per tenant method.
+    """
     methods = await list_configured_methods(db, tenant.id)
+    buckets = await load_all_weights_by_method(db, tenant.id)
     entries: list[WeightsMethodEntry] = []
 
     for method in methods:
-        effective = await get_effective_weights_for_method(db, tenant.id, method)
-        # Preserve bundle-registry order — the dashboard renders sliders in
-        # the order the API returns.
-        ordered_names = list(get_factors_for_method(method).keys())
+        defaults = get_default_weights_for_method(method)
+        custom = buckets.get(method.value, {})
+        # Preserve bundle-registry order so the dashboard renders sliders
+        # in the order the API returns.
+        ordered_names = list(defaults.keys())
         factors = [
             WeightsFactorEntry(
                 factor_name=name,
                 label=FACTOR_LABELS.get(name, name),
                 description=FACTOR_DESCRIPTIONS.get(name, ""),
-                weight=effective[name],
+                weight=custom.get(name, defaults[name]),
             )
             for name in ordered_names
         ]
@@ -118,6 +129,26 @@ async def _build_response(
     return WeightsResponse(methods=entries)
 
 
+_WEIGHTS_CACHE_NS = "weights"
+
+
+async def _cached_response(db: AsyncSession, tenant: Tenant) -> WeightsResponse:
+    """GET-side wrapper: Redis-cached, 60s TTL, keyed on tenant.
+
+    A cache miss falls back to the full DB build and populates the key.
+    Writes (PUT, POST) invalidate the namespace for this tenant so the
+    next GET rebuilds.
+    """
+    cached = response_cache.get(
+        _WEIGHTS_CACHE_NS, WeightsResponse, "grouped", tenant.id, {}
+    )
+    if cached is not None:
+        return cached
+    fresh = await _build_response(db, tenant)
+    response_cache.set_(_WEIGHTS_CACHE_NS, "grouped", tenant.id, {}, fresh)
+    return fresh
+
+
 @router.get("/weights", response_model=WeightsResponse)
 async def get_weights(
     tenant: Tenant = Depends(enforce_rate_limit_or_jwt),
@@ -127,7 +158,7 @@ async def get_weights(
 
     Only methods this tenant actually uses appear in the response.
     """
-    return await _build_response(db, tenant)
+    return await _cached_response(db, tenant)
 
 
 @router.put("/weights", response_model=WeightsResponse)
@@ -210,6 +241,7 @@ async def update_weights(
     )
 
     await db.commit()
+    response_cache.invalidate(_WEIGHTS_CACHE_NS, tenant.id)
     return await _build_response(db, tenant)
 
 
@@ -269,6 +301,7 @@ async def add_weights_method(
         )
 
     await db.commit()
+    response_cache.invalidate(_WEIGHTS_CACHE_NS, tenant.id)
     return await _build_response(db, tenant)
 
 
