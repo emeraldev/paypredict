@@ -177,7 +177,7 @@ FACTOR_DESCRIPTIONS: dict[str, str] = {
     "transaction_velocity": "Recent transaction activity changes",
     "airtime_purchase_pattern": "Airtime buying regularity",
     "loan_cycling_behaviour": "Borrowing to repay pattern",
-    "threshold_headroom": "Room before hitting the regulatory deduction cap",
+    "threshold_headroom": "Room against both the regulatory deduction cap and the minimum take-home floor",
     "deduction_to_income_ratio": "Deduction size relative to borrower's income",
     "resubmission_history": "Past deductions resubmitted at lower amounts",
     "borrower_segment": "Employment sector risk (government/mining/private)",

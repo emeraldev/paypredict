@@ -59,6 +59,12 @@ class CustomerData(BaseModel):
     net_pay: Decimal | None = None
     current_total_deductions: Decimal | None = None
     deduction_threshold_pct: float | None = None
+    # Minimum take-home ratio of gross salary. When set, ThresholdHeadroom
+    # scores HIGH if this collection would drop net-pay below the floor,
+    # independently of the regulatory ceiling (`deduction_threshold_pct`).
+    # Omit (or None) to disable the floor and keep the ceiling-only
+    # behaviour. 0.30 is the common Zambian business-policy value.
+    min_take_home_pct: float | None = None
     resubmission_count: int | None = None
     borrower_segment: str | None = Field(default=None, max_length=32)
 
