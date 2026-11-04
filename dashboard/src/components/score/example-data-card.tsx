@@ -204,11 +204,11 @@ const EXAMPLES: ExampleRow[] = [
     },
   },
   {
-    title: "Miner near the deduction ceiling, past resubmissions",
+    title: "KCM miner near the deduction ceiling, past resubmissions",
     expectedRisk: "HIGH",
     method: "PAYROLL",
     rationale:
-      "Existing deductions consume 90% of the 40% cap. Our deduction alone exceeds the remaining headroom. Volatile mining segment, three prior resubmissions signal ongoing threshold pressure.",
+      "Existing deductions consume 90% of the 40% cap. Our deduction alone exceeds the remaining headroom. KCM employment routes through the alias layer to the mining bucket; three prior resubmissions signal ongoing threshold pressure.",
     fields: {
       customer_id: "EXAMPLE_MIN_001",
       collection_id: "EXAMPLE_DED_702",
@@ -226,7 +226,7 @@ const EXAMPLES: ExampleRow[] = [
       deduction_threshold_pct: "0.40",
       min_take_home_pct: "0.30",
       resubmission_count: "3",
-      borrower_segment: "mining",
+      borrower_segment: "KCM",
       active_loan_count: "3",
       loans_taken_last_90d: "2",
     },

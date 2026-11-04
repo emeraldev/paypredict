@@ -150,7 +150,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   borrower_segment: {
     label: "Employment segment",
-    help: "Coarse prior on income stability: government / mining / private / contract / informal.",
+    help: "Coarse prior on income stability. Five buckets: government / mining / private / contract / informal. Specific Zambian employer names (ZESCO, KCM, Mopani, FQM, ...) are routed to the right bucket automatically; unknown employer names fall to a moderate default.",
   },
 };
 

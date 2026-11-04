@@ -149,7 +149,7 @@ export const FACTOR_DESCRIPTIONS: Record<string, string> = {
   threshold_headroom: "Room against both the regulatory deduction cap and the minimum take-home floor",
   deduction_to_income_ratio: "Deduction size relative to borrower's income",
   resubmission_history: "Past deductions resubmitted at lower amounts",
-  borrower_segment: "Employment sector risk (government/mining/private)",
+  borrower_segment: "Employment sector risk. Five buckets (government, mining, private, contract, informal); specific Zambian employer names like ZESCO, KCM and Mopani are routed to the right bucket automatically.",
 };
 
 // Ordered factor list per collection method — mirrors the backend
