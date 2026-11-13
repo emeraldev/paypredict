@@ -65,6 +65,15 @@ class CustomerData(BaseModel):
     # Omit (or None) to disable the floor and keep the ceiling-only
     # behaviour. 0.30 is the common Zambian business-policy value.
     min_take_home_pct: float | None = None
+    # Current employment status. When the collection_method is PAYROLL and
+    # this value lowercases to one of `terminated` / `dismissed`, the
+    # engine short-circuits to HIGH risk regardless of the other factors
+    # — a borrower who no longer draws a payslip cannot have a payroll
+    # deduction succeed. Any other value (active, resigned, on_leave,
+    # ...) is ignored by the scoring engine today; it stays on the
+    # record for audit and may be scored in a future factor. Case-
+    # insensitive match.
+    employment_status: str | None = Field(default=None, max_length=16)
     resubmission_count: int | None = None
     borrower_segment: str | None = Field(default=None, max_length=32)
 
