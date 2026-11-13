@@ -38,6 +38,19 @@ class BacktestCustomerData(BaseModel):
     last_airtime_purchase_days_ago: int | None = None
     new_loan_within_repayment_period: bool | None = None
     loans_taken_last_90d: int | None = None
+    # PAYROLL factor-set fields. Parity with CustomerData so a Kalene-
+    # style payroll lender can backtest their historical collections
+    # with the same shape of data they would send on live scoring.
+    # min_take_home_pct enables the D1 take-home floor; employment_status
+    # drives the D3 short-circuit to HIGH on terminated / dismissed.
+    gross_salary: Decimal | None = None
+    net_pay: Decimal | None = None
+    current_total_deductions: Decimal | None = None
+    deduction_threshold_pct: float | None = None
+    min_take_home_pct: float | None = None
+    employment_status: str | None = Field(default=None, max_length=16)
+    resubmission_count: int | None = None
+    borrower_segment: str | None = Field(default=None, max_length=32)
 
 
 class BacktestCollectionInput(BaseModel):
