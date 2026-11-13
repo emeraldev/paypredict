@@ -144,6 +144,10 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
     label: "Minimum take-home %",
     help: "0.30 = decline if net-pay drops below 30%. Blank disables the floor.",
   },
+  employment_status: {
+    label: "Employment status",
+    help: "Terminated or dismissed forces HIGH risk (payroll deduction will fail). Any other value (active, resigned, on leave, blank) scores normally.",
+  },
   resubmission_count: {
     label: "Deductions resubmitted (last 6 months)",
     help: "Times you had to resubmit this borrower's deduction at a lower amount.",

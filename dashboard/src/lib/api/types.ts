@@ -93,6 +93,13 @@ export interface CustomerData {
   // scores HIGH if a collection would drop net-pay below the floor,
   // independently of the regulatory ceiling. Common Zambian value is 0.30.
   min_take_home_pct?: number | null;
+  // Current employment status. When the collection_method is PAYROLL and
+  // this value lowercases to `terminated` or `dismissed`, the backend
+  // short-circuits scoring to HIGH risk with a dedicated trigger code
+  // (`employment_terminated` / `employment_dismissed`) regardless of the
+  // other factors. Everything else (active, resigned, on_leave, blank)
+  // scores through the normal factor loop.
+  employment_status?: string | null;
   resubmission_count?: number | null;
   borrower_segment?: string | null;
 }

@@ -238,6 +238,8 @@ export const FACTOR_LABELS: Record<string, string> = {
 export const TRIGGER_LABELS: Record<string, string> = {
   floor_breach: "Take-home below the minimum",
   ceiling_breach: "Deduction ceiling exceeded",
+  employment_terminated: "Borrower terminated",
+  employment_dismissed: "Borrower dismissed",
 };
 
 export function getTriggerLabel(trigger: string | null | undefined): string | null {
