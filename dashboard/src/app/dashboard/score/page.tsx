@@ -127,6 +127,14 @@ export default function ScoreUploadPage() {
                 "last_airtime_purchase_days_ago",
                 "new_loan_within_repayment_period",
                 "loans_taken_last_90d",
+                "gross_salary",
+                "net_pay",
+                "current_total_deductions",
+                "deduction_threshold_pct",
+                "min_take_home_pct",
+                "employment_status",
+                "resubmission_count",
+                "borrower_segment",
               ]}
               sizeHint="Max 500 rows, 5MB."
             />

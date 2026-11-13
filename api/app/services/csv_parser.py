@@ -463,6 +463,12 @@ def _row_to_scoring_input(row: dict[str, str]) -> BulkScoreItem:
             if row.get("deduction_threshold_pct", "").strip()
             else None
         ),
+        min_take_home_pct=(
+            float(row["min_take_home_pct"])
+            if row.get("min_take_home_pct", "").strip()
+            else None
+        ),
+        employment_status=row.get("employment_status") or None,
         resubmission_count=_scoring_int(row, "resubmission_count"),
         borrower_segment=row.get("borrower_segment") or None,
     )

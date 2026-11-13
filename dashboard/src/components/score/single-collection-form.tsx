@@ -680,12 +680,8 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                               Not specified
                             </SelectItem>
                             <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="terminated">
-                              Terminated (forces HIGH)
-                            </SelectItem>
-                            <SelectItem value="dismissed">
-                              Dismissed (forces HIGH)
-                            </SelectItem>
+                            <SelectItem value="terminated">Terminated</SelectItem>
+                            <SelectItem value="dismissed">Dismissed</SelectItem>
                             <SelectItem value="resigned">Resigned</SelectItem>
                             <SelectItem value="on_leave">On leave</SelectItem>
                           </SelectContent>
