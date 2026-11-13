@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ExampleDataCard, type ExampleRow } from "@/components/score/example-data-card";
+import { configApi } from "@/lib/api/config";
 import { scoresApi } from "@/lib/api/scores";
 import { getFieldHelp, getFieldLabel } from "@/lib/utils/field-labels";
 import type {
@@ -44,6 +46,13 @@ const DAY_OF_WEEK_OPTIONS = [
   "sunday",
 ];
 
+const METHOD_OPTIONS: ReadonlyArray<{ value: Method; label: string }> = [
+  { value: "CARD", label: "Card on file" },
+  { value: "DEBIT_ORDER", label: "Debit order" },
+  { value: "MOBILE_MONEY", label: "Mobile money" },
+  { value: "PAYROLL", label: "Payroll deduction" },
+];
+
 export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   // Required fields
   const [customerId, setCustomerId] = useState("");
@@ -52,6 +61,48 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   const [currency, setCurrency] = useState<"ZAR" | "ZMW">("ZAR");
   const [dueDate, setDueDate] = useState("");
   const [method, setMethod] = useState<Method>("CARD");
+
+  // UI-only: Collection method dropdown shows only what this tenant
+  // has configured in Settings -> Weights. The API still accepts every
+  // valid method regardless of this filter; the dropdown narrows the
+  // choice to avoid lender confusion ("why can I pick a method I'm
+  // not set up for?"). Falls back to all four methods when the tenant
+  // has no weights saved yet (fresh tenant) or the fetch fails.
+  const [configuredMethods, setConfiguredMethods] = useState<Method[] | null>(
+    null,
+  );
+  useEffect(() => {
+    let cancelled = false;
+    configApi
+      .getWeights()
+      .then((res) => {
+        if (cancelled) return;
+        const methods = res.methods.map(
+          (m) => m.collection_method as Method,
+        );
+        if (methods.length > 0) {
+          setConfiguredMethods(methods);
+          // If the currently-selected method isn't one the tenant is
+          // configured for, swap to the first configured one so the
+          // form reflects reality before the user even picks.
+          if (!methods.includes(method)) {
+            setMethod(methods[0]);
+          }
+        }
+      })
+      .catch(() => {
+        // Fail open: show every option. The API-side validation still
+        // runs, so no bad request slips through.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally run once on mount. `method` is only consulted inside
+    // to decide whether to swap; a feedback loop would be confusing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleMethods = configuredMethods ?? METHOD_OPTIONS.map((o) => o.value);
 
   // Common optional fields
   const [optionalOpen, setOptionalOpen] = useState(false);
@@ -91,6 +142,101 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   const [borrowerSegment, setBorrowerSegment] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+
+  const fillFromExample = (ex: ExampleRow) => {
+    // Clear everything first so stale values from a prior example don't
+    // bleed into the new one.
+    resetForm();
+    // Required fields come from the example payload; currency may differ.
+    setCustomerId(ex.fields.customer_id ?? "");
+    setCollectionId(ex.fields.collection_id ?? "");
+    setAmount(ex.fields.collection_amount ?? "");
+    const exCurrency = ex.fields.collection_currency;
+    if (exCurrency === "ZAR" || exCurrency === "ZMW") {
+      setCurrency(exCurrency);
+    }
+    setDueDate(ex.fields.collection_due_date ?? "");
+    setMethod(ex.method);
+    // Expand the optional section so the pre-filled fields are visible.
+    setOptionalOpen(true);
+    // Optional fields map by name.
+    const f = ex.fields;
+    setTotalPayments(f.total_payments ?? "");
+    setSuccessfulPayments(f.successful_payments ?? "");
+    setLastSuccessfulPaymentDate(f.last_successful_payment_date ?? "");
+    setAverageCollectionAmount(f.average_collection_amount ?? "");
+    setInstalmentNumber(f.instalment_number ?? "");
+    setTotalInstalments(f.total_instalments ?? "");
+    if (f.card_type === "debit" || f.card_type === "credit") {
+      setCardType(f.card_type);
+    }
+    // Example payloads use `card_expiry`; the backend field is
+    // `card_expiry_date`. Honour both for forward compatibility.
+    setCardExpiryDate(f.card_expiry ?? f.card_expiry_date ?? "");
+    setLastDeclineCode(f.last_decline_code ?? "");
+    setDebitOrderReturns(f.debit_order_returns ?? "");
+    setKnownSalaryDay(f.known_salary_day ?? "");
+    setWalletBalance7dAvg(f.wallet_balance_7d_avg ?? "");
+    setWalletBalanceCurrent(f.wallet_balance_current ?? "");
+    setHoursSinceLastInflow(f.hours_since_last_inflow ?? "");
+    setRegularInflowDay(f.regular_inflow_day ?? "");
+    setActiveLoanCount(f.active_loan_count ?? "");
+    setTransactionsLast7d(f.transactions_last_7d ?? "");
+    setTransactionsAvg7d(f.transactions_avg_7d ?? "");
+    setLastAirtimeDaysAgo(f.last_airtime_purchase_days_ago ?? "");
+    if (f.new_loan_within_repayment_period === "true" ||
+        f.new_loan_within_repayment_period === "false") {
+      setNewLoanCycling(f.new_loan_within_repayment_period);
+    }
+    setLoansTakenLast90d(f.loans_taken_last_90d ?? "");
+    setGrossSalary(f.gross_salary ?? "");
+    setNetPay(f.net_pay ?? "");
+    setCurrentTotalDeductions(f.current_total_deductions ?? "");
+    setDeductionThresholdPct(f.deduction_threshold_pct ?? "");
+    setMinTakeHomePct(f.min_take_home_pct ?? "");
+    setResubmissionCount(f.resubmission_count ?? "");
+    setBorrowerSegment(f.borrower_segment ?? "");
+    toast.success(`Filled from: ${ex.title}`);
+  };
+
+  const resetForm = () => {
+    setCustomerId("");
+    setCollectionId("");
+    setAmount("");
+    setDueDate("");
+    setTotalPayments("");
+    setSuccessfulPayments("");
+    setLastSuccessfulPaymentDate("");
+    setAverageCollectionAmount("");
+    setInstalmentNumber("");
+    setTotalInstalments("");
+    setCardType("");
+    setCardExpiryDate("");
+    setLastDeclineCode("");
+    setDebitOrderReturns("");
+    setKnownSalaryDay("");
+    setWalletBalance7dAvg("");
+    setWalletBalanceCurrent("");
+    setHoursSinceLastInflow("");
+    setRegularInflowDay("");
+    setActiveLoanCount("");
+    setTransactionsLast7d("");
+    setTransactionsAvg7d("");
+    setLastAirtimeDaysAgo("");
+    setNewLoanCycling("");
+    setLoansTakenLast90d("");
+    setGrossSalary("");
+    setNetPay("");
+    setCurrentTotalDeductions("");
+    setDeductionThresholdPct("");
+    setMinTakeHomePct("");
+    setResubmissionCount("");
+    setBorrowerSegment("");
+    // Keep currency + method as-is: the tenant's preferred defaults
+    // shouldn't flip back under them on every reset. Same for the
+    // optional-section open state so a lender who expanded it stays
+    // expanded.
+  };
 
   const buildCustomerData = (): CustomerData => {
     const cd: CustomerData = {};
@@ -180,10 +326,12 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   };
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Required */}
+    <div className="space-y-4">
+      <ExampleDataCard onFillForm={fillFromExample} methodFilter={method} />
+      <Card>
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Required */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field name="customer_id" required>
               <Input
@@ -245,10 +393,13 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CARD">Card on file</SelectItem>
-                  <SelectItem value="DEBIT_ORDER">Debit order</SelectItem>
-                  <SelectItem value="MOBILE_MONEY">Mobile money</SelectItem>
-                  <SelectItem value="PAYROLL">Payroll deduction</SelectItem>
+                  {METHOD_OPTIONS.filter((o) =>
+                    visibleMethods.includes(o.value),
+                  ).map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -627,7 +778,15 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
             )}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetForm}
+              disabled={submitting}
+            >
+              Reset
+            </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Scoring…" : "Score this collection"}
             </Button>
@@ -635,6 +794,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
         </form>
       </CardContent>
     </Card>
+    </div>
   );
 }
 

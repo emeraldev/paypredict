@@ -4,10 +4,11 @@ import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { MethodBadge } from "@/components/shared/method-badge";
 import { RiskBadge } from "@/components/shared/risk-badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getFieldLabel } from "@/lib/utils/field-labels";
 
-interface ExampleRow {
+export interface ExampleRow {
   title: string;
   expectedRisk: "LOW" | "MEDIUM" | "HIGH";
   method: "CARD" | "DEBIT_ORDER" | "MOBILE_MONEY" | "PAYROLL";
@@ -233,8 +234,25 @@ const EXAMPLES: ExampleRow[] = [
   },
 ];
 
-export function ExampleDataCard() {
+interface ExampleDataCardProps {
+  /** When provided, each example gets a "Use this example" button that
+   * calls the callback with the row. Score-one surface wires this to
+   * populate the single-collection form; the CSV surface omits it
+   * because the uploader expects a file, not inline data. */
+  onFillForm?: (ex: ExampleRow) => void;
+  /** Filter the shown examples (e.g. to the currently-selected method
+   * on the single-form). Undefined shows all. */
+  methodFilter?: ExampleRow["method"];
+}
+
+export function ExampleDataCard({
+  onFillForm,
+  methodFilter,
+}: ExampleDataCardProps = {}) {
   const [open, setOpen] = useState(false);
+  const rows = methodFilter
+    ? EXAMPLES.filter((ex) => ex.method === methodFilter)
+    : EXAMPLES;
 
   return (
     <Card>
@@ -249,8 +267,9 @@ export function ExampleDataCard() {
               Example data. What realistic values look like.
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Six reference rows that exercise each factor across both factor
-              sets. Display-only. These are not uploaded.
+              {onFillForm
+                ? "Click 'Use this example' to fill the form, then score."
+                : "Six reference rows that exercise each factor across both factor sets. Display-only. These are not uploaded."}
             </p>
           </div>
           {open ? (
@@ -262,7 +281,7 @@ export function ExampleDataCard() {
 
         {open && (
           <div className="grid grid-cols-1 gap-3 border-t border-border bg-muted/20 p-4 lg:grid-cols-2">
-            {EXAMPLES.map((ex) => (
+            {rows.map((ex) => (
               <div
                 key={ex.fields.customer_id}
                 className="rounded-md border border-border bg-card p-4"
@@ -282,8 +301,25 @@ export function ExampleDataCard() {
                     <FieldRow key={key} name={key} value={value} />
                   ))}
                 </dl>
+                {onFillForm && (
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onFillForm(ex)}
+                    >
+                      Use this example
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
+            {rows.length === 0 && (
+              <p className="col-span-full p-2 text-xs text-muted-foreground">
+                No examples for this collection method yet.
+              </p>
+            )}
           </div>
         )}
       </CardContent>
