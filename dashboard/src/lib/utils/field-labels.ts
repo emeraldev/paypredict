@@ -142,7 +142,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   min_take_home_pct: {
     label: "Minimum take-home %",
-    help: "Business-policy floor. 0.30 = decline when net-pay would drop below 30% of gross. Leave blank to disable the floor check.",
+    help: "0.30 = decline if net-pay drops below 30%. Blank disables the floor.",
   },
   resubmission_count: {
     label: "Deductions resubmitted (last 6 months)",
@@ -150,7 +150,7 @@ export const FIELD_LABELS: Record<string, FieldLabel> = {
   },
   borrower_segment: {
     label: "Employment segment",
-    help: "Coarse prior on income stability. Five buckets: government / mining / private / contract / informal. Specific Zambian employer names (ZESCO, KCM, Mopani, FQM, ...) are routed to the right bucket automatically; unknown employer names fall to a moderate default.",
+    help: "Pick a bucket or type an employer name (ZESCO, KCM, Mopani, ...). Unknowns are rated moderate.",
   },
 };
 

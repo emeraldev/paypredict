@@ -307,7 +307,13 @@ export function ExampleDataCard({
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => onFillForm(ex)}
+                      onClick={() => {
+                        onFillForm(ex);
+                        // Collapse back so the officer is not scrolling
+                        // past the full list of examples to find the
+                        // just-filled form below.
+                        setOpen(false);
+                      }}
                     >
                       Use this example
                     </Button>
