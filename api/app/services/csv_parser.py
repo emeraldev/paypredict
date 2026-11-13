@@ -190,7 +190,7 @@ def _validate_row(row_num: int, row: dict[str, str]) -> list[CsvValidationError]
             CsvValidationError(
                 row=row_num,
                 field="collection_method",
-                message=f"Invalid method: {row['collection_method']}. Must be CARD, DEBIT_ORDER, or MOBILE_MONEY",
+                message=f"Invalid method: {row['collection_method']}. Must be CARD, DEBIT_ORDER, MOBILE_MONEY, or PAYROLL",
             )
         )
 
@@ -258,6 +258,26 @@ def _row_to_input(row: dict[str, str]) -> BacktestCollectionInput:
             if row.get("card_expiry")
             else None
         ),
+        # PAYROLL factor-set fields. All optional; scoring falls back
+        # to factor defaults when any field is absent.
+        gross_salary=_decimal_or_none(row.get("gross_salary", "")),
+        net_pay=_decimal_or_none(row.get("net_pay", "")),
+        current_total_deductions=_decimal_or_none(
+            row.get("current_total_deductions", "")
+        ),
+        deduction_threshold_pct=(
+            float(row["deduction_threshold_pct"])
+            if row.get("deduction_threshold_pct", "").strip()
+            else None
+        ),
+        min_take_home_pct=(
+            float(row["min_take_home_pct"])
+            if row.get("min_take_home_pct", "").strip()
+            else None
+        ),
+        employment_status=row.get("employment_status") or None,
+        resubmission_count=_int_or_none(row.get("resubmission_count", "")),
+        borrower_segment=row.get("borrower_segment") or None,
     )
 
     return BacktestCollectionInput(
@@ -354,7 +374,7 @@ def _validate_scoring_row(row_num: int, row: dict[str, str]) -> list[CsvValidati
             CsvValidationError(
                 row=row_num,
                 field="collection_method",
-                message=f"Invalid method: {row['collection_method']}. Must be CARD, DEBIT_ORDER, or MOBILE_MONEY",
+                message=f"Invalid method: {row['collection_method']}. Must be CARD, DEBIT_ORDER, MOBILE_MONEY, or PAYROLL",
             )
         )
 
@@ -463,6 +483,12 @@ def _row_to_scoring_input(row: dict[str, str]) -> BulkScoreItem:
             if row.get("deduction_threshold_pct", "").strip()
             else None
         ),
+        min_take_home_pct=(
+            float(row["min_take_home_pct"])
+            if row.get("min_take_home_pct", "").strip()
+            else None
+        ),
+        employment_status=row.get("employment_status") or None,
         resubmission_count=_scoring_int(row, "resubmission_count"),
         borrower_segment=row.get("borrower_segment") or None,
     )

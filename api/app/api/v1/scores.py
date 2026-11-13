@@ -59,7 +59,7 @@ SCORING_CSV_TEMPLATE = (
     "last_airtime_purchase_days_ago,new_loan_within_repayment_period,loans_taken_last_90d,"
     # PAYROLL optional (Zambia salary-advance lenders)
     "gross_salary,net_pay,current_total_deductions,deduction_threshold_pct,"
-    "resubmission_count,borrower_segment\n"
+    "min_take_home_pct,employment_status,resubmission_count,borrower_segment\n"
 )
 
 

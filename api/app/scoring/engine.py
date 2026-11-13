@@ -73,6 +73,22 @@ class ScoringEngine:
         else:
             factors = get_factors_for_set(factor_set)
 
+        # Employment-status short-circuit (PAYROLL only). A borrower who no
+        # longer draws a payslip cannot have a payroll deduction succeed
+        # regardless of what the other factors say. Short-circuit BEFORE
+        # the factor loop so we neither spend the work nor let a healthy
+        # salary + tight headroom produce a misleading MEDIUM on someone
+        # who is no longer employed.
+        if collection_method == CollectionMethod.PAYROLL:
+            override = self._employment_status_override(
+                customer_data=customer_data,
+                factors=factors,
+                custom_weights=custom_weights,
+                start_ns=start,
+            )
+            if override is not None:
+                return override
+
         # Separate applicable and skipped factors
         applicable: list[tuple[str, object, float]] = []
         skipped_factors: list[str] = []
@@ -179,3 +195,70 @@ class ScoringEngine:
             CollectionMethod.PAYROLL: "heuristic_payroll_v1",
         }
         return versions.get(method, f"heuristic_{method.value.lower()}_v1")
+
+    # Statuses that short-circuit PAYROLL scoring to HIGH. Compared
+    # case-insensitively against `customer_data["employment_status"]`.
+    _PAYROLL_HARD_FAIL_STATUSES = {"terminated", "dismissed"}
+
+    def _employment_status_override(
+        self,
+        *,
+        customer_data: dict,
+        factors: dict,
+        custom_weights: dict[str, float] | None,
+        start_ns: int,
+    ) -> ScoringResult | None:
+        """Return a hard-HIGH ScoringResult when the borrower is
+        terminated/dismissed; return None otherwise so the normal
+        factor loop runs.
+
+        The result carries a single synthetic `employment_status` factor
+        row at score 1.0 so the dashboard can render ONE clear reason
+        (with a trigger badge) rather than a stack of dampened factor
+        contributions. Every real factor in the bundle moves to
+        `skipped_factors` so the officer knows nothing else was scored.
+        """
+        raw_status = customer_data.get("employment_status")
+        if not raw_status:
+            return None
+        status = str(raw_status).strip().lower()
+        if status not in self._PAYROLL_HARD_FAIL_STATUSES:
+            return None
+
+        trigger = (
+            "employment_terminated" if status == "terminated" else "employment_dismissed"
+        )
+        explanation = (
+            "Borrower terminated; payroll deduction cannot succeed"
+            if status == "terminated"
+            else "Borrower dismissed; payroll deduction cannot succeed"
+        )
+
+        # Snapshot the pre-normalisation weights the same way the
+        # normal path does, so audit / reproducibility stays complete
+        # even on short-circuit paths.
+        weights_snapshot: dict[str, float] = {}
+        for name, (_, default_weight) in factors.items():
+            weight = (custom_weights or {}).get(name, default_weight)
+            weights_snapshot[name] = weight
+
+        synthetic = FactorResult(
+            factor_name="employment_status",
+            raw_score=1.0,
+            weight=1.0,
+            weighted_score=1.0,
+            explanation=explanation,
+            trigger=trigger,
+        )
+
+        elapsed_ms = (time.perf_counter_ns() - start_ns) // 1_000_000
+        return ScoringResult(
+            score=1.0,
+            risk_level="HIGH",
+            recommended_action=self._recommend_action("HIGH"),
+            factors=[synthetic],
+            skipped_factors=list(factors.keys()),
+            model_version=self._model_version_for_method(CollectionMethod.PAYROLL),
+            scoring_duration_ms=max(1, elapsed_ms),
+            weights_snapshot={k: round(v, 4) for k, v in weights_snapshot.items()},
+        )

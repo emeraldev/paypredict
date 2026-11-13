@@ -28,10 +28,17 @@ CSV_TEMPLATE = (
     "customer_id,collection_id,collection_amount,"
     "collection_currency,collection_date,collection_method,"
     "instalment_number,total_instalments,total_payments,"
-    "successful_payments,card_type,card_expiry,actual_outcome,failure_reason\n"
-    "cust_001,inst_001,833.33,ZAR,2025-11-15,CARD,3,6,8,5,debit,2026-09-01,FAILED,insufficient_funds\n"
-    "cust_002,inst_002,500.00,ZAR,2025-11-15,DEBIT_ORDER,1,3,0,0,,,SUCCESS,\n"
-    "cust_003,inst_003,250.00,ZMW,2025-11-20,MOBILE_MONEY,2,4,3,2,,,FAILED,wallet_empty\n"
+    "successful_payments,card_type,card_expiry,"
+    # PAYROLL factor-set columns added for Zambia salary-advance
+    # lenders to backtest historical payroll collections.
+    "gross_salary,net_pay,current_total_deductions,deduction_threshold_pct,"
+    "min_take_home_pct,employment_status,resubmission_count,borrower_segment,"
+    "actual_outcome,failure_reason\n"
+    "cust_001,inst_001,833.33,ZAR,2025-11-15,CARD,3,6,8,5,debit,2026-09-01,,,,,,,,,FAILED,insufficient_funds\n"
+    "cust_002,inst_002,500.00,ZAR,2025-11-15,DEBIT_ORDER,1,3,0,0,,,,,,,,,,,SUCCESS,\n"
+    "cust_003,inst_003,250.00,ZMW,2025-11-20,MOBILE_MONEY,2,4,3,2,,,,,,,,,,,FAILED,wallet_empty\n"
+    "cust_004,inst_004,500.00,ZMW,2025-11-25,PAYROLL,3,6,5,4,,,10000,5500,1200,0.40,0.30,active,0,ZESCO,SUCCESS,\n"
+    "cust_005,inst_005,500.00,ZMW,2025-11-25,PAYROLL,1,3,0,0,,,10000,5500,1200,0.40,0.30,terminated,0,government,FAILED,no_longer_employed\n"
 )
 
 

@@ -413,3 +413,122 @@ class TestFactorTriggerPropagation:
         )
         for f in result.factors:
             assert f.trigger is None, f"{f.factor_name} unexpectedly emitted a trigger"
+
+
+class TestEmploymentStatusOverride:
+    """Terminated / dismissed borrowers short-circuit PAYROLL scoring to HIGH
+    so the normal factor stack cannot produce a misleading MEDIUM on
+    someone who no longer draws a payslip. Covers:
+      - exact-string match + case-insensitive
+      - synthetic factor shape + trigger code + skipped list
+      - CARD / DEBIT_ORDER / MOBILE_MONEY are NOT short-circuited
+      - active / missing / unrelated statuses score through the factor
+        loop as before"""
+
+    from app.models.score_request import CollectionMethod as _CollectionMethod
+
+    _payroll_customer = {
+        "gross_salary": 10000,
+        "current_total_deductions": 1000,
+        "total_payments": 5,
+        "successful_payments": 4,
+    }
+    _payroll_collection = {
+        "collection_amount": 500,
+        "collection_due_date": date(2026, 11, 20),
+    }
+
+    def test_terminated_short_circuits_to_high(self):
+        result = engine.score(
+            customer_data={**self._payroll_customer, "employment_status": "terminated"},
+            collection_data=self._payroll_collection,
+            collection_method=self._CollectionMethod.PAYROLL,
+        )
+        assert result.score == 1.0
+        assert result.risk_level == "HIGH"
+        assert result.recommended_action == "flag_for_review"
+        assert len(result.factors) == 1
+        f = result.factors[0]
+        assert f.factor_name == "employment_status"
+        assert f.raw_score == 1.0
+        assert f.weight == 1.0
+        assert f.weighted_score == 1.0
+        assert f.trigger == "employment_terminated"
+        assert "terminated" in f.explanation.lower()
+        # Every real PAYROLL factor lands in skipped_factors so the
+        # officer sees nothing else was scored.
+        assert "threshold_headroom" in result.skipped_factors
+        assert "historical_failure_rate" in result.skipped_factors
+
+    def test_dismissed_short_circuits_with_distinct_trigger(self):
+        result = engine.score(
+            customer_data={**self._payroll_customer, "employment_status": "dismissed"},
+            collection_data=self._payroll_collection,
+            collection_method=self._CollectionMethod.PAYROLL,
+        )
+        assert result.score == 1.0
+        assert result.factors[0].trigger == "employment_dismissed"
+        assert "dismissed" in result.factors[0].explanation.lower()
+
+    def test_case_insensitive(self):
+        """Users will type `Terminated`, `TERMINATED`, `  terminated `
+        and the schema's max_length=16 doesn't trim or lower-case for us.
+        Engine normalises the value before matching."""
+        for variant in ("Terminated", "TERMINATED", "  terminated  "):
+            result = engine.score(
+                customer_data={**self._payroll_customer, "employment_status": variant},
+                collection_data=self._payroll_collection,
+                collection_method=self._CollectionMethod.PAYROLL,
+            )
+            assert result.score == 1.0
+            assert result.factors[0].trigger == "employment_terminated"
+
+    def test_active_status_does_not_short_circuit(self):
+        """Regression: only `terminated` / `dismissed` trigger the
+        override. `active`, `resigned`, `on_leave`, etc. score through
+        the normal factor loop."""
+        result = engine.score(
+            customer_data={**self._payroll_customer, "employment_status": "active"},
+            collection_data=self._payroll_collection,
+            collection_method=self._CollectionMethod.PAYROLL,
+        )
+        # Normal PAYROLL bundle has 8 factors; all should run.
+        assert len(result.factors) == 8
+        assert result.risk_level in ("LOW", "MEDIUM")  # certainly not forced HIGH
+
+    def test_missing_employment_status_does_not_short_circuit(self):
+        result = engine.score(
+            customer_data=self._payroll_customer,
+            collection_data=self._payroll_collection,
+            collection_method=self._CollectionMethod.PAYROLL,
+        )
+        assert len(result.factors) == 8
+        assert result.risk_level in ("LOW", "MEDIUM")
+
+    def test_card_ignores_employment_status(self):
+        """CARD / DEBIT_ORDER / MOBILE_MONEY do NOT short-circuit. The
+        factor for these methods is whether the money-pull mechanism
+        works, not whether the borrower is still employed — a card
+        on file keeps charging a terminated worker's bank balance
+        just fine."""
+        for method in (
+            self._CollectionMethod.CARD,
+            self._CollectionMethod.DEBIT_ORDER,
+            self._CollectionMethod.MOBILE_MONEY,
+        ):
+            customer = {"total_payments": 5, "successful_payments": 4,
+                        "employment_status": "terminated"}
+            result = engine.score(
+                customer_data=customer,
+                collection_data={
+                    "collection_amount": 500,
+                    "collection_due_date": date(2026, 11, 20),
+                },
+                collection_method=method,
+            )
+            # Score depends on the factor bundle, but must NOT be forced
+            # to 1.0 and must NOT contain the synthetic trigger.
+            assert result.score < 1.0
+            triggers = [f.trigger for f in result.factors]
+            assert "employment_terminated" not in triggers
+            assert "employment_dismissed" not in triggers

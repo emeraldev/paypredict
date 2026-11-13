@@ -139,6 +139,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
   const [currentTotalDeductions, setCurrentTotalDeductions] = useState("");
   const [deductionThresholdPct, setDeductionThresholdPct] = useState("");
   const [minTakeHomePct, setMinTakeHomePct] = useState("");
+  const [employmentStatus, setEmploymentStatus] = useState("");
   const [resubmissionCount, setResubmissionCount] = useState("");
   const [borrowerSegment, setBorrowerSegment] = useState("");
 
@@ -195,6 +196,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
     setCurrentTotalDeductions(f.current_total_deductions ?? "");
     setDeductionThresholdPct(f.deduction_threshold_pct ?? "");
     setMinTakeHomePct(f.min_take_home_pct ?? "");
+    setEmploymentStatus(f.employment_status ?? "");
     setResubmissionCount(f.resubmission_count ?? "");
     setBorrowerSegment(f.borrower_segment ?? "");
     toast.success(`Filled from: ${ex.title}`);
@@ -231,6 +233,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
     setCurrentTotalDeductions("");
     setDeductionThresholdPct("");
     setMinTakeHomePct("");
+    setEmploymentStatus("");
     setResubmissionCount("");
     setBorrowerSegment("");
     // Keep currency + method as-is: the tenant's preferred defaults
@@ -293,6 +296,7 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
       setNum("current_total_deductions", currentTotalDeductions);
       setNum("deduction_threshold_pct", deductionThresholdPct);
       setNum("min_take_home_pct", minTakeHomePct);
+      setStr("employment_status", employmentStatus);
       setInt("resubmission_count", resubmissionCount);
       setStr("borrower_segment", borrowerSegment);
       // active_loan_count matters for payroll too (competing deductions) —
@@ -661,6 +665,28 @@ export function SingleCollectionForm({ onScored }: SingleCollectionFormProps) {
                       Payroll-specific
                     </p>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Field name="employment_status" className="md:col-span-2">
+                        <Select
+                          value={employmentStatus || "__blank__"}
+                          onValueChange={(v) =>
+                            setEmploymentStatus(v && v !== "__blank__" ? v : "")
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__blank__">
+                              Not specified
+                            </SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="terminated">Terminated</SelectItem>
+                            <SelectItem value="dismissed">Dismissed</SelectItem>
+                            <SelectItem value="resigned">Resigned</SelectItem>
+                            <SelectItem value="on_leave">On leave</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
                       <Field name="gross_salary">
                         <InputGroup>
                           <InputGroupAddon>
