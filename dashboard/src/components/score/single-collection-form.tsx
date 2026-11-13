@@ -23,6 +23,7 @@ import {
 import { ExampleDataCard, type ExampleRow } from "@/components/score/example-data-card";
 import { configApi } from "@/lib/api/config";
 import { scoresApi } from "@/lib/api/scores";
+import { cn } from "@/lib/utils";
 import { getFieldHelp, getFieldLabel } from "@/lib/utils/field-labels";
 import type {
   CustomerData,
@@ -810,14 +811,21 @@ function Field({
   children: React.ReactNode;
 }) {
   const help = getFieldHelp(name);
+  // Bottom-align the input within the grid cell. Without this, the row
+  // height is driven by the tallest (label + help) stack, and shorter
+  // neighbours let their input float up, breaking the side-by-side
+  // alignment the lender expects. `flex flex-col h-full` stretches
+  // Field to the grid cell's full height; `mt-auto` pushes the input
+  // to the bottom so it sits on the same baseline as every other input
+  // in the same row.
   return (
-    <div className={className}>
+    <div className={cn("flex h-full flex-col", className)}>
       <Label className="text-sm">
         {getFieldLabel(name)}
         {required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
       {help && <p className="mt-0.5 text-xs text-muted-foreground">{help}</p>}
-      <div className="mt-1.5">{children}</div>
+      <div className="mt-auto pt-1.5">{children}</div>
     </div>
   );
 }
