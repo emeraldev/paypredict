@@ -296,3 +296,36 @@ class TestBorrowerSegment:
     def test_case_insensitive(self):
         for variant in ("Government", "GOVERNMENT", " government "):
             assert self.factor.calculate({"borrower_segment": variant}, {}) == 0.2
+
+    # ---- Specific employer-name aliases (Zambian lender pilot ask) ----
+
+    def test_zesco_aliases_to_government_bucket(self):
+        """ZESCO is a state-majority utility, routed to the government
+        bucket. Before the alias layer, this fell to 0.4 unknown."""
+        assert self.factor.calculate({"borrower_segment": "ZESCO"}, {}) == 0.2
+
+    def test_kcm_aliases_to_mining_bucket(self):
+        """KCM = Konkola Copper Mines. Lowercase keys in the alias dict
+        match the strip().lower() normalisation in calculate."""
+        assert self.factor.calculate({"borrower_segment": "kcm"}, {}) == 0.6
+
+    def test_mopani_aliases_to_mining_bucket_mixed_case(self):
+        """Mixed-case employer names must still resolve to the right
+        bucket — the alias lookup runs AFTER case normalisation."""
+        assert self.factor.calculate({"borrower_segment": "Mopani"}, {}) == 0.6
+
+    def test_unknown_employer_name_falls_to_default(self):
+        """Regression: non-aliased employer names must keep their
+        0.4 unknown-default behaviour. We do NOT want to accidentally
+        route every unknown through the alias layer."""
+        assert (
+            self.factor.calculate({"borrower_segment": "RandomTechCo"}, {}) == 0.4
+        )
+
+    def test_canonical_bucket_strings_still_score_directly(self):
+        """The alias layer must not disturb the canonical bucket
+        strings. `government` is in DEFAULT_SEGMENT_SCORES, not in
+        EMPLOYER_ALIASES — the lookup falls through correctly."""
+        assert self.factor.calculate({"borrower_segment": "government"}, {}) == 0.2
+        assert self.factor.calculate({"borrower_segment": "mining"}, {}) == 0.6
+        assert self.factor.calculate({"borrower_segment": "informal"}, {}) == 0.7
